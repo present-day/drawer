@@ -1,6 +1,6 @@
 {
   "name": "@present-day/drawer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A flexible drawer component with smooth animations and snap points",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -25,7 +25,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/present-day/drawer.git"
+    "url": "git+https://github.com/present-day/drawer.git"
   },
   "bugs": {
     "url": "https://github.com/present-day/drawer/issues"
