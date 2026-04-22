@@ -10,27 +10,23 @@ export type DrawerSizingPreset =
 
 export type DrawerSizing = DrawerSizingPreset | SnapPointValue[]
 
-// Backward compatibility
-export type BottomSheetSizingPreset = DrawerSizingPreset
-export type BottomSheetSizing = DrawerSizing
-
 export interface DrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** `DRAWER_SIZING.AUTO` = content-sized (default), `FULL` = 100% height, or explicit snap array */
   sizing?: DrawerSizing
-  /** Which snap to open to. Ignored for `BOTTOM_SHEET_SIZING.AUTO` / `FULL` */
+  /** Which snap to open to. Ignored for `DRAWER_SIZING.AUTO` / `FULL` */
   defaultSnapPoint?: SnapPointValue
   /** Controlled snap point (raw value, same encoding as sizing array) */
   activeSnapPoint?: SnapPointValue
-  /** Drag below lowest snap dismisses the sheet (default true) */
+  /** Drag below lowest snap dismisses the drawer (default true) */
   dismissible?: boolean
   /** Show overlay + lock body scroll (default true) */
   modal?: boolean
   /**
    * Pixels subtracted from visual viewport height when resolving snap heights.
-   * Default leaves top space for map chrome (`BOTTOM_SHEET_TOP_INSET_PX`). Use `0`
-   * for edge-to-top sheets (e.g. full-screen search).
+   * Default leaves top space for map chrome (`DRAWER_TOP_INSET_PX`). Use `0`
+   * for edge-to-top panels (e.g. full-screen search).
    */
   topInsetPx?: number
   children: React.ReactNode
@@ -62,10 +58,6 @@ export interface DrawerRef {
   getHeight: () => number
 }
 
-// Backward compatibility
-export type BottomSheetProps = DrawerProps
-export type BottomSheetRef = DrawerRef
-
 export interface DragInfo {
   y: number
   velocity: number
@@ -89,6 +81,3 @@ export type DrawerDragEvent =
   | MouseEvent
   | TouchEvent
   | PointerEvent
-
-// Backward compatibility
-export type BottomSheetDragEvent = DrawerDragEvent

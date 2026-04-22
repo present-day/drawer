@@ -10,10 +10,6 @@ export const DRAWER_SIZING = {
   FULL: 'full',
 } as const
 
-// Keep bottom sheet constants for backward compatibility
-export const BOTTOM_SHEET_CONTEXT_CONSUMER = DRAWER_CONTEXT_CONSUMER
-export const BOTTOM_SHEET_SIZING = DRAWER_SIZING
-
 export const SNAP_POINT = {
   PEEK: 80,
   QUARTER: 0.25,
@@ -31,16 +27,13 @@ export const SPRING_CONFIG = {
   snappy: { stiffness: 600, damping: 35, mass: 0.8 },
 } as const
 
-/** Lower = easier to dismiss the sheet with a downward drag (mobile drawers). */
+/** Lower = easier to dismiss the drawer with a downward drag (mobile). */
 export const DISMISS_THRESHOLD_PX = 56
 export const VELOCITY_THRESHOLD = 380
 export const RUBBER_BAND_FACTOR = 0.3
 
-/** Pixels of vertical movement before sheet drag activates (lower = easier to start dragging). */
-export const BOTTOM_SHEET_DRAG_SLOP_PX = 3
+/** Pixels of vertical movement before drawer drag activates (lower = easier to start dragging). */
+export const DRAWER_DRAG_SLOP_PX = 3
 
-/** Top inset so drawer does not cover map chrome (matches prior drawer `mt-24` intent) */
+/** Top inset so the drawer does not cover map chrome (matches prior `mt-24` intent). */
 export const DRAWER_TOP_INSET_PX = 96
-
-// Keep bottom sheet constants for backward compatibility
-export const BOTTOM_SHEET_TOP_INSET_PX = DRAWER_TOP_INSET_PX

@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from 'react'
 
-import { DRAWER_CONTEXT_CONSUMER, BOTTOM_SHEET_CONTEXT_CONSUMER } from './constants'
+import { DRAWER_CONTEXT_CONSUMER } from './constants'
 
 export type DrawerContextConsumer =
   (typeof DRAWER_CONTEXT_CONSUMER)[keyof typeof DRAWER_CONTEXT_CONSUMER]
@@ -23,9 +23,3 @@ export function useDrawerContext(consumer: DrawerContextConsumer) {
   if (!ctx) throw new Error(`${consumer} must be used within Drawer`)
   return ctx
 }
-
-// Backward compatibility
-export type BottomSheetContextConsumer = DrawerContextConsumer
-export type BottomSheetContextValue = DrawerContextValue
-export const BottomSheetContext = DrawerContext
-export const useBottomSheetContext = useDrawerContext

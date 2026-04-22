@@ -61,6 +61,3 @@ export function useDrawerKeyboardSnapMobile({
     [isMobile, open, drawerRef],
   )
 }
-
-// Backward compatibility
-export const useBottomSheetKeyboardSnapMobile = useDrawerKeyboardSnapMobile

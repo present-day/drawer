@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Manages body overflow locking for nested dialogs/sheets.
+ * Manages body overflow locking for nested dialogs and drawers.
  * Uses a counter to track how many modals are open, ensuring
  * overflow is only restored when all modals are closed.
  */

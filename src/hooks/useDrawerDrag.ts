@@ -99,7 +99,3 @@ export function useDrawerDrag({
     },
   }
 }
-
-// Backward compatibility
-export type UseBottomSheetDragOptions = UseDrawerDragOptions
-export const useBottomSheetDrag = useDrawerDrag

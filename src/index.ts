@@ -1,6 +1,6 @@
 // Main component
-export { Drawer, BottomSheet } from './components/Drawer'
-export type { DrawerProps, DrawerRef, BottomSheetProps, BottomSheetRef } from './components/Drawer'
+export { Drawer } from './components/Drawer'
+export type { DrawerProps, DrawerRef } from './components/Drawer'
 
 // Component parts (for advanced usage)
 export {
@@ -8,40 +8,31 @@ export {
   DrawerHandle,
   DrawerOverlay,
   DrawerScrollable,
-  // Backward compatibility
-  BottomSheetContent,
-  BottomSheetHandle,
-  BottomSheetOverlay,
-  BottomSheetScrollable,
 } from './components/DrawerParts'
 
 // Context and hooks
-export { useDrawerContext, useBottomSheetContext } from './context'
-export type { DrawerContextValue, BottomSheetContextValue } from './context'
+export { useDrawerContext } from './context'
+export type { DrawerContextValue } from './context'
 
-export { useDrawerDrag, useBottomSheetDrag } from './hooks/useDrawerDrag'
-export type { UseDrawerDragOptions, UseBottomSheetDragOptions } from './hooks/useDrawerDrag'
+export { useDrawerDrag } from './hooks/useDrawerDrag'
+export type { UseDrawerDragOptions } from './hooks/useDrawerDrag'
 
-export { useDrawerSnap, useBottomSheetSnap } from './hooks/useDrawerSnap'
-export type { UseDrawerSnapArgs, UseBottomSheetSnapArgs } from './hooks/useDrawerSnap'
+export { useDrawerSnap } from './hooks/useDrawerSnap'
+export type { UseDrawerSnapArgs } from './hooks/useDrawerSnap'
 
 export { useVisualViewport } from './hooks/useVisualViewport'
-export type { 
+export type {
   UseVisualViewportOptions,
-  UseVisualViewportResult 
+  UseVisualViewportResult,
 } from './hooks/useVisualViewport'
 
-export { useDrawerKeyboardSnapMobile, useBottomSheetKeyboardSnapMobile } from './hooks/useDrawerKeyboardSnapMobile'
+export { useDrawerKeyboardSnapMobile } from './hooks/useDrawerKeyboardSnapMobile'
 
 // Types
 export type {
   DrawerSizing,
   DrawerSizingPreset,
   DrawerDragEvent,
-  // Backward compatibility
-  BottomSheetSizing,
-  BottomSheetSizingPreset,
-  BottomSheetDragEvent,
   // Common types
   DragInfo,
   DragEndInfo,
@@ -53,9 +44,6 @@ export type {
 export {
   DRAWER_SIZING,
   DRAWER_TOP_INSET_PX,
-  // Backward compatibility
-  BOTTOM_SHEET_SIZING,
-  BOTTOM_SHEET_TOP_INSET_PX,
   // Common constants
   SNAP_POINT,
   SPRING_CONFIG,

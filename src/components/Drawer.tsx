@@ -31,7 +31,7 @@ import {
   type DrawerContextValue,
 } from '../context'
 import {
-  BOTTOM_SHEET_DRAG_SLOP_PX,
+  DRAWER_DRAG_SLOP_PX,
   DRAWER_SIZING,
   DRAWER_TOP_INSET_PX,
   RUBBER_BAND_FACTOR,
@@ -40,8 +40,6 @@ import {
 import type {
   DrawerProps,
   DrawerRef,
-  BottomSheetProps,
-  BottomSheetRef,
   DragEndInfo,
   SnapPointValue,
 } from '../types'
@@ -233,7 +231,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     const introStartedRef = useRef(false)
     const readyForResnapRef = useRef(false)
-    const resetSheetMotionAfterExit = useCallback(() => {
+    const resetDrawerMotionAfterExit = useCallback(() => {
       heightMv.set(0)
       updateProgress(0)
     }, [heightMv, updateProgress])
@@ -345,7 +343,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         }
 
         // Nested Radix dialogs / scroll lock can set body overflow even though this
-        // sheet does not use lockBody. Only repair when closing from an open state
+        // Drawer does not use lockBody. Only repair when closing from an open state
         // (skip initial mount with open=false so we do not clear other overlays).
         if (wasOpen === true) {
           const id = window.requestAnimationFrame(() => {
@@ -468,21 +466,21 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (!(target instanceof Element)) return true
         return Boolean(
           target.closest(
-            'button, a, input, textarea, select, [contenteditable="true"], [data-bottom-sheet-no-drag]',
+            'button, a, input, textarea, select, [contenteditable="true"], [data-drawer-no-drag]',
           ),
         )
       },
       [],
     )
 
-    const handleSheetPointerDown = useCallback(
+    const handleDrawerPointerDown = useCallback(
       (e: React.PointerEvent<HTMLDivElement>) => {
         if (e.pointerType === 'mouse' && e.button !== 0) return
         if (snapHeights.length === 0) return
         if (shouldIgnorePointerTarget(e.target)) return
 
         const t = e.target as HTMLElement
-        if (t.closest('[data-bottom-sheet-scroll]')) {
+        if (t.closest('[data-drawer-scroll]')) {
           const scrollEl = scrollContainerRef.current
           if (scrollEl && scrollEl.scrollTop > 0) return
         }
@@ -508,7 +506,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       ],
     )
 
-    const handleSheetPointerMove = useCallback(
+    const handleDrawerPointerMove = useCallback(
       (e: React.PointerEvent<HTMLDivElement>) => {
         const s = dragSessionRef.current
         if (!s || s.pointerId !== e.pointerId) return
@@ -516,7 +514,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const deltaY = e.clientY - s.startY
 
         if (!s.active) {
-          if (Math.abs(deltaY) < BOTTOM_SHEET_DRAG_SLOP_PX) return
+          if (Math.abs(deltaY) < DRAWER_DRAG_SLOP_PX) return
           s.active = true
           dragHeightStartRef.current = heightMv.get()
           s.startH = heightMv.get()
@@ -595,14 +593,14 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     if (!mounted || typeof document === 'undefined') return null
 
-    const sheet = (
-      <AnimatePresence onExitComplete={resetSheetMotionAfterExit}>
+    const drawer = (
+      <AnimatePresence onExitComplete={resetDrawerMotionAfterExit}>
         {open ? (
           <>
             {modal ? (
               <motion.button
                 type="button"
-                key="bottom-sheet-overlay"
+                key="drawer-overlay"
                 aria-hidden
                 tabIndex={-1}
                 initial={{ opacity: 0 }}
@@ -614,15 +612,15 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
               />
             ) : null}
             <motion.div
-              key="bottom-sheet-panel"
+              key="drawer-panel"
               role="dialog"
               aria-modal={modal}
               style={
                 {
                   height: heightMv,
-                  ['--bottom-sheet-height' as string]: `${heightState}px`,
-                  ['--bottom-sheet-progress' as string]: progressState,
-                  ['--bottom-sheet-available-height' as string]: `${availableHeight}px`,
+                  ['--drawer-height' as string]: `${heightState}px`,
+                  ['--drawer-progress' as string]: progressState,
+                  ['--drawer-available-height' as string]: `${availableHeight}px`,
                 } as unknown as MotionStyle
               }
               initial={false}
@@ -630,8 +628,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
               className={cn(
                 'fixed inset-x-0 bottom-0 z-50 flex max-h-dvh touch-none flex-col outline-none pointer-events-auto overscroll-y-none',
               )}
-              onPointerDown={handleSheetPointerDown}
-              onPointerMove={handleSheetPointerMove}
+              onPointerDown={handleDrawerPointerDown}
+              onPointerMove={handleDrawerPointerMove}
               onPointerUp={endDragSession}
               onPointerCancel={endDragSession}
             >
@@ -644,7 +642,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     return createPortal(
       <DrawerContext.Provider value={ctxValue}>
-        {sheet}
+        {drawer}
       </DrawerContext.Provider>,
       document.body,
     )
@@ -659,7 +657,3 @@ export const Drawer = Object.assign(DrawerRoot, {
 })
 
 export type { DrawerProps, DrawerRef }
-
-// Backward compatibility
-export const BottomSheet = Drawer
-export type { BottomSheetProps, BottomSheetRef }

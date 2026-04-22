@@ -231,7 +231,3 @@ export function useDrawerSnap({
     ),
   }
 }
-
-// Backward compatibility
-export type UseBottomSheetSnapArgs = UseDrawerSnapArgs
-export const useBottomSheetSnap = useDrawerSnap

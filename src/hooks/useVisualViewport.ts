@@ -10,7 +10,7 @@ export type UseVisualViewportOptions = {
 }
 
 export type UseVisualViewportResult = ViewportInfo & {
-  /** Height available for a bottom sheet (visual viewport minus top inset) */
+  /** Height available for the drawer (visual viewport minus top inset) */
   availableHeight: number
 }
 

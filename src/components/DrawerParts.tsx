@@ -80,7 +80,7 @@ export const DrawerScrollable = forwardRef<
   return (
     <div
       ref={setRefs}
-      data-bottom-sheet-scroll
+      data-drawer-scroll
       className={cn(
         'min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-none',
         className,
@@ -114,11 +114,3 @@ export function DrawerHandle({
 export function DrawerOverlay() {
   return null
 }
-
-// Backward compatibility
-export type BottomSheetContentProps = DrawerContentProps
-export type BottomSheetScrollableProps = DrawerScrollableProps
-export const BottomSheetContent = DrawerContent
-export const BottomSheetScrollable = DrawerScrollable
-export const BottomSheetHandle = DrawerHandle
-export const BottomSheetOverlay = DrawerOverlay
