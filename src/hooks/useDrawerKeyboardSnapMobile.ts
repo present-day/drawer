@@ -3,10 +3,7 @@
 import { type RefObject, useCallback, useEffect, useRef } from 'react'
 
 import { SNAP_POINT } from '../constants'
-import type {
-  DrawerRef,
-  ViewportInfo,
-} from '../types'
+import type { DrawerRef, ViewportInfo } from '../types'
 
 type Options = {
   open: boolean

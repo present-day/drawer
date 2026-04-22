@@ -24,6 +24,7 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - run: npm run lint
       - run: npm run build
 
       # Publish uses OIDC from GitHub — no NPM_TOKEN on this step.

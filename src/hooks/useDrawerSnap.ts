@@ -9,15 +9,12 @@ import {
 } from 'react'
 
 import {
+  DISMISS_THRESHOLD_PX,
   DRAWER_SIZING,
   DRAWER_TOP_INSET_PX,
-  DISMISS_THRESHOLD_PX,
   VELOCITY_THRESHOLD,
 } from '../constants'
-import type {
-  DrawerSizing,
-  SnapPointValue,
-} from '../types'
+import type { DrawerSizing, SnapPointValue } from '../types'
 
 export function resolveSnapValueToPx(
   value: SnapPointValue,
@@ -41,10 +38,7 @@ export function resolveSizingToHeights(
   }
 
   if (sizing === DRAWER_SIZING.AUTO) {
-    const h = Math.min(
-      cap,
-      Math.max(0, Math.round(measuredAutoHeight ?? 0)),
-    )
+    const h = Math.min(cap, Math.max(0, Math.round(measuredAutoHeight ?? 0)))
     return { heights: [h || Math.min(200, cap)], rawValues: [h] }
   }
 
@@ -73,8 +67,9 @@ export function heightToSnapRawValue(
   availableHeight: number,
 ): SnapPointValue {
   const idx = heights.indexOf(heightPx)
-  if (idx >= 0 && rawValues[idx] !== undefined) {
-    return rawValues[idx]!
+  const rawAtHeight = rawValues[idx]
+  if (idx >= 0 && rawAtHeight !== undefined) {
+    return rawAtHeight
   }
   const nearest = nearestHeightIndex(heightPx, heights)
   const raw = rawValues[nearest]
@@ -84,12 +79,16 @@ export function heightToSnapRawValue(
   return availableHeight > 0 ? h / availableHeight : 0.5
 }
 
-function nearestHeightIndex(visibleHeight: number, heightsAsc: number[]): number {
+function nearestHeightIndex(
+  visibleHeight: number,
+  heightsAsc: number[],
+): number {
   if (heightsAsc.length === 0) return 0
   let best = 0
   let bestDist = Infinity
   for (let i = 0; i < heightsAsc.length; i++) {
-    const h = heightsAsc[i]!
+    const h = heightsAsc[i]
+    if (h === undefined) continue
     const d = Math.abs(h - visibleHeight)
     if (d < bestDist) {
       bestDist = d
@@ -113,8 +112,13 @@ export function resolveSnapAfterDrag(args: {
     return { type: 'dismiss' }
   }
 
-  const minH = heightsAsc[0]!
-  const maxH = heightsAsc[heightsAsc.length - 1]!
+  const first = heightsAsc[0]
+  const last = heightsAsc[heightsAsc.length - 1]
+  if (first === undefined || last === undefined) {
+    return { type: 'dismiss' }
+  }
+  const minH = first
+  const maxH = last
 
   if (dismissible) {
     if (visibleHeight < minH - DISMISS_THRESHOLD_PX) {
@@ -128,8 +132,11 @@ export function resolveSnapAfterDrag(args: {
   if (velocityY > VELOCITY_THRESHOLD) {
     const below = heightsAsc.filter((h) => h < visibleHeight - 16)
     if (below.length > 0) {
-      const target = below[below.length - 1]!
-      return { type: 'snap', index: heightsAsc.indexOf(target) }
+      const li = below.length - 1
+      const targetBelow = below[li]
+      if (targetBelow !== undefined) {
+        return { type: 'snap', index: heightsAsc.indexOf(targetBelow) }
+      }
     }
     if (dismissible && visibleHeight < minH + DISMISS_THRESHOLD_PX / 2) {
       return { type: 'dismiss' }
@@ -138,16 +145,23 @@ export function resolveSnapAfterDrag(args: {
 
   if (velocityY < -VELOCITY_THRESHOLD) {
     const above = heightsAsc.filter((h) => h > visibleHeight + 16)
-    if (above.length > 0) {
-      const target = above[0]!
-      return { type: 'snap', index: heightsAsc.indexOf(target) }
+    const targetAbove = above[0]
+    if (targetAbove !== undefined) {
+      return { type: 'snap', index: heightsAsc.indexOf(targetAbove) }
     }
   }
 
   const idx = nearestHeightIndex(visibleHeight, heightsAsc)
-  const targetH = heightsAsc[idx]!
+  const targetH = heightsAsc[idx]
+  if (targetH === undefined) {
+    return { type: 'snap', index: idx }
+  }
 
-  if (dismissible && targetH === minH && visibleHeight < minH - DISMISS_THRESHOLD_PX / 2) {
+  if (
+    dismissible &&
+    targetH === minH &&
+    visibleHeight < minH - DISMISS_THRESHOLD_PX / 2
+  ) {
     return { type: 'dismiss' }
   }
 
@@ -197,8 +211,7 @@ export function useDrawerSnap({
   }, [contentMeasureRef, sizing])
 
   const { heights, rawValues } = useMemo(
-    () =>
-      resolveSizingToHeights(sizing, availableHeight, measuredAutoHeight),
+    () => resolveSizingToHeights(sizing, availableHeight, measuredAutoHeight),
     [sizing, availableHeight, measuredAutoHeight],
   )
 

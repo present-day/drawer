@@ -2,14 +2,15 @@
 
 import {
   AnimatePresence,
-  type MotionStyle,
   animate,
+  type MotionStyle,
   motion,
   useMotionValue,
   useMotionValueEvent,
   useReducedMotion,
 } from 'motion/react'
-import React, {
+import type React from 'react'
+import {
   forwardRef,
   useCallback,
   useEffect,
@@ -19,18 +20,6 @@ import React, {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-
-import {
-  DrawerContent,
-  DrawerHandle,
-  DrawerOverlay,
-  DrawerScrollable,
-} from './DrawerParts'
-import { DrawerSlotsProvider } from '../drawerSlotsContext'
-import {
-  DrawerContext,
-  type DrawerContextValue,
-} from '../context'
 import {
   DRAWER_DRAG_SLOP_PX,
   DRAWER_SIZING,
@@ -38,18 +27,23 @@ import {
   RUBBER_BAND_FACTOR,
   SPRING_CONFIG,
 } from '../constants'
+import { DrawerContext, type DrawerContextValue } from '../context'
+import { DrawerSlotsProvider } from '../drawerSlotsContext'
+import { resolveSnapAfterDrag, useDrawerSnap } from '../hooks/useDrawerSnap'
+import { useVisualViewport } from '../hooks/useVisualViewport'
 import type {
+  DragEndInfo,
   DrawerProps,
   DrawerRef,
-  DragEndInfo,
   SnapPointValue,
 } from '../types'
+import { cn, getLockCount, lockBody, unlockBody } from '../utils'
 import {
-  resolveSnapAfterDrag,
-  useDrawerSnap,
-} from '../hooks/useDrawerSnap'
-import { useVisualViewport } from '../hooks/useVisualViewport'
-import { getLockCount, lockBody, unlockBody, cn } from '../utils'
+  DrawerContent,
+  DrawerHandle,
+  DrawerOverlay,
+  DrawerScrollable,
+} from './DrawerParts'
 
 const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
   function DrawerRoot(props, ref) {

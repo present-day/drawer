@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from 'react'
 
-import { DRAWER_CONTEXT_CONSUMER } from './constants'
+import type { DRAWER_CONTEXT_CONSUMER } from './constants'
 
 export type DrawerContextConsumer =
   (typeof DRAWER_CONTEXT_CONSUMER)[keyof typeof DRAWER_CONTEXT_CONSUMER]
@@ -14,9 +14,7 @@ export type DrawerContextValue = {
   scrollAttachGeneration: number
 }
 
-export const DrawerContext = createContext<DrawerContextValue | null>(
-  null,
-)
+export const DrawerContext = createContext<DrawerContextValue | null>(null)
 
 export function useDrawerContext(consumer: DrawerContextConsumer) {
   const ctx = useContext(DrawerContext)

@@ -1,48 +1,17 @@
 // Main component
-export { Drawer } from './components/Drawer'
+
 export type { DrawerProps, DrawerRef } from './components/Drawer'
+export { Drawer } from './components/Drawer'
 
 // Component parts (for advanced usage)
 export {
   DrawerContent,
+  type DrawerContentProps,
   DrawerHandle,
+  type DrawerHandleProps,
   DrawerOverlay,
   DrawerScrollable,
-  type DrawerContentProps,
-  type DrawerHandleProps,
 } from './components/DrawerParts'
-
-// Context and hooks
-export { useDrawerContext } from './context'
-export type { DrawerContextValue } from './context'
-
-export { useDrawerDrag } from './hooks/useDrawerDrag'
-export type { UseDrawerDragOptions } from './hooks/useDrawerDrag'
-
-export { useDrawerSnap } from './hooks/useDrawerSnap'
-export type { UseDrawerSnapArgs } from './hooks/useDrawerSnap'
-
-export { useVisualViewport } from './hooks/useVisualViewport'
-export type {
-  UseVisualViewportOptions,
-  UseVisualViewportResult,
-} from './hooks/useVisualViewport'
-
-export { useDrawerKeyboardSnapMobile } from './hooks/useDrawerKeyboardSnapMobile'
-
-// Types
-export type {
-  DrawerSizing,
-  DrawerSizingPreset,
-  DrawerDragEvent,
-  DrawerSlots,
-  // Common types
-  DragInfo,
-  DragEndInfo,
-  SnapPointValue,
-  ViewportInfo,
-} from './types'
-
 // Constants (for customization)
 export {
   DRAWER_SIZING,
@@ -51,6 +20,31 @@ export {
   SNAP_POINT,
   SPRING_CONFIG,
 } from './constants'
+export type { DrawerContextValue } from './context'
+// Context and hooks
+export { useDrawerContext } from './context'
+export type { UseDrawerDragOptions } from './hooks/useDrawerDrag'
+export { useDrawerDrag } from './hooks/useDrawerDrag'
+export { useDrawerKeyboardSnapMobile } from './hooks/useDrawerKeyboardSnapMobile'
+export type { UseDrawerSnapArgs } from './hooks/useDrawerSnap'
+export { useDrawerSnap } from './hooks/useDrawerSnap'
+export type {
+  UseVisualViewportOptions,
+  UseVisualViewportResult,
+} from './hooks/useVisualViewport'
+export { useVisualViewport } from './hooks/useVisualViewport'
+// Types
+export type {
+  DragEndInfo,
+  // Common types
+  DragInfo,
+  DrawerDragEvent,
+  DrawerSizing,
+  DrawerSizingPreset,
+  DrawerSlots,
+  SnapPointValue,
+  ViewportInfo,
+} from './types'
 
 // Utilities
-export { cn, lockBody, unlockBody, getLockCount, forceUnlock } from './utils'
+export { cn, forceUnlock, getLockCount, lockBody, unlockBody } from './utils'
