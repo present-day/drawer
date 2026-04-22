@@ -4,6 +4,7 @@ import type React from 'react'
 import { forwardRef } from 'react'
 import { useDrawerSlots } from '../../drawerSlotsContext'
 import { cn } from '../../utils'
+import styles from './DrawerHandle.module.pcss'
 
 /**
  * Drag handle chrome (optional). The track has `data-drawer-handle`. The default
@@ -38,7 +39,7 @@ export const DrawerHandle = forwardRef<HTMLDivElement, DrawerHandleProps>(
           <span
             data-drawer-handle-indicator
             className={cn(
-              'block h-1 w-[100px] rounded-full bg-gray-400/25',
+              styles.indicator,
               slots.handleIndicatorClassName,
               indicatorClassName,
             )}
