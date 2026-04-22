@@ -11,7 +11,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "lint": "eslint src",
+    "lint": "biome check .",
+    "format": "biome check --write .",
     "type-check": "tsc --noEmit"
   },
   "keywords": [
@@ -35,20 +36,18 @@
     "access": "public"
   },
   "peerDependencies": {
+    "motion": ">=10.0.0",
     "react": ">=18.0.0",
-    "react-dom": ">=18.0.0",
-    "motion": ">=10.0.0"
+    "react-dom": ">=18.0.0"
   },
   "dependencies": {
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.12",
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
-    "eslint": "^9.39.4",
-    "@typescript-eslint/eslint-plugin": "^8.58.0",
-    "@typescript-eslint/parser": "^8.58.0",
     "tsup": "^8.3.5",
     "typescript": "^5.9.3"
   }

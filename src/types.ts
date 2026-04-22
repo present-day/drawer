@@ -1,6 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
-import { DRAWER_SIZING } from './constants'
+import type { DRAWER_SIZING } from './constants'
 
 /**
  * Optional class names applied from `Drawer`’s `slots` prop. Merge order for each
