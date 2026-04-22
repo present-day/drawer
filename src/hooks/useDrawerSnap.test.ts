@@ -3,10 +3,47 @@ import { describe, expect, it } from 'vitest'
 import { DRAWER_SIZING, VELOCITY_THRESHOLD } from '../constants'
 import {
   heightToSnapRawValue,
+  measureIntrinsicAutoHeight,
   resolveSizingToHeights,
   resolveSnapAfterDrag,
   resolveSnapValueToPx,
 } from './useDrawerSnap'
+
+describe('measureIntrinsicAutoHeight', () => {
+  it('sums handle offsetHeights and scroll region scrollHeight (not layout height)', () => {
+    const root = document.createElement('div')
+    const handle = document.createElement('div')
+    Object.defineProperty(handle, 'offsetHeight', {
+      configurable: true,
+      value: 40,
+    })
+    const scroll = document.createElement('div')
+    scroll.setAttribute('data-drawer-scroll', '')
+    Object.defineProperty(scroll, 'offsetHeight', {
+      configurable: true,
+      value: 200,
+    })
+    Object.defineProperty(scroll, 'scrollHeight', {
+      configurable: true,
+      value: 900,
+    })
+    root.append(handle, scroll)
+    expect(measureIntrinsicAutoHeight(root)).toBe(940)
+  })
+
+  it('falls back to root scrollHeight when there is no scroll region', () => {
+    const root = document.createElement('div')
+    Object.defineProperty(root, 'offsetHeight', {
+      configurable: true,
+      value: 0,
+    })
+    Object.defineProperty(root, 'scrollHeight', {
+      configurable: true,
+      value: 120,
+    })
+    expect(measureIntrinsicAutoHeight(root)).toBe(120)
+  })
+})
 
 describe('resolveSnapValueToPx', () => {
   it('treats values in (0, 1] as fraction of available height', () => {

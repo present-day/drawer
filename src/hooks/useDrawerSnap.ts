@@ -79,6 +79,89 @@ export function heightToSnapRawValue(
   return availableHeight > 0 ? h / availableHeight : 0.5
 }
 
+/**
+ * Intrinsic height for {@link DRAWER_SIZING.AUTO}: sums each **direct** child’s
+ * block size, using `scrollHeight` for `[data-drawer-scroll]` so the value
+ * reflects full scrollable content instead of the flex-clamped layout height
+ * (which `ResizeObserver`’s `contentRect` on the content root tracks). Put
+ * `Drawer.Handle` and `Drawer.Scrollable` as direct children of
+ * `Drawer.Content` (or an equivalent structure) for accurate AUTO sizing.
+ */
+export function measureIntrinsicAutoHeight(root: HTMLElement): number {
+  let sum = 0
+  let sawScrollRegion = false
+  for (const child of root.children) {
+    if (!(child instanceof HTMLElement)) continue
+    if (child.hasAttribute('data-drawer-scroll')) {
+      sawScrollRegion = true
+      sum += child.scrollHeight
+    } else {
+      sum += child.offsetHeight
+    }
+  }
+  if (sawScrollRegion || sum > 0) {
+    return Math.ceil(Math.max(0, sum))
+  }
+  // No scroll region / no direct children: overflow or text directly on the root
+  return Math.ceil(Math.max(0, root.scrollHeight, root.offsetHeight))
+}
+
+function bindAutoMeasureObservers(
+  root: HTMLElement,
+  onMeasure: (height: number) => void,
+): () => void {
+  let raf = 0
+
+  const runMeasure = () => {
+    onMeasure(measureIntrinsicAutoHeight(root))
+  }
+
+  const schedule = () => {
+    cancelAnimationFrame(raf)
+    raf = requestAnimationFrame(() => {
+      raf = 0
+      runMeasure()
+    })
+  }
+
+  const resubscribeScrollTargets = (ro: ResizeObserver) => {
+    for (const node of root.querySelectorAll('[data-drawer-scroll]')) {
+      if (node instanceof HTMLElement) {
+        ro.observe(node)
+        for (const ch of node.children) {
+          if (ch instanceof HTMLElement) ro.observe(ch)
+        }
+      }
+    }
+  }
+
+  const ro = new ResizeObserver(() => {
+    schedule()
+  })
+  ro.observe(root)
+  resubscribeScrollTargets(ro)
+
+  let moRaf = 0
+  const mo = new MutationObserver(() => {
+    if (moRaf) return
+    moRaf = requestAnimationFrame(() => {
+      moRaf = 0
+      resubscribeScrollTargets(ro)
+      schedule()
+    })
+  })
+  mo.observe(root, { childList: true, subtree: true })
+
+  schedule()
+
+  return () => {
+    cancelAnimationFrame(raf)
+    cancelAnimationFrame(moRaf)
+    ro.disconnect()
+    mo.disconnect()
+  }
+}
+
 function nearestHeightIndex(
   visibleHeight: number,
   heightsAsc: number[],
@@ -201,14 +284,9 @@ export function useDrawerSnap({
     const el = contentMeasureRef.current
     if (!el) return
 
-    const ro = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (!entry) return
-      const h = entry.contentRect.height
-      setMeasuredAutoHeight(Math.ceil(h))
+    return bindAutoMeasureObservers(el, (h) => {
+      setMeasuredAutoHeight(h)
     })
-    ro.observe(el)
-    return () => ro.disconnect()
   }, [contentMeasureRef, sizing])
 
   const { heights, rawValues } = useMemo(

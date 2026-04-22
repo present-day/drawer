@@ -29,7 +29,10 @@ export type { UseDrawerDragOptions } from './hooks/useDrawerDrag'
 export { useDrawerDrag } from './hooks/useDrawerDrag'
 export { useDrawerKeyboardSnapMobile } from './hooks/useDrawerKeyboardSnapMobile'
 export type { UseDrawerSnapArgs } from './hooks/useDrawerSnap'
-export { useDrawerSnap } from './hooks/useDrawerSnap'
+export {
+  measureIntrinsicAutoHeight,
+  useDrawerSnap,
+} from './hooks/useDrawerSnap'
 export type {
   UseVisualViewportOptions,
   UseVisualViewportResult,

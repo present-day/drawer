@@ -1,18 +1,18 @@
-import { render, screen, waitFor } from "@testing-library/react"
-import { createRef } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { render, screen, waitFor } from '@testing-library/react'
+import { createRef } from 'react'
+import { describe, expect, it, vi } from 'vitest'
 
-import { DRAWER_SIZING } from "../../constants"
-import { Drawer } from "../Drawer"
+import { DRAWER_SIZING } from '../../constants'
+import { Drawer } from '../Drawer'
 
 const slots = {
-  contentClassName: "slot-content",
-  handleClassName: "slot-handle",
-  handleIndicatorClassName: "slot-indicator",
+  contentClassName: 'slot-content',
+  handleClassName: 'slot-handle',
+  handleIndicatorClassName: 'slot-indicator',
 }
 
-describe("Drawer parts & slots", () => {
-  it("applies slot class names in merge order: defaults → slots → part props", async () => {
+describe('Drawer parts & slots', () => {
+  it('applies slot class names in merge order: defaults → slots → part props', async () => {
     render(
       <Drawer
         open
@@ -29,25 +29,25 @@ describe("Drawer parts & slots", () => {
       </Drawer>,
     )
     const content = (await waitFor(() =>
-      document.querySelector("[data-drawer-content]"),
+      document.querySelector('[data-drawer-content]'),
     )) as HTMLDivElement
     expect(content.className).toMatch(/slot-content/)
     expect(content.className).toMatch(/content-extra/)
 
     const handle = document.querySelector(
-      "[data-drawer-handle]",
+      '[data-drawer-handle]',
     ) as HTMLDivElement
     expect(handle.className).toMatch(/slot-handle/)
     expect(handle.className).toMatch(/handle-extra/)
 
     const ind = document.querySelector(
-      "[data-drawer-handle-indicator]",
+      '[data-drawer-handle-indicator]',
     ) as HTMLSpanElement
     expect(ind.className).toMatch(/slot-indicator/)
     expect(ind.className).toMatch(/ind-extra/)
   })
 
-  it("renders custom handle children instead of the default bar", () => {
+  it('renders custom handle children instead of the default bar', () => {
     render(
       <Drawer open onOpenChange={vi.fn()} sizing={DRAWER_SIZING.FULL}>
         <Drawer.Content>
@@ -57,13 +57,13 @@ describe("Drawer parts & slots", () => {
         </Drawer.Content>
       </Drawer>,
     )
-    expect(screen.getByTestId("custom")).toHaveTextContent("grab")
+    expect(screen.getByTestId('custom')).toHaveTextContent('grab')
     expect(
-      document.querySelector("[data-drawer-handle-indicator]"),
+      document.querySelector('[data-drawer-handle-indicator]'),
     ).not.toBeInTheDocument()
   })
 
-  it("assigns object refs on Content and Scrollable (forwardRef object branch)", async () => {
+  it('assigns object refs on Content and Scrollable (forwardRef object branch)', async () => {
     const contentRef = createRef<HTMLDivElement>()
     const scrollRef = createRef<HTMLDivElement>()
     render(
@@ -79,7 +79,7 @@ describe("Drawer parts & slots", () => {
     })
   })
 
-  it("merges className on scrollable, syncs externalRef, and supports callback ref on scrollable and content", async () => {
+  it('merges className on scrollable, syncs externalRef, and supports callback ref on scrollable and content', async () => {
     const ext = createRef<HTMLElement | null>()
     const scrollCb = vi.fn()
     const contentCb = vi.fn()
@@ -107,7 +107,7 @@ describe("Drawer parts & slots", () => {
     }
     render(<ScrollWrapper />)
     const scroll = (await waitFor(() =>
-      document.querySelector("[data-drawer-scroll]"),
+      document.querySelector('[data-drawer-scroll]'),
     )) as HTMLDivElement
     expect(scroll.className).toMatch(/scroll-extra/)
     expect(ext.current).toBe(scroll)
@@ -116,7 +116,7 @@ describe("Drawer parts & slots", () => {
     expect(handleCb).toHaveBeenCalled()
   })
 
-  it("renders null for the Overlay compound export", () => {
+  it('renders null for the Overlay compound export', () => {
     const { container } = render(<Drawer.Overlay />)
     expect(container).toBeEmptyDOMElement()
   })
