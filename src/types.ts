@@ -2,6 +2,17 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 
 import { DRAWER_SIZING } from './constants'
 
+/**
+ * Optional class names applied from `Drawer`’s `slots` prop. Merge order for each
+ * part is: package defaults → `slots.*` → part’s own `className` (and handle’s
+ * `indicatorClassName` where applicable).
+ */
+export type DrawerSlots = {
+  contentClassName?: string
+  handleClassName?: string
+  handleIndicatorClassName?: string
+}
+
 /** A snap point: decimal 0–1 (fraction of available height) or px when value > 1 */
 export type SnapPointValue = number
 
@@ -30,6 +41,17 @@ export interface DrawerProps {
    */
   topInsetPx?: number
   children: React.ReactNode
+
+  /**
+   * Merged with the default overlay (`fixed inset-0 z-50 bg-black/50`) when
+   * `modal` is true. Use for dimmer, translucent, or invisible backdrops.
+   */
+  overlayClassName?: string
+  /**
+   * Class names merged into `Drawer.Content` and `Drawer.Handle` before each
+   * part’s own `className` (and handle `indicatorClassName`).
+   */
+  slots?: DrawerSlots
 
   onSnapPointChange?: (snapPoint: SnapPointValue, index: number) => void
   onDragStart?: (

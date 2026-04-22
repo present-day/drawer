@@ -8,6 +8,8 @@ export {
   DrawerHandle,
   DrawerOverlay,
   DrawerScrollable,
+  type DrawerContentProps,
+  type DrawerHandleProps,
 } from './components/DrawerParts'
 
 // Context and hooks
@@ -33,6 +35,7 @@ export type {
   DrawerSizing,
   DrawerSizingPreset,
   DrawerDragEvent,
+  DrawerSlots,
   // Common types
   DragInfo,
   DragEndInfo,

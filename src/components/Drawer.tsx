@@ -26,6 +26,7 @@ import {
   DrawerOverlay,
   DrawerScrollable,
 } from './DrawerParts'
+import { DrawerSlotsProvider } from '../drawerSlotsContext'
 import {
   DrawerContext,
   type DrawerContextValue,
@@ -69,6 +70,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       onAnimationStart,
       onAnimationComplete,
       onViewportChange,
+      overlayClassName,
+      slots,
     } = props
 
     const reduceMotion = useReducedMotion()
@@ -607,7 +610,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={reduceMotion ? { duration: 0 } : { duration: 0.2 }}
-                className="fixed inset-0 z-50 bg-black/50"
+                className={cn(
+                  'fixed inset-0 z-50 bg-black/50',
+                  overlayClassName,
+                )}
                 onClick={() => dismissible && onOpenChange(false)}
               />
             ) : null}
@@ -633,7 +639,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
               onPointerUp={endDragSession}
               onPointerCancel={endDragSession}
             >
-              {children}
+              <DrawerSlotsProvider value={slots ?? {}}>
+                {children}
+              </DrawerSlotsProvider>
             </motion.div>
           </>
         ) : null}

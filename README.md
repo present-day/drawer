@@ -73,6 +73,53 @@ function AdvancedExample() {
 }
 ```
 
+## Theming and chrome
+
+**Merge order** for surface classes: internal defaults → `Drawer`’s `slots` (`contentClassName`, `handleClassName`, `handleIndicatorClassName`) → each part’s own `className` (and `Drawer.Handle`’s `indicatorClassName` for the default bar only).
+
+**`data-*` attributes** (stable hooks for CSS):
+
+| Attribute                     | Element                                      |
+| ----------------------------- | -------------------------------------------- |
+| `data-drawer-content`         | `Drawer.Content` root                        |
+| `data-drawer-handle`          | `Drawer.Handle` track                        |
+| `data-drawer-handle-indicator`| Default handle bar (`span`)                  |
+| `data-drawer-scroll`          | `Drawer.Scrollable` root                     |
+| `data-drawer-no-drag`         | Opt out of panel drag (buttons, inputs, etc.) |
+
+**`Drawer.Handle`:** use `indicatorClassName` to style the default pill without `[&>span]:…`. Pass `children` to replace the default bar entirely.
+
+**Overlay:** when `modal` is true, pass `overlayClassName` on `Drawer` to extend or override the default dimmer (`bg-black/50`), e.g. translucent or stronger scrims.
+
+### Example: slots + overlay
+
+```tsx
+<Drawer
+  open={open}
+  onOpenChange={setOpen}
+  overlayClassName="bg-black/30 backdrop-blur-sm"
+  slots={{
+    contentClassName: 'bg-zinc-900 text-white',
+    handleIndicatorClassName: 'bg-white/30',
+  }}
+>
+  <Drawer.Content className="p-6">
+    <Drawer.Handle />
+    …
+  </Drawer.Content>
+</Drawer>
+```
+
+### Product app (wrapper) checklist
+
+This package does not include app-specific chrome (e.g. big close buttons). After upgrading to **1.1.0+**:
+
+1. Wrap or re-export `Drawer` from one module (e.g. `shared/drawers/drawer`) and add optional **context** for app-wide defaults merged with `cn` into `slots`, `overlayClassName`, and per-drawer overrides.
+2. Map **`default` / `overlay` / `translucent`** (or similar) to preset `slots` + `overlayClassName` values; merge explicit overrides on top with `cn`, do not replace entire presets unless intentional.
+3. Document in the wrapper’s JSDoc which props are **forwarded** to `@present-day/drawer` vs **app-only** (close UI, variants, stripped legacy props).
+4. Enforce a **single import path** for product code (ESLint `no-restricted-imports` or a codemod from legacy `ui/drawer`).
+5. Add a short **“Drawer recipes”** comment block at the top of the wrapper file for agents (default sheet, overlay, translucent, custom chrome, custom close).
+
 ## API Reference
 
 ### Drawer Props
@@ -85,11 +132,13 @@ function AdvancedExample() {
 | `defaultSnapPoint` | `number`                  | -        | Initial snap point                |
 | `dismissible`      | `boolean`                 | `true`   | Allow dismissing by dragging down |
 | `modal`            | `boolean`                 | `true`   | Show overlay and lock body scroll |
+| `overlayClassName` | `string`                  | -        | Merged with default modal overlay |
+| `slots`            | `DrawerSlots`             | -        | Optional class names for content / handle |
 
 ### Components
 
-- `Drawer.Content` - Main content container
-- `Drawer.Handle` - Drag handle (optional)
+- `Drawer.Content` - Main content container (`data-drawer-content`)
+- `Drawer.Handle` - Drag handle (optional); supports `indicatorClassName` and `children`
 - `Drawer.Scrollable` - Scrollable content area
 - `Drawer.Overlay` - Background overlay (auto-rendered when modal=true)
 
