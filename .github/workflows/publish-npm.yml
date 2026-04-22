@@ -4,24 +4,27 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  id-token: write # required for npm trusted publishing (OIDC)
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    # Must match the "Environment name" on the package's Trusted Publisher settings (npmjs.com).
+    environment: npm-registry-publish
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Trusted publishing requires Node >= 22.14 and npm >= 11.5.1 (see npm docs).
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
           cache: npm
 
       - run: npm ci
       - run: npm run build
 
-      - name: Publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish
+      # Publish uses OIDC from GitHub — no NPM_TOKEN on this step.
+      - run: npm publish
