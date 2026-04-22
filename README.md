@@ -7,7 +7,7 @@ A flexible and performant React drawer component with smooth animations and cust
 - 🎯 **Flexible Snap Points** - Support for fractional heights, pixel values, and preset modes
 - 🎬 **Smooth Animations** - Built with Framer Motion for 60fps animations
 - 📱 **Mobile Optimized** - Touch-friendly drag gestures with proper momentum
-- ♿ **Accessible** - ARIA-compliant with keyboard navigation support
+- ♿ **Accessible** - `role="dialog"`, `aria-modal`, name/description, focus trap, and Escape to dismiss
 - 🎨 **Customizable** - Tailwind CSS classes with full style control
 - 🔧 **TypeScript** - Full type safety and autocomplete support
 
@@ -73,6 +73,33 @@ function AdvancedExample() {
 }
 ```
 
+## Accessibility
+
+The panel is exposed as a **`role="dialog"`** with **`aria-modal="true"`** when `modal` is true (the default for modal overlay + body scroll lock).
+
+**Name and description (recommended for all modal drawers, similar to Radix Dialog):**
+
+- **`title`** and **`description`** – Rendered in a **screen-reader-only** block (`sr-only`); the dialog is wired with `aria-labelledby` and `aria-describedby` so assistive technology gets a clear name and optional description even when you do not show a visible heading in the header chrome.
+- **`ariaLabel`** – Use when you do not pass `title` but still need a short accessible name (e.g. `ariaLabel="Filters"`).
+
+**Focus**
+
+- For **`modal` + `open`**, a **focus trap** keeps keyboard focus in the panel by default, with focus returned to the previously focused element on close. Set **`focusTrap={false}`** if you need to manage focus yourself (e.g. portaled sub-trees) or for non-modal behavior.
+- Clicks on the **backdrop** still work: outside clicks that dismiss are allowed; Escape closes the drawer when **`dismissible`** is true.
+
+**Example: hidden title and description (visual UI unchanged)**
+
+```tsx
+<Drawer
+  open={open}
+  onOpenChange={setOpen}
+  title="Account settings"
+  description="Update your email and password."
+>
+  <Drawer.Content … />
+</Drawer>
+```
+
 ## Theming and chrome
 
 **Merge order** for surface classes: internal defaults → `Drawer`’s `slots` (`contentClassName`, `handleClassName`, `handleIndicatorClassName`) → each part’s own `className` (and `Drawer.Handle`’s `indicatorClassName` for the default bar only).
@@ -130,8 +157,12 @@ This package does not include app-specific chrome (e.g. big close buttons). Afte
 | `onOpenChange`     | `(open: boolean) => void` | -        | Called when open state changes    |
 | `sizing`           | `DrawerSizing`            | `'auto'` | Snap point configuration          |
 | `defaultSnapPoint` | `number`                  | -        | Initial snap point                |
-| `dismissible`      | `boolean`                 | `true`   | Allow dismissing by dragging down |
+| `dismissible`      | `boolean`                 | `true`   | Allow dismissing by dragging down; Escape closes when true |
 | `modal`            | `boolean`                 | `true`   | Show overlay and lock body scroll |
+| `focusTrap`        | `boolean`                 | `true`   | When `modal`, trap keyboard focus in the panel; set `false` to opt out |
+| `title`            | `ReactNode`               | -        | Screen-reader title (`aria-labelledby`); use for accessible name if you have no visible title |
+| `description`     | `ReactNode`               | -        | Optional; `aria-describedby`      |
+| `ariaLabel`        | `string`                  | -        | Alternative accessible name if `title` is omitted |
 | `overlayClassName` | `string`                  | -        | Merged with default modal overlay |
 | `slots`            | `DrawerSlots`             | -        | Optional class names for content / handle |
 

@@ -13,7 +13,10 @@
     "dev": "tsup --watch",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest"
   },
   "keywords": [
     "react",
@@ -42,13 +45,23 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "focus-trap": "^7.8.0",
     "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
+    "@vitest/coverage-istanbul": "^4.1.5",
+    "jsdom": "^29.0.2",
+    "motion": "^12.38.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "tsup": "^8.3.5",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.5"
   }
 }

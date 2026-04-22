@@ -7,11 +7,13 @@ export { Drawer } from './components/Drawer'
 export {
   DrawerContent,
   type DrawerContentProps,
+} from './components/drawer/DrawerContent'
+export {
   DrawerHandle,
   type DrawerHandleProps,
-  DrawerOverlay,
-  DrawerScrollable,
-} from './components/DrawerParts'
+} from './components/drawer/DrawerHandle'
+export { DrawerOverlay } from './components/drawer/DrawerOverlay'
+export { DrawerScrollable } from './components/drawer/DrawerScrollable'
 // Constants (for customization)
 export {
   DRAWER_SIZING,

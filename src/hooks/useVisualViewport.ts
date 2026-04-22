@@ -40,9 +40,13 @@ export function useVisualViewport(
   const [availableHeight, setAvailableHeight] = useState(0)
 
   const update = useCallback(() => {
-    if (typeof window === 'undefined' || !enabled) return
+    if (typeof window === 'undefined' || !enabled) {
+      return
+    }
     const vv = window.visualViewport
-    if (!vv) return
+    if (!vv) {
+      return
+    }
 
     cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(() => {
@@ -83,7 +87,9 @@ export function useVisualViewport(
     }
 
     const vv = window.visualViewport
-    if (!vv) return
+    if (!vv) {
+      return
+    }
 
     update()
     vv.addEventListener('resize', update)

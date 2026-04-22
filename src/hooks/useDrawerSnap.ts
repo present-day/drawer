@@ -153,6 +153,7 @@ export function resolveSnapAfterDrag(args: {
 
   const idx = nearestHeightIndex(visibleHeight, heightsAsc)
   const targetH = heightsAsc[idx]
+  /* istanbul ignore next 3 -- defensive: `idx` is always in range for a non-empty array */
   if (targetH === undefined) {
     return { type: 'snap', index: idx }
   }

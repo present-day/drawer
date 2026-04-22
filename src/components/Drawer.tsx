@@ -1,5 +1,6 @@
 'use client'
 
+import { createFocusTrap } from 'focus-trap'
 import {
   AnimatePresence,
   animate,
@@ -14,7 +15,9 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useId,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -38,12 +41,10 @@ import type {
   SnapPointValue,
 } from '../types'
 import { cn, getLockCount, lockBody, unlockBody } from '../utils'
-import {
-  DrawerContent,
-  DrawerHandle,
-  DrawerOverlay,
-  DrawerScrollable,
-} from './DrawerParts'
+import { DrawerContent } from './drawer/DrawerContent'
+import { DrawerHandle } from './drawer/DrawerHandle'
+import { DrawerOverlay } from './drawer/DrawerOverlay'
+import { DrawerScrollable } from './drawer/DrawerScrollable'
 
 const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
   function DrawerRoot(props, ref) {
@@ -66,6 +67,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       onViewportChange,
       overlayClassName,
       slots,
+      focusTrap = true,
+      ariaLabel,
+      title,
+      description,
     } = props
 
     const reduceMotion = useReducedMotion()
@@ -117,6 +122,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     const [progressState, setProgressState] = useState(0)
     const [heightState, setHeightState] = useState(0)
+    const titleId = useId()
+    const descriptionId = useId()
+    const panelRef = useRef<HTMLDivElement | null>(null)
 
     const ctxValue = useMemo<DrawerContextValue>(
       () => ({
@@ -373,6 +381,45 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
     }, [modal, open])
 
+    const useFocusTrap = open && modal && focusTrap
+    useLayoutEffect(() => {
+      if (!useFocusTrap) return
+      const el = panelRef.current
+      if (!el) return
+      const trap = createFocusTrap(el, {
+        returnFocusOnDeactivate: true,
+        fallbackFocus: el,
+        escapeDeactivates: false,
+        allowOutsideClick: true,
+        clickOutsideDeactivates: false,
+      })
+      const id = requestAnimationFrame(() => {
+        try {
+          trap.activate()
+        } catch {
+          /* istanbul ignore next */
+        }
+      })
+      return () => {
+        cancelAnimationFrame(id)
+        try {
+          trap.deactivate()
+        } catch {
+          /* istanbul ignore next */
+        }
+      }
+    }, [useFocusTrap])
+
+    const handleDialogKeyDown = useCallback(
+      (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === 'Escape' && dismissible) {
+          e.stopPropagation()
+          onOpenChange(false)
+        }
+      },
+      [dismissible, onOpenChange],
+    )
+
     const runSnapFromVisible = useCallback(
       (
         visibleHeight: number,
@@ -588,7 +635,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       [heightMv, runSnapFromVisible],
     )
 
-    if (!mounted || typeof document === 'undefined') return null
+    if (!mounted) {
+      return null
+    }
+    /* istanbul ignore next 3 -- not reachable in the browser; guards SSR-only bundles */
+    if (typeof document === 'undefined') {
+      return null
+    }
 
     const drawer = (
       <AnimatePresence onExitComplete={resetDrawerMotionAfterExit}>
@@ -612,9 +665,14 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
               />
             ) : null}
             <motion.div
+              ref={panelRef}
               key="drawer-panel"
               role="dialog"
               aria-modal={modal}
+              aria-label={title == null ? ariaLabel : undefined}
+              aria-labelledby={title == null ? undefined : titleId}
+              aria-describedby={description ? descriptionId : undefined}
+              tabIndex={open && modal ? -1 : undefined}
               style={
                 {
                   height: heightMv,
@@ -628,12 +686,23 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
               className={cn(
                 'fixed inset-x-0 bottom-0 z-50 flex max-h-dvh touch-none flex-col outline-none pointer-events-auto overscroll-y-none',
               )}
+              onKeyDown={handleDialogKeyDown}
               onPointerDown={handleDrawerPointerDown}
               onPointerMove={handleDrawerPointerMove}
               onPointerUp={endDragSession}
               onPointerCancel={endDragSession}
             >
               <DrawerSlotsProvider value={slots ?? {}}>
+                {title != null ? (
+                  <div id={titleId} className="sr-only">
+                    {title}
+                  </div>
+                ) : null}
+                {description != null ? (
+                  <div id={descriptionId} className="sr-only">
+                    {description}
+                  </div>
+                ) : null}
                 {children}
               </DrawerSlotsProvider>
             </motion.div>

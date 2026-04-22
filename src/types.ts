@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
 
 import type { DRAWER_SIZING } from './constants'
 
@@ -34,6 +34,29 @@ export interface DrawerProps {
   dismissible?: boolean
   /** Show overlay + lock body scroll (default true) */
   modal?: boolean
+  /**
+   * When `modal` is true, keep keyboard focus within the panel (default true).
+   * Set to false if you need to interact with the rest of the page while open
+   * or manage focus yourself.
+   */
+  focusTrap?: boolean
+  /**
+   * Accessible name when you do not pass `title` (e.g. a short label for screen
+   * readers). Prefer `title` (or a visible title in content) for modal drawers.
+   */
+  ariaLabel?: string
+  /**
+   * Shown to assistive technology only and referenced as the dialog’s title via
+   * `aria-labelledby`. Matches the old Radix pattern: you can pass content here
+   * and style it, or use `className` with a visually hidden class on your own
+   * markup in `children` instead.
+   */
+  title?: ReactNode
+  /**
+   * Shown to assistive technology only and linked with `aria-describedby` when
+   * provided.
+   */
+  description?: ReactNode
   /**
    * Pixels subtracted from visual viewport height when resolving snap heights.
    * Default leaves top space for map chrome (`DRAWER_TOP_INSET_PX`). Use `0`
