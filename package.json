@@ -25,6 +25,14 @@
   ],
   "author": "Present Day",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/present-day/drawer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/present-day/drawer/issues"
+  },
+  "homepage": "https://github.com/present-day/drawer#readme",
   "peerDependencies": {
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0",
@@ -44,3 +52,4 @@
     "typescript": "^5.9.3"
   }
 }
+
