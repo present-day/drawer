@@ -235,7 +235,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     )
 
     const introStartedRef = useRef(false)
-    const readyForResnapRef = useRef(false)
+    const [resnapReady, setResnapReady] = useState(false)
     const resetDrawerMotionAfterExit = useCallback(() => {
       heightMv.set(0)
       updateProgress(0)
@@ -245,7 +245,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       if (!open || snapHeights.length === 0) {
         if (!open) {
           introStartedRef.current = false
-          readyForResnapRef.current = false
+          setResnapReady(false)
         }
         return
       }
@@ -261,7 +261,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         onComplete: () => {
           heightMv.set(h)
           updateProgress(h)
-          readyForResnapRef.current = true
+          setResnapReady(true)
         },
       })
     }, [
@@ -276,7 +276,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     // Re-snap when snap heights change while open (e.g. virtual keyboard show/hide)
     useEffect(() => {
-      if (!open || !readyForResnapRef.current || snapHeights.length === 0) {
+      if (!open || !resnapReady || snapHeights.length === 0) {
         return
       }
       if (dragSessionRef.current) return
@@ -301,6 +301,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       minSnap,
       spring,
       updateProgress,
+      resnapReady,
     ])
 
     const lastActiveSnapRef = useRef<SnapPointValue | undefined>(undefined)
