@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { DRAWER_SIZING, VELOCITY_THRESHOLD } from '../constants'
 import {
   heightToSnapRawValue,
+  maxDescendantScrollOverflow,
   measureIntrinsicAutoHeight,
   resolveSizingToHeights,
   resolveSnapAfterDrag,
@@ -42,6 +43,49 @@ describe('measureIntrinsicAutoHeight', () => {
       value: 120,
     })
     expect(measureIntrinsicAutoHeight(root)).toBe(120)
+  })
+
+  it('adds descendant scroll overflow for direct children without data-drawer-scroll', () => {
+    const root = document.createElement('div')
+    const wrapper = document.createElement('div')
+    Object.defineProperty(wrapper, 'offsetHeight', {
+      configurable: true,
+      value: 200,
+    })
+    const innerScroll = document.createElement('div')
+    Object.defineProperty(innerScroll, 'clientHeight', {
+      configurable: true,
+      value: 200,
+    })
+    Object.defineProperty(innerScroll, 'scrollHeight', {
+      configurable: true,
+      value: 800,
+    })
+    wrapper.append(innerScroll)
+    root.append(wrapper)
+    expect(measureIntrinsicAutoHeight(root)).toBe(800)
+  })
+})
+
+describe('maxDescendantScrollOverflow', () => {
+  it('returns the largest scrollHeight minus clientHeight in the subtree', () => {
+    const root = document.createElement('div')
+    Object.defineProperty(root, 'clientHeight', {
+      configurable: true,
+      value: 100,
+    })
+    Object.defineProperty(root, 'scrollHeight', {
+      configurable: true,
+      value: 100,
+    })
+    const a = document.createElement('div')
+    Object.defineProperty(a, 'clientHeight', { configurable: true, value: 50 })
+    Object.defineProperty(a, 'scrollHeight', { configurable: true, value: 350 })
+    const b = document.createElement('div')
+    Object.defineProperty(b, 'clientHeight', { configurable: true, value: 40 })
+    Object.defineProperty(b, 'scrollHeight', { configurable: true, value: 90 })
+    root.append(a, b)
+    expect(maxDescendantScrollOverflow(root)).toBe(300)
   })
 })
 

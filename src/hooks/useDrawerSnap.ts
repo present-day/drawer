@@ -80,12 +80,34 @@ export function heightToSnapRawValue(
 }
 
 /**
+ * Max `scrollHeight - clientHeight` for an element and its descendants. Picks up
+ * clipped scroll regions whose extra height does not change the content root’s
+ * `contentRect` (common with `overflow: auto` on a child that is not
+ * `[data-drawer-scroll]`).
+ */
+export function maxDescendantScrollOverflow(el: HTMLElement): number {
+  let max = 0
+  const stack: HTMLElement[] = [el]
+  while (stack.length > 0) {
+    const node = stack.pop()
+    if (!node) continue
+    max = Math.max(max, node.scrollHeight - node.clientHeight)
+    for (const ch of node.children) {
+      if (ch instanceof HTMLElement) stack.push(ch)
+    }
+  }
+  return Math.max(0, max)
+}
+
+/**
  * Intrinsic height for {@link DRAWER_SIZING.AUTO}: sums each **direct** child’s
- * block size, using `scrollHeight` for `[data-drawer-scroll]` so the value
- * reflects full scrollable content instead of the flex-clamped layout height
- * (which `ResizeObserver`’s `contentRect` on the content root tracks). Put
- * `Drawer.Handle` and `Drawer.Scrollable` as direct children of
- * `Drawer.Content` (or an equivalent structure) for accurate AUTO sizing.
+ * layout block size, using `scrollHeight` for `[data-drawer-scroll]` so the
+ * value reflects full scrollable content instead of the flex-clamped layout
+ * height (which `ResizeObserver`’s `contentRect` on the content root tracks).
+ * Other direct children add **layout height plus** the max descendant
+ * `(scrollHeight − clientHeight)` under that child so unmarked scroll areas
+ * still expand AUTO. Prefer `Drawer.Handle` and `Drawer.Scrollable` as direct
+ * children of `Drawer.Content` when possible.
  */
 export function measureIntrinsicAutoHeight(root: HTMLElement): number {
   let sum = 0
@@ -96,7 +118,7 @@ export function measureIntrinsicAutoHeight(root: HTMLElement): number {
       sawScrollRegion = true
       sum += child.scrollHeight
     } else {
-      sum += child.offsetHeight
+      sum += child.offsetHeight + maxDescendantScrollOverflow(child)
     }
   }
   if (sawScrollRegion || sum > 0) {
@@ -150,7 +172,12 @@ function bindAutoMeasureObservers(
       schedule()
     })
   })
-  mo.observe(root, { childList: true, subtree: true })
+  mo.observe(root, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class', 'style', 'hidden', 'aria-hidden', 'data-state'],
+  })
 
   schedule()
 
