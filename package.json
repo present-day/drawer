@@ -1,6 +1,6 @@
 {
   "name": "@present-day/drawer",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "A flexible drawer component with smooth animations and snap points",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
