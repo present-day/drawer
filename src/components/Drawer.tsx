@@ -75,6 +75,18 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     const reduceMotion = useReducedMotion()
     const measureRef = useRef<HTMLDivElement>(null)
+    const lastMeasureElRef = useRef<HTMLDivElement | null>(null)
+    // Bumped whenever the DrawerContent element attaches/detaches so consumers
+    // (the AUTO measurement effect in particular) can re-bind observers — a
+    // mutation to `measureRef.current` alone does not re-run effects.
+    const [measureAttachGeneration, setMeasureAttachGeneration] = useState(0)
+    const registerMeasureContent = useCallback((el: HTMLDivElement | null) => {
+      measureRef.current = el
+      if (lastMeasureElRef.current !== el) {
+        lastMeasureElRef.current = el
+        setMeasureAttachGeneration((g) => g + 1)
+      }
+    }, [])
     const scrollContainerRef = useRef<HTMLElement | null>(null)
     const lastScrollElRef = useRef<HTMLElement | null>(null)
     const [scrollAttachGeneration, setScrollAttachGeneration] = useState(0)
@@ -98,6 +110,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         topInsetPx,
         defaultSnapPoint,
         contentMeasureRef: measureRef,
+        measureAttachGeneration,
       })
 
     const [snapIndex, setSnapIndex] = useState(defaultIndex)
@@ -129,11 +142,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const ctxValue = useMemo<DrawerContextValue>(
       () => ({
         measureRef,
+        registerMeasureContent,
         scrollContainerRef,
         registerScrollContainer,
         scrollAttachGeneration,
       }),
-      [registerScrollContainer, scrollAttachGeneration],
+      [registerMeasureContent, registerScrollContainer, scrollAttachGeneration],
     )
 
     const spring = useMemo(
@@ -250,7 +264,11 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         return
       }
       const h = snapHeights[defaultIndex] ?? minSnap
-      if (h < 32) return
+      // Require a positive measurement; the previous `< 32` guard prevented
+      // intro from starting for short content (e.g. AUTO with a tight loading
+      // skeleton), which also blocked `resnapReady` and stopped the resnap
+      // effect from animating to taller content once it loaded.
+      if (h <= 0) return
       if (introStartedRef.current) return
       introStartedRef.current = true
       setSnapIndex(defaultIndex)

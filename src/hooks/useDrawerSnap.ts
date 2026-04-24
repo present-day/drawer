@@ -16,8 +16,8 @@ import {
 } from '../constants'
 import type { DrawerSizing, SnapPointValue } from '../types'
 
-const AUTO_FALLBACK_HEIGHT_PX = 200
-const AUTO_MIN_USABLE_MEASURED_HEIGHT_PX = 120
+/** Used only when we have not received a real measurement yet (0 / null). */
+const AUTO_FALLBACK_HEIGHT_PX = 0
 
 export function resolveSnapValueToPx(
   value: SnapPointValue,
@@ -46,8 +46,10 @@ export function resolveSizingToHeights(
       Math.max(0, Math.round(measuredAutoHeight ?? 0)),
     )
     const fallback = Math.min(AUTO_FALLBACK_HEIGHT_PX, cap)
-    const resolvedHeight =
-      measured >= AUTO_MIN_USABLE_MEASURED_HEIGHT_PX ? measured : fallback
+    // Trust any positive measure (including very short UIs). The old
+    // "minimum shelf" used when measured < 120px caused short content to
+    // jump to 200px. `measured === 0` means layout has not reported size yet.
+    const resolvedHeight = measured > 0 ? measured : fallback
     return { heights: [resolvedHeight], rawValues: [resolvedHeight] }
   }
 
@@ -115,8 +117,11 @@ export function maxDescendantScrollOverflow(el: HTMLElement): number {
  * height (which `ResizeObserver`’s `contentRect` on the content root tracks).
  * Other direct children add **layout height plus** the max descendant
  * `(scrollHeight − clientHeight)` under that child so unmarked scroll areas
- * still expand AUTO. Prefer `Drawer.Handle` and `Drawer.Scrollable` as direct
- * children of `Drawer.Content` when possible.
+ * still expand AUTO. For non-scroll children we also take the maximum with
+ * `scrollHeight` / bounding height so a flex child is not read as 0 when the
+ * panel height is still animating (offsetHeight collapsed while the sheet is
+ * short). Prefer `Drawer.Handle` and `Drawer.Scrollable` as direct children of
+ * `Drawer.Content` when possible.
  */
 export function measureIntrinsicAutoHeight(root: HTMLElement): number {
   let sum = 0
@@ -127,7 +132,13 @@ export function measureIntrinsicAutoHeight(root: HTMLElement): number {
       sawScrollRegion = true
       sum += child.scrollHeight
     } else {
-      sum += child.offsetHeight + maxDescendantScrollOverflow(child)
+      const withDescendantOverflow =
+        child.offsetHeight + maxDescendantScrollOverflow(child)
+      const fromIntrinsic = Math.max(
+        child.scrollHeight,
+        child.getBoundingClientRect().height,
+      )
+      sum += Math.max(withDescendantOverflow, fromIntrinsic)
     }
   }
   if (sawScrollRegion || sum > 0) {
@@ -307,6 +318,14 @@ export type UseDrawerSnapArgs = {
   topInsetPx?: number
   defaultSnapPoint?: SnapPointValue
   contentMeasureRef: RefObject<HTMLElement | null>
+  /**
+   * Bumped by the Drawer whenever the measure element attaches/detaches.
+   * Required because a mutation to `contentMeasureRef.current` is invisible
+   * to React effect deps; without it the ResizeObserver is never re-bound
+   * after the drawer first opens (`open` flips false → true), so AUTO sizing
+   * would stay stuck on the fallback height.
+   */
+  measureAttachGeneration?: number
 }
 
 export function useDrawerSnap({
@@ -315,6 +334,7 @@ export function useDrawerSnap({
   topInsetPx = DRAWER_TOP_INSET_PX,
   defaultSnapPoint,
   contentMeasureRef,
+  measureAttachGeneration = 0,
 }: UseDrawerSnapArgs) {
   const availableHeight = Math.max(0, Math.round(viewportHeight - topInsetPx))
 
@@ -325,12 +345,15 @@ export function useDrawerSnap({
   useEffect(() => {
     if (sizing !== DRAWER_SIZING.AUTO) return
     const el = contentMeasureRef.current
-    if (!el) return
+    if (!el) {
+      setMeasuredAutoHeight(null)
+      return
+    }
 
     return bindAutoMeasureObservers(el, (h) => {
       setMeasuredAutoHeight(h)
     })
-  }, [contentMeasureRef, sizing])
+  }, [contentMeasureRef, sizing, measureAttachGeneration])
 
   const { heights, rawValues } = useMemo(
     () => resolveSizingToHeights(sizing, availableHeight, measuredAutoHeight),

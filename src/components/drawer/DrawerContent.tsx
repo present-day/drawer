@@ -18,16 +18,18 @@ export type DrawerContentProps = React.HTMLAttributes<HTMLDivElement>
 
 export const DrawerContent = forwardRef<HTMLDivElement, DrawerContentProps>(
   function DrawerContent({ className, children, ...rest }, forwardedRef) {
-    const { measureRef } = useDrawerContext(DRAWER_CONTEXT_CONSUMER.Content)
+    const { registerMeasureContent } = useDrawerContext(
+      DRAWER_CONTEXT_CONSUMER.Content,
+    )
     const slots = useDrawerSlots()
 
     const setRefs = useCallback(
       (el: HTMLDivElement | null) => {
-        measureRef.current = el
+        registerMeasureContent(el)
         if (typeof forwardedRef === 'function') forwardedRef(el)
         else if (forwardedRef) forwardedRef.current = el
       },
-      [forwardedRef, measureRef],
+      [forwardedRef, registerMeasureContent],
     )
 
     return (

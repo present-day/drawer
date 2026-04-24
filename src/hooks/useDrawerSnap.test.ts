@@ -65,6 +65,35 @@ describe('measureIntrinsicAutoHeight', () => {
     root.append(wrapper)
     expect(measureIntrinsicAutoHeight(root)).toBe(800)
   })
+
+  it('uses scrollHeight when a direct child has 0 offsetHeight (flex-squashed)', () => {
+    const root = document.createElement('div')
+    const child = document.createElement('div')
+    Object.defineProperty(child, 'offsetHeight', {
+      configurable: true,
+      value: 0,
+    })
+    Object.defineProperty(child, 'scrollHeight', {
+      configurable: true,
+      value: 72,
+    })
+    Object.defineProperty(child, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        height: 0,
+        width: 0,
+        x: 0,
+        y: 0,
+        top: 0,
+        left: 0,
+        bottom: 0,
+        right: 0,
+        toJSON: () => ({}),
+      }),
+    })
+    root.appendChild(child)
+    expect(measureIntrinsicAutoHeight(root)).toBe(72)
+  })
 })
 
 describe('maxDescendantScrollOverflow', () => {
@@ -117,14 +146,14 @@ describe('resolveSizingToHeights', () => {
     expect(heights[0]).toBeLessThanOrEqual(800)
   })
 
-  it('AUTO falls back when measured height is only the header/handle region', () => {
+  it('AUTO uses a small positive measured height (no 200px minimum shelf)', () => {
     const { heights, rawValues } = resolveSizingToHeights(
       DRAWER_SIZING.AUTO,
       800,
       48,
     )
-    expect(heights).toEqual([200])
-    expect(rawValues).toEqual([200])
+    expect(heights).toEqual([48])
+    expect(rawValues).toEqual([48])
   })
 
   it('AUTO uses measured height when content is substantial', () => {

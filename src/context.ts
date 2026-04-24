@@ -9,6 +9,7 @@ export type DrawerContextConsumer =
 
 export type DrawerContextValue = {
   measureRef: React.RefObject<HTMLDivElement | null>
+  registerMeasureContent: (el: HTMLDivElement | null) => void
   scrollContainerRef: React.RefObject<HTMLElement | null>
   registerScrollContainer: (el: HTMLElement | null) => void
   scrollAttachGeneration: number

@@ -112,4 +112,64 @@ describe('useDrawerSnap (hook)', () => {
     )
     expect(result.current.snapHeights.length).toBe(1)
   })
+
+  // Regression: when the drawer mounts closed (open=false → true), the
+  // measure element does not exist on the first effect pass. The hook must
+  // re-bind observers once the element attaches; otherwise AUTO stays stuck
+  // on the fallback height forever and async content cannot grow the sheet.
+  it('rebinds AUTO measurement when measureAttachGeneration changes after a null ref', async () => {
+    const prevRo = globalThis.ResizeObserver
+    const Obs = class {
+      _cb: ResizeObserverCallback
+      constructor(cb: ResizeObserverCallback) {
+        this._cb = cb
+      }
+      observe() {
+        this._cb(
+          [{ contentRect: { height: 320 } } as unknown as ResizeObserverEntry],
+          this as unknown as ResizeObserver,
+        )
+      }
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+    globalThis.ResizeObserver = Obs
+
+    try {
+      const ref = createRef<HTMLDivElement | null>()
+
+      const el = document.createElement('div')
+      Object.defineProperty(el, 'scrollHeight', {
+        configurable: true,
+        value: 320,
+      })
+      Object.defineProperty(el, 'offsetHeight', {
+        configurable: true,
+        value: 320,
+      })
+
+      const { result, rerender } = renderHook(
+        ({ gen }: { gen: number }) =>
+          useDrawerSnap({
+            sizing: DRAWER_SIZING.AUTO,
+            viewportHeight: 800,
+            topInsetPx: 0,
+            contentMeasureRef: ref,
+            measureAttachGeneration: gen,
+          }),
+        { initialProps: { gen: 0 } },
+      )
+
+      expect(result.current.snapHeights[0]).toBeLessThan(320)
+
+      ref.current = el
+      rerender({ gen: 1 })
+
+      await waitFor(() => {
+        expect(result.current.snapHeights[0]).toBe(320)
+      })
+    } finally {
+      globalThis.ResizeObserver = prevRo
+    }
+  })
 })
