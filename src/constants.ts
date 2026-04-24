@@ -35,5 +35,5 @@ export const RUBBER_BAND_FACTOR = 0.3
 /** Pixels of vertical movement before drawer drag activates (lower = easier to start dragging). */
 export const DRAWER_DRAG_SLOP_PX = 3
 
-/** Top inset so the drawer does not cover map chrome (matches prior `mt-24` intent). */
+/** Top inset so the drawer doesn't touch top */
 export const DRAWER_TOP_INSET_PX = 96

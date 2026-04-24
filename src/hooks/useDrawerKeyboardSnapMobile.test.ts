@@ -11,6 +11,7 @@ const baseViewport = {
   offsetTop: 0,
   keyboardHeight: 0,
   isKeyboardOpen: false,
+  layoutBottomInset: 0,
 }
 
 describe('useDrawerKeyboardSnapMobile', () => {

@@ -98,10 +98,11 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
     }, [])
 
-    const { availableHeight, ...viewport } = useVisualViewport({
-      enabled: open,
-      onViewportChange,
-    })
+    const { availableHeight, layoutBottomInset, ...viewport } =
+      useVisualViewport({
+        enabled: open,
+        onViewportChange,
+      })
 
     const { snapHeights, defaultIndex, resolveSnapToIndex, indexToRawValue } =
       useDrawerSnap({
@@ -695,15 +696,17 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
               style={
                 {
                   height: heightMv,
+                  bottom: layoutBottomInset,
                   ['--drawer-height' as string]: `${heightState}px`,
                   ['--drawer-progress' as string]: progressState,
                   ['--drawer-available-height' as string]: `${availableHeight}px`,
+                  ['--drawer-layout-bottom-inset' as string]: `${layoutBottomInset}px`,
                 } as unknown as MotionStyle
               }
               initial={false}
               exit={{ y: '100%', transition: panelExitTransition }}
               className={cn(
-                'fixed inset-x-0 bottom-0 z-50 flex max-h-dvh touch-none flex-col outline-none pointer-events-auto overscroll-y-none',
+                'fixed inset-x-0 z-50 flex max-h-dvh touch-none flex-col outline-none pointer-events-auto overscroll-y-none',
               )}
               onKeyDown={handleDialogKeyDown}
               onPointerDown={handleDrawerPointerDown}

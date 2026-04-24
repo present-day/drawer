@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createRef } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DRAWER_SIZING } from '../constants'
 import { emitVisualViewportEvent, setVisualViewportSize } from '../test/vv-mock'
@@ -43,11 +43,10 @@ function flushMicrotasks() {
 describe('Drawer (coverage)', () => {
   beforeEach(() => {
     forceUnlock()
-    setVisualViewportSize(800, 0)
+    setVisualViewportSize(900, 0)
   })
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
+  // No vi.restoreAllMocks/clearAllMocks: they can break global/window shims
+  // and leave a later test without VV event listeners.
 
   it('merges overlayClassName, calls onViewportChange, and applies content slots on modal', async () => {
     const onOpenChange = vi.fn()
@@ -231,7 +230,7 @@ describe('Drawer (coverage)', () => {
   })
 
   it('re-snaps when visual viewport height changes after the intro animation', async () => {
-    setVisualViewportSize(800, 0)
+    setVisualViewportSize(900, 0)
     const onOpenChange = vi.fn()
     render(
       <Drawer open onOpenChange={onOpenChange} sizing={[0.3, 0.6, 0.9]}>
@@ -240,10 +239,25 @@ describe('Drawer (coverage)', () => {
     )
     await screen.findByRole('dialog')
     await flushMicrotasks()
-    setVisualViewportSize(640, 0)
+    setVisualViewportSize(700, 0)
     act(() => {
       emitVisualViewportEvent('resize')
     })
     await flushMicrotasks()
+  })
+
+  it('aligns the panel bottom to the visual viewport using layout bottom inset (iOS keyboard)', async () => {
+    setVisualViewportSize(700, 10)
+    const onOpenChange = vi.fn()
+    render(
+      <Drawer open onOpenChange={onOpenChange} sizing={DRAWER_SIZING.FULL}>
+        <Drawer.Content>kv</Drawer.Content>
+      </Drawer>,
+    )
+    const dialog = await screen.findByRole('dialog')
+    // innerHeight=900 in test setup — 900 - 700 - 10; rAF in useVisualViewport
+    await waitFor(() => {
+      expect(dialog).toHaveStyle({ bottom: '190px' })
+    })
   })
 })

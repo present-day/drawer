@@ -22,6 +22,8 @@ describe('useVisualViewport', () => {
       expect(result.current.offsetTop).toBe(10)
     })
 
+    // innerHeight=900 in test setup → 900 - 700 - 10
+    expect(result.current.layoutBottomInset).toBe(190)
     expect(result.current.availableHeight).toBe(700)
     expect(onViewportChange).toHaveBeenCalled()
   })
@@ -44,7 +46,7 @@ describe('useVisualViewport', () => {
   })
 
   it('resets to defaults when disabled', () => {
-    setVisualViewportSize(800, 0)
+    setVisualViewportSize(900, 0)
     const { result, rerender } = renderHook(
       (props: { enabled: boolean }) =>
         useVisualViewport({ enabled: props.enabled }),
@@ -59,10 +61,11 @@ describe('useVisualViewport', () => {
 
     expect(result.current.height).toBe(0)
     expect(result.current.availableHeight).toBe(0)
+    expect(result.current.layoutBottomInset).toBe(0)
   })
 
   it('is a no-op in update() when still disabled (covers early return in update callback)', () => {
-    setVisualViewportSize(800, 0)
+    setVisualViewportSize(900, 0)
     const { result } = renderHook(() => useVisualViewport({ enabled: false }))
 
     act(() => {

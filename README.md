@@ -147,6 +147,14 @@ This package does not include app-specific chrome (e.g. big close buttons). Afte
 4. Enforce a **single import path** for product code (ESLint `no-restricted-imports` or a codemod from legacy `ui/drawer`).
 5. Add a short **“Drawer recipes”** comment block at the top of the wrapper file for agents (default sheet, overlay, translucent, custom chrome, custom close).
 
+### Mobile Safari, soft keyboard, and the visual viewport
+
+When the drawer is **open**, it listens to `window.visualViewport` (`resize` and `scroll`). Snap heights and `--drawer-available-height` use the **visual** viewport height. The panel is `position: fixed` with an extra **`bottom` offset** so its bottom edge follows the **visual** viewport, not only the **layout** viewport. That avoids the common iOS case where a fixed `bottom: 0` sheet stays behind the on-screen keyboard even though heights were already keyboard-aware. The offset is exposed as `layoutBottomInset` on the [`ViewportInfo`](./src/types.ts) object: `max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop)`.
+
+**Optional** [`useDrawerKeyboardSnapMobile`](./src/hooks/useDrawerKeyboardSnapMobile.ts) (re-exported from the package) can be wired to **`onViewportChange`** to snap the sheet to its maximum height when a soft keyboard is detected on mobile, then restore the previous snap when the keyboard hides. That is **separate** from the built-in bottom anchoring: you do not need the hook for the sheet to sit above the keyboard, but the hook is useful if you want the sheet to expand for text fields in partial-height modes.
+
+**CSS** on the motion panel: in addition to `--drawer-height`, `--drawer-progress`, and `--drawer-available-height`, the panel sets **`--drawer-layout-bottom-inset`** (same value as the inline `bottom` used for anchoring).
+
 ## API Reference
 
 ### Drawer Props
@@ -165,6 +173,8 @@ This package does not include app-specific chrome (e.g. big close buttons). Afte
 | `ariaLabel`        | `string`                  | -        | Alternative accessible name if `title` is omitted |
 | `overlayClassName` | `string`                  | -        | Merged with default modal overlay |
 | `slots`            | `DrawerSlots`             | -        | Optional class names for content / handle |
+| `topInsetPx`      | `number`                  | map inset | Pixels subtracted from visual height for snap math |
+| `onViewportChange` | `(viewport: ViewportInfo) => void` | - | Fired when the visual viewport updates while open; includes `layoutBottomInset`, `height`, `offsetTop`, `keyboardHeight`, `isKeyboardOpen` |
 
 ### Components
 
@@ -182,7 +192,7 @@ Breaking changes: the `BottomSheet` compatibility layer and `BOTTOM_SHEET_*` nam
 - **Types**: all `BottomSheet*` types → the matching `Drawer*` / `*Drawer*` names (e.g. `BottomSheetProps` → `DrawerProps`, `BottomSheetRef` → `DrawerRef`, `BottomSheetSizing` → `DrawerSizing`).
 - **Constants**: `BOTTOM_SHEET_SIZING` → `DRAWER_SIZING`, `BOTTOM_SHEET_TOP_INSET_PX` → `DRAWER_TOP_INSET_PX`, `BOTTOM_SHEET_CONTEXT_CONSUMER` → `DRAWER_CONTEXT_CONSUMER` (kept in source; not re-exported from the package `index` — use `Drawer` and its parts in normal use), `BOTTOM_SHEET_DRAG_SLOP_PX` → `DRAWER_DRAG_SLOP_PX` (internal tuning constant).
 - **Data attributes**: `data-bottom-sheet-scroll` → `data-drawer-scroll`, `data-bottom-sheet-no-drag` → `data-drawer-no-drag`.
-- **CSS custom properties** on the motion panel: `--bottom-sheet-height` → `--drawer-height`, `--bottom-sheet-progress` → `--drawer-progress`, `--bottom-sheet-available-height` → `--drawer-available-height`.
+- **CSS custom properties** on the motion panel: `--bottom-sheet-height` → `--drawer-height`, `--bottom-sheet-progress` → `--drawer-progress`, `--bottom-sheet-available-height` → `--drawer-available-height`. New: `--drawer-layout-bottom-inset` (visual-viewport bottom anchoring; see *Mobile Safari, soft keyboard* above).
 
 ## License
 

@@ -12,9 +12,11 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 type ScenarioId =
   | 'autoShort'
   | 'autoLong'
+  | 'autoSearch'
   | 'full'
   | 'snapsFractions'
   | 'snapsPixels'
+  | 'snapsSearch'
   | 'defaultSnap'
   | 'notDismissible'
   | 'nonModal'
@@ -60,6 +62,68 @@ function baseContent(title: string, body: ReactNode) {
         <h3 className="mb-2 text-sm font-medium text-zinc-800">{title}</h3>
         {body}
       </div>
+    </Drawer.Content>
+  )
+}
+
+/**
+ * Search field + list: use on iOS Safari to see AUTO height and visual-viewport
+ * anchoring when the soft keyboard is up.
+ */
+function searchWithListContent(kind: 'auto' | 'snaps') {
+  const id = `playground-search-${kind}`
+  return (
+    <Drawer.Content>
+      <Drawer.Handle />
+      <div className="px-4 pt-0">
+        <h3 className="mb-2 text-sm font-medium text-zinc-800">
+          {kind === 'auto' ? 'Search (AUTO height)' : 'Search (snap heights)'}
+        </h3>
+        <p className="mb-3 text-sm text-zinc-600">
+          {kind === 'auto' ? (
+            <>
+              Focus the field to show the on-screen keyboard. With{' '}
+              <code className="text-zinc-800">sizing=auto</code>, height follows
+              content and the sheet should stay aligned above the keyboard.
+            </>
+          ) : (
+            <>
+              Same search UI as the AUTO case, with fractional snap stops.
+              Compare how the panel responds when the keyboard opens (e.g. drag
+              to MAX first, then focus the field).
+            </>
+          )}
+        </p>
+        <label className="block" htmlFor={id}>
+          <span className="text-xs font-medium text-zinc-500">Query</span>
+          <input
+            id={id}
+            name={id}
+            type="search"
+            enterKeyHint="search"
+            placeholder="Type to test the keyboard…"
+            autoComplete="off"
+            autoCapitalize="off"
+            className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-base text-zinc-900 shadow-sm outline-none ring-zinc-400 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-400/20"
+          />
+        </label>
+      </div>
+      <Drawer.Scrollable className="px-4 pb-5">
+        <p className="mb-2 text-xs text-zinc-500">
+          Scroll the list in the sheet; drag the handle area (not the field) to
+          resize the drawer.
+        </p>
+        <ul className="space-y-2">
+          {Array.from({ length: 20 }, (_, idx) => idx + 1).map((n) => (
+            <li
+              key={n}
+              className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
+            >
+              Sample result {n}
+            </li>
+          ))}
+        </ul>
+      </Drawer.Scrollable>
     </Drawer.Content>
   )
 }
@@ -321,6 +385,14 @@ function getScenarioDrawer(
       drawer: { sizing: DRAWER_SIZING.AUTO },
       children: longScrollableContent(),
     },
+    autoSearch: {
+      drawer: {
+        sizing: DRAWER_SIZING.AUTO,
+        title: 'Search',
+        description: 'AUTO height with a search field — keyboard test on iOS',
+      },
+      children: searchWithListContent('auto'),
+    },
     full: {
       drawer: { sizing: DRAWER_SIZING.FULL },
       children: longScrollableContent(),
@@ -341,6 +413,15 @@ function getScenarioDrawer(
           between stops.
         </p>,
       ]),
+    },
+    snapsSearch: {
+      drawer: {
+        sizing: [0.45, 0.75, 0.96],
+        defaultSnapPoint: 0.75,
+        title: 'Search',
+        description: 'Fractional snaps with a search field',
+      },
+      children: searchWithListContent('snaps'),
     },
     defaultSnap: {
       drawer: { sizing: [0.2, 0.45, 0.7], defaultSnapPoint: 0.45 },
@@ -520,6 +601,16 @@ export function PlaygroundApp() {
           title="AUTO — long scrollable list"
           description="Drawer.Scrollable with many rows; content measurement and inner scroll."
           onOpen={() => openScenario('autoLong')}
+        />
+        <Panel
+          title="AUTO — search + list (iOS keyboard)"
+          description="Search field at the top: test soft keyboard with AUTO height and visual viewport."
+          onOpen={() => openScenario('autoSearch')}
+        />
+        <Panel
+          title="Snaps + search (compare)"
+          description="Same search UI with [0.45, 0.75, 0.96] stops — compare to the AUTO search case on mobile."
+          onOpen={() => openScenario('snapsSearch')}
         />
         <Panel
           title="AUTO — loading then taller"

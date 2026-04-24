@@ -65,8 +65,17 @@ describe('useDrawerSnap (hook)', () => {
     }
     globalThis.ResizeObserver = Obs
 
+    const el = document.createElement('div')
+    const child = document.createElement('div')
+    child.style.height = '200px'
+    // JSDOM: layout height is 0 without explicit getters
+    Object.defineProperty(child, 'offsetHeight', {
+      configurable: true,
+      get: () => 200,
+    })
+    el.appendChild(child)
+    document.body.appendChild(el)
     try {
-      const el = document.createElement('div')
       const ref = createRef<HTMLDivElement | null>()
       ref.current = el
 
@@ -83,6 +92,7 @@ describe('useDrawerSnap (hook)', () => {
         expect(result.current.snapHeights[0]).toBeGreaterThan(0)
       })
     } finally {
+      el.remove()
       globalThis.ResizeObserver = prevRo
     }
   })
