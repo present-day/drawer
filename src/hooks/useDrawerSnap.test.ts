@@ -139,10 +139,10 @@ describe('resolveSizingToHeights', () => {
     expect(rawValues).toEqual([1])
   })
 
-  it('AUTO falls back to a default when no measured height', () => {
+  it('AUTO uses zero fallback when no measured height yet', () => {
     const { heights } = resolveSizingToHeights(DRAWER_SIZING.AUTO, 800, null)
     expect(heights.length).toBe(1)
-    expect(heights[0]).toBeGreaterThan(0)
+    expect(heights[0]).toBe(0)
     expect(heights[0]).toBeLessThanOrEqual(800)
   })
 

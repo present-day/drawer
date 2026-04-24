@@ -19,6 +19,7 @@ const DEFAULT_VIEWPORT: ViewportInfo = {
   offsetTop: 0,
   keyboardHeight: 0,
   isKeyboardOpen: false,
+  layoutBottomInset: 0,
 }
 
 /**
@@ -52,7 +53,12 @@ export function useVisualViewport(
     rafRef.current = requestAnimationFrame(() => {
       const height = vv.height
       const offsetTop = vv.offsetTop
-      const keyboardHeight = Math.max(0, window.innerHeight - vv.height)
+      const innerH = window.innerHeight
+      const layoutBottomInset = Math.max(
+        0,
+        Math.round(innerH - height - offsetTop),
+      )
+      const keyboardHeight = Math.max(0, innerH - height)
       const isKeyboardOpen = keyboardHeight > 50
 
       const next: ViewportInfo = {
@@ -60,6 +66,7 @@ export function useVisualViewport(
         offsetTop,
         keyboardHeight,
         isKeyboardOpen,
+        layoutBottomInset,
       }
 
       setViewport((prev) => {
@@ -67,7 +74,8 @@ export function useVisualViewport(
           prev.height === next.height &&
           prev.offsetTop === next.offsetTop &&
           prev.keyboardHeight === next.keyboardHeight &&
-          prev.isKeyboardOpen === next.isKeyboardOpen
+          prev.isKeyboardOpen === next.isKeyboardOpen &&
+          prev.layoutBottomInset === next.layoutBottomInset
         ) {
           return prev
         }

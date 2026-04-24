@@ -5,7 +5,8 @@ const listeners = new Map<string, Set<EventListener>>()
  * Mutate `height` / `offsetTop`, then call `emitVisualViewportEvent`.
  */
 export const testVisualViewport = {
-  height: 800,
+  /** Default matches `window.innerHeight` in `test/setup` so `layoutBottomInset` is 0. */
+  height: 900,
   offsetTop: 0,
   addEventListener(type: string, callback: EventListener) {
     if (!listeners.has(type)) {
@@ -34,7 +35,7 @@ export function setVisualViewportSize(height: number, offsetTop = 0) {
 }
 
 export function resetVisualViewportForTests() {
-  testVisualViewport.height = 800
+  testVisualViewport.height = 900
   testVisualViewport.offsetTop = 0
   listeners.clear()
 }

@@ -118,6 +118,12 @@ export interface ViewportInfo {
   offsetTop: number
   keyboardHeight: number
   isKeyboardOpen: boolean
+  /**
+   * Pixels to add to `bottom` for `position: fixed` elements so the bottom edge
+   * aligns with the **visual** viewport on mobile Safari (layout vs. visual
+   * viewport). Equals `max(0, innerHeight - height - offsetTop)`.
+   */
+  layoutBottomInset: number
 }
 
 /** Internal: drag events from motion may be React synthetic pointer events */
