@@ -10,6 +10,8 @@
   ],
   "scripts": {
     "playground": "vite --config playground/vite.config.ts",
+    "playground:build": "vite build --config playground/vite.config.ts",
+    "playground:preview": "vite preview --config playground/vite.config.ts",
     "build": "tsup",
     "dev": "tsup --watch",
     "lint": "biome check .",

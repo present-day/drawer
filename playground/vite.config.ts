@@ -7,7 +7,10 @@ const playgroundRoot = fileURLToPath(new URL('.', import.meta.url))
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
 const sourceEntry = fileURLToPath(new URL('../src/index.ts', import.meta.url))
 
-export default defineConfig({
+// GitHub Pages serves the site from a subpath; relative base in production
+// makes chunk URLs work. Dev server keeps "/" so HMR and module resolution behave.
+export default defineConfig(({ command }) => ({
+  base: command === 'serve' ? '/' : './',
   root: playgroundRoot,
   plugins: [react(), postcssModulesPcssPlugin()],
   resolve: {
@@ -22,4 +25,4 @@ export default defineConfig({
       allow: [playgroundRoot, packageRoot],
     },
   },
-})
+}))
