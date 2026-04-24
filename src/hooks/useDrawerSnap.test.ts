@@ -117,6 +117,26 @@ describe('resolveSizingToHeights', () => {
     expect(heights[0]).toBeLessThanOrEqual(800)
   })
 
+  it('AUTO falls back when measured height is only the header/handle region', () => {
+    const { heights, rawValues } = resolveSizingToHeights(
+      DRAWER_SIZING.AUTO,
+      800,
+      48,
+    )
+    expect(heights).toEqual([200])
+    expect(rawValues).toEqual([200])
+  })
+
+  it('AUTO uses measured height when content is substantial', () => {
+    const { heights, rawValues } = resolveSizingToHeights(
+      DRAWER_SIZING.AUTO,
+      800,
+      360,
+    )
+    expect(heights).toEqual([360])
+    expect(rawValues).toEqual([360])
+  })
+
   it('dedupes snap points and sorts ascending', () => {
     const { heights, rawValues } = resolveSizingToHeights(
       [0.25, 0.5, 0.25, 0.75],

@@ -16,6 +16,9 @@ import {
 } from '../constants'
 import type { DrawerSizing, SnapPointValue } from '../types'
 
+const AUTO_FALLBACK_HEIGHT_PX = 200
+const AUTO_MIN_USABLE_MEASURED_HEIGHT_PX = 120
+
 export function resolveSnapValueToPx(
   value: SnapPointValue,
   availableHeight: number,
@@ -38,8 +41,14 @@ export function resolveSizingToHeights(
   }
 
   if (sizing === DRAWER_SIZING.AUTO) {
-    const h = Math.min(cap, Math.max(0, Math.round(measuredAutoHeight ?? 0)))
-    return { heights: [h || Math.min(200, cap)], rawValues: [h] }
+    const measured = Math.min(
+      cap,
+      Math.max(0, Math.round(measuredAutoHeight ?? 0)),
+    )
+    const fallback = Math.min(AUTO_FALLBACK_HEIGHT_PX, cap)
+    const resolvedHeight =
+      measured >= AUTO_MIN_USABLE_MEASURED_HEIGHT_PX ? measured : fallback
+    return { heights: [resolvedHeight], rawValues: [resolvedHeight] }
   }
 
   const pairs = sizing.map((raw) => ({
@@ -146,13 +155,18 @@ function bindAutoMeasureObservers(
     })
   }
 
-  const resubscribeScrollTargets = (ro: ResizeObserver) => {
-    for (const node of root.querySelectorAll('[data-drawer-scroll]')) {
+  const observed = new WeakSet<HTMLElement>()
+  const observeIfNeeded = (el: HTMLElement, ro: ResizeObserver) => {
+    if (observed.has(el)) return
+    observed.add(el)
+    ro.observe(el)
+  }
+
+  const resubscribeTargets = (ro: ResizeObserver) => {
+    observeIfNeeded(root, ro)
+    for (const node of root.querySelectorAll('*')) {
       if (node instanceof HTMLElement) {
-        ro.observe(node)
-        for (const ch of node.children) {
-          if (ch instanceof HTMLElement) ro.observe(ch)
-        }
+        observeIfNeeded(node, ro)
       }
     }
   }
@@ -160,30 +174,32 @@ function bindAutoMeasureObservers(
   const ro = new ResizeObserver(() => {
     schedule()
   })
-  ro.observe(root)
-  resubscribeScrollTargets(ro)
+  resubscribeTargets(ro)
 
   let moRaf = 0
   const mo = new MutationObserver(() => {
     if (moRaf) return
     moRaf = requestAnimationFrame(() => {
       moRaf = 0
-      resubscribeScrollTargets(ro)
+      resubscribeTargets(ro)
       schedule()
     })
   })
   mo.observe(root, {
     childList: true,
     subtree: true,
+    characterData: true,
     attributes: true,
     attributeFilter: ['class', 'style', 'hidden', 'aria-hidden', 'data-state'],
   })
 
+  root.addEventListener('load', schedule, true)
   schedule()
 
   return () => {
     cancelAnimationFrame(raf)
     cancelAnimationFrame(moRaf)
+    root.removeEventListener('load', schedule, true)
     ro.disconnect()
     mo.disconnect()
   }
