@@ -1,8 +1,33 @@
 import { type ClassValue, clsx } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+
+let twMerge: ((input: string) => string) | undefined
+let isTwMergeInitialized = false
+
+export async function initTailwindMerge(): Promise<void> {
+  if (isTwMergeInitialized) {
+    return
+  }
+
+  try {
+    const module = await import('tailwind-merge')
+    twMerge = module?.twMerge || module?.default?.twMerge
+  } catch {
+    // tailwind-merge is not available, use fallback
+    twMerge = undefined
+  }
+
+  isTwMergeInitialized = true
+}
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  if (!isTwMergeInitialized) {
+    throw new Error(
+      'initTailwindMerge() must be awaited before using cn(). Call await initTailwindMerge() during initialization.',
+    )
+  }
+
+  const classes = clsx(inputs)
+  return twMerge ? twMerge(classes) : classes
 }
 
 /**

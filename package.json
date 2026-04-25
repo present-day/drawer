@@ -1,6 +1,6 @@
 {
   "name": "@present-day/drawer",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "A flexible drawer component with smooth animations and snap points",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -45,12 +45,17 @@
   "peerDependencies": {
     "motion": ">=10.0.0",
     "react": ">=18.0.0",
-    "react-dom": ">=18.0.0"
+    "react-dom": ">=18.0.0",
+    "tailwind-merge": "*"
+  },
+  "peerDependenciesMeta": {
+    "tailwind-merge": {
+      "optional": true
+    }
   },
   "dependencies": {
     "clsx": "^2.1.1",
-    "focus-trap": "^8.1.0",
-    "tailwind-merge": "^3.5.0"
+    "focus-trap": "^8.1.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
@@ -60,17 +65,19 @@
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "@vitest/coverage-istanbul": "^4.1.5",
+    "@vitejs/plugin-react": "^5.2.0",
+    "@vitest/coverage-istanbul": "^2.1.9",
+    "happy-dom": "^20.9.0",
     "jsdom": "^29.0.2",
     "motion": "^12.38.0",
     "postcss": "^8.4.49",
     "postcss-modules": "^6.0.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "tailwind-merge": "^3.5.0",
     "tsup": "^8.3.5",
     "typescript": "^6.0.3",
-    "vite": "^8.0.10",
-    "vitest": "^4.1.5"
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9"
   }
 }
