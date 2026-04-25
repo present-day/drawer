@@ -22,19 +22,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          # Trusted publishing needs npm >= 11.5.1. Node 24 ships that; avoid
-          # `npm install -g npm@…` on the runner (can MODULE_NOT_FOUND / break self-upgrade).
-          node-version: "24"
-          # Do not set registry-url here: it injects an auth line and NODE_AUTH_TOKEN, which
-          # can make publish fall back to token auth and yield misleading E404s with OIDC.
-          cache: npm
+          bun-version: latest
 
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run build
 
       # Publishes via npm Trusted Publishing (OIDC). Do not set NODE_AUTH_TOKEN here:
       # a normal npm token with 2FA on "auth and writes" causes EOTP in CI. If you
@@ -44,7 +39,7 @@ jobs:
         # --loglevel=verbose surfaces the trusted-publishing OIDC exchange so
         # misconfigurations show up as real diagnostics instead of a misleading
         # ENEEDAUTH / 404 (see https://github.com/npm/cli/issues/9088).
-        run: npm publish --provenance --loglevel=verbose
+        run: bun publish --provenance --loglevel=verbose
         env:
           # Avoid any token from the job / org secrets shadowing trusted publishing.
           NODE_AUTH_TOKEN: ""

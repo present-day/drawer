@@ -7,7 +7,7 @@ on:
       - "playground/**"
       - "src/**"
       - "package.json"
-      - "package-lock.json"
+      - "bun.lockb"
   workflow_dispatch:
 
 permissions:
@@ -24,12 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: "22"
-          cache: npm
-      - run: npm ci
-      - run: npm run playground:build
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run playground:build
       - uses: actions/upload-pages-artifact@v5
         with:
           path: playground/dist

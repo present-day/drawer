@@ -8,6 +8,7 @@
   "files": [
     "dist"
   ],
+  "packageManager": "bun@1.1.42",
   "scripts": {
     "playground": "vite --config playground/vite.config.ts",
     "playground:build": "vite build --config playground/vite.config.ts",
