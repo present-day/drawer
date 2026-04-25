@@ -41,7 +41,10 @@ jobs:
       # must use a token instead, use an "Automation" classic token (no OTP) or a
       # Granular access token with publish, not a user publish token.
       - name: Publish to npm (OIDC)
-        run: npm publish --provenance
+        # --loglevel=verbose surfaces the trusted-publishing OIDC exchange so
+        # misconfigurations show up as real diagnostics instead of a misleading
+        # ENEEDAUTH / 404 (see https://github.com/npm/cli/issues/9088).
+        run: npm publish --provenance --loglevel=verbose
         env:
           # Avoid any token from the job / org secrets shadowing trusted publishing.
           NODE_AUTH_TOKEN: ""
