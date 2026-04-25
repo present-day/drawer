@@ -2,14 +2,15 @@ import { type ClassValue, clsx } from 'clsx'
 
 let twMerge: ((input: string) => string) | undefined
 
-try {
-  // Try to import tailwind-merge if it's available
-  const tailwindMerge = require('tailwind-merge')
-  twMerge = tailwindMerge.twMerge
-} catch {
-  // tailwind-merge is not available, use fallback
-  twMerge = undefined
-}
+// Dynamically import tailwind-merge to make it an optional runtime dependency
+import('tailwind-merge')
+  .then((module) => {
+    twMerge = module?.twMerge || module?.default?.twMerge
+  })
+  .catch(() => {
+    // tailwind-merge is not available, use fallback
+    twMerge = undefined
+  })
 
 export function cn(...inputs: ClassValue[]) {
   const classes = clsx(inputs)
