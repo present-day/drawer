@@ -45,11 +45,14 @@
   "peerDependencies": {
     "motion": ">=10.0.0",
     "react": ">=18.0.0",
-    "react-dom": ">=18.0.0"
+    "react-dom": ">=18.0.0",
+    "tailwind-merge": "*"
   },
-  "peerDependenciesOptional": [
-    "tailwind-merge"
-  ],
+  "peerDependenciesMeta": {
+    "tailwind-merge": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "clsx": "^2.1.1",
     "focus-trap": "^8.1.0"
