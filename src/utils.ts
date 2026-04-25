@@ -1,18 +1,31 @@
 import { type ClassValue, clsx } from 'clsx'
 
 let twMerge: ((input: string) => string) | undefined
+let isTwMergeInitialized = false
 
-// Dynamically import tailwind-merge to make it an optional runtime dependency
-import('tailwind-merge')
-  .then((module) => {
+export async function initTailwindMerge(): Promise<void> {
+  if (isTwMergeInitialized) {
+    return
+  }
+
+  try {
+    const module = await import('tailwind-merge')
     twMerge = module?.twMerge || module?.default?.twMerge
-  })
-  .catch(() => {
+  } catch {
     // tailwind-merge is not available, use fallback
     twMerge = undefined
-  })
+  }
+
+  isTwMergeInitialized = true
+}
 
 export function cn(...inputs: ClassValue[]) {
+  if (!isTwMergeInitialized) {
+    throw new Error(
+      'initTailwindMerge() must be awaited before using cn(). Call await initTailwindMerge() during initialization.',
+    )
+  }
+
   const classes = clsx(inputs)
   return twMerge ? twMerge(classes) : classes
 }
