@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           # Trusted publishing needs npm >= 11.5.1. Node 24 ships that; avoid
           # `npm install -g npm@…` on the runner (can MODULE_NOT_FOUND / break self-upgrade).
