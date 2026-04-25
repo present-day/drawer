@@ -49,7 +49,7 @@
   "dependencies": {
     "clsx": "^2.1.1",
     "focus-trap": "^8.1.0",
-    "tailwind-merge": "^2.5.4"
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
