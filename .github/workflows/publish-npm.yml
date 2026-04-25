@@ -28,5 +28,6 @@ jobs:
       - run: npm test
       - run: npm run build
 
-      # Publish uses OIDC from GitHub — no NPM_TOKEN on this step.
       - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
