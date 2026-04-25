@@ -28,6 +28,12 @@ jobs:
       - run: npm test
       - run: npm run build
 
-      - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Publishes via npm Trusted Publishing (OIDC). Do not set NODE_AUTH_TOKEN here:
+      # a normal npm token with 2FA on "auth and writes" causes EOTP in CI. If you
+      # must use a token instead, use an "Automation" classic token (no OTP) or a
+      # Granular access token with publish, not a user publish token.
+      - name: Use npm with Trusted Publishing support
+        run: npm install -g "npm@^11.5.1"
+
+      - name: Publish to npm (OIDC)
+        run: npm publish --provenance
