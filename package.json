@@ -47,10 +47,12 @@
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
   },
+  "peerDependenciesOptional": [
+    "tailwind-merge"
+  ],
   "dependencies": {
     "clsx": "^2.1.1",
-    "focus-trap": "^8.1.0",
-    "tailwind-merge": "^3.5.0"
+    "focus-trap": "^8.1.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
@@ -68,6 +70,7 @@
     "postcss-modules": "^6.0.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "tailwind-merge": "^3.5.0",
     "tsup": "^8.3.5",
     "typescript": "^6.0.3",
     "vite": "^8.0.10",

@@ -1,8 +1,19 @@
 import { type ClassValue, clsx } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+
+let twMerge: ((input: string) => string) | undefined
+
+try {
+  // Try to import tailwind-merge if it's available
+  const tailwindMerge = require('tailwind-merge')
+  twMerge = tailwindMerge.twMerge
+} catch {
+  // tailwind-merge is not available, use fallback
+  twMerge = undefined
+}
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  const classes = clsx(inputs)
+  return twMerge ? twMerge(classes) : classes
 }
 
 /**
