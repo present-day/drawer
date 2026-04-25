@@ -16,8 +16,9 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # Must match the "Environment name" on the package's Trusted Publisher settings (npmjs.com).
-    environment: npm-registry-publish
+    # If your Trusted Publisher on npmjs.com has an "Environment" set, un-comment and set the
+    # same name. If you leave the comment below out, the npm side must have Environment empty.
+    # environment: npm-registry-publish
     steps:
       - uses: actions/checkout@v4
 
@@ -26,7 +27,8 @@ jobs:
           # Trusted publishing needs npm >= 11.5.1. Node 24 ships that; avoid
           # `npm install -g npm@…` on the runner (can MODULE_NOT_FOUND / break self-upgrade).
           node-version: "24"
-          registry-url: "https://registry.npmjs.org"
+          # Do not set registry-url here: it injects an auth line and NODE_AUTH_TOKEN, which
+          # can make publish fall back to token auth and yield misleading E404s with OIDC.
           cache: npm
 
       - run: npm ci
@@ -40,3 +42,6 @@ jobs:
       # Granular access token with publish, not a user publish token.
       - name: Publish to npm (OIDC)
         run: npm publish --provenance
+        env:
+          # Avoid any token from the job / org secrets shadowing trusted publishing.
+          NODE_AUTH_TOKEN: ""
