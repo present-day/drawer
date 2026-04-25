@@ -18,8 +18,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # Trusted publishing requires Node >= 22.14 and npm >= 11.5.1 (see npm docs).
-          node-version: "22"
+          # Trusted publishing needs npm >= 11.5.1. Node 24 ships that; avoid
+          # `npm install -g npm@…` on the runner (can MODULE_NOT_FOUND / break self-upgrade).
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
           cache: npm
 
@@ -32,8 +33,5 @@ jobs:
       # a normal npm token with 2FA on "auth and writes" causes EOTP in CI. If you
       # must use a token instead, use an "Automation" classic token (no OTP) or a
       # Granular access token with publish, not a user publish token.
-      - name: Use npm with Trusted Publishing support
-        run: npm install -g "npm@^11.5.1"
-
       - name: Publish to npm (OIDC)
         run: npm publish --provenance
