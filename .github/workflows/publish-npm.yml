@@ -28,7 +28,7 @@ jobs:
 
       - run: bun install --frozen-lockfile
       - run: bun run lint
-      - run: bun run test
+      - run: bun run test:coverage
       - run: bun run build
 
       # Publishes via npm Trusted Publishing (OIDC). Do not set NODE_AUTH_TOKEN here:
