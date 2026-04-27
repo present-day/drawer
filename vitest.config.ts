@@ -14,10 +14,9 @@ export default defineConfig({
         'src/test/**',
         'src/index.ts',
         'src/types.ts',
-        // Not a coverage focus: mobile keyboard snap, visual viewport, motion-heavy root.
+        // Not a coverage focus: mobile keyboard snap, visual viewport
         'src/hooks/useDrawerKeyboardSnapMobile.ts',
         'src/hooks/useVisualViewport.ts',
-        'src/components/Drawer.tsx',
       ],
       thresholds: {
         lines: 50,

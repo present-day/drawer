@@ -21,20 +21,21 @@ describe('initTailwindMerge', () => {
     await initTailwindMerge()
 
     // Second call should return early
-    const spy = vi.spyOn(console, 'log')
     await initTailwindMerge()
-    spy.mockRestore()
   })
 
   it('handles import failure gracefully', async () => {
-    // Reset initialization state by creating a fresh instance
-    const { initTailwindMerge: freshInit } =
-      await vi.importActual<typeof import('./utils')>('./utils')
+    // Reset module cache to get a fresh instance
+    vi.resetModules()
 
-    // Mock the import to fail
+    // Mock the import to fail before importing fresh module
     vi.doMock('tailwind-merge', () => {
       throw new Error('Module not found')
     })
+
+    // Import fresh instance that will exercise the failure branch
+    const { initTailwindMerge: freshInit } =
+      await vi.importActual<typeof import('./utils')>('./utils')
 
     // Should not throw
     await expect(freshInit()).resolves.toBeUndefined()
