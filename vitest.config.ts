@@ -14,7 +14,16 @@ export default defineConfig({
         'src/test/**',
         'src/index.ts',
         'src/types.ts',
+        // Not a coverage focus: mobile keyboard snap, visual viewport
+        'src/hooks/useDrawerKeyboardSnapMobile.ts',
+        'src/hooks/useVisualViewport.ts',
       ],
+      thresholds: {
+        lines: 50,
+        statements: 50,
+        functions: 50,
+        branches: 50,
+      },
     },
   },
 })

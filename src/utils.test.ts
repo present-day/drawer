@@ -1,10 +1,46 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { cn, forceUnlock, getLockCount, lockBody, unlockBody } from './utils'
+import {
+  cn,
+  forceUnlock,
+  getLockCount,
+  initTailwindMerge,
+  lockBody,
+  unlockBody,
+} from './utils'
 
 describe('cn', () => {
   it('merges class names', () => {
     expect(cn('a', 'b')).toBe('a b')
+  })
+})
+
+describe('initTailwindMerge', () => {
+  it('handles early return when already initialized', async () => {
+    // First call initializes
+    await initTailwindMerge()
+
+    // Second call should return early
+    await initTailwindMerge()
+  })
+
+  it('handles import failure gracefully', async () => {
+    // Reset module cache to get a fresh instance
+    vi.resetModules()
+
+    // Mock the import to fail before importing fresh module
+    vi.doMock('tailwind-merge', () => {
+      throw new Error('Module not found')
+    })
+
+    // Import fresh instance that will exercise the failure branch
+    const { initTailwindMerge: freshInit } =
+      await vi.importActual<typeof import('./utils')>('./utils')
+
+    // Should not throw
+    await expect(freshInit()).resolves.toBeUndefined()
+
+    vi.doUnmock('tailwind-merge')
   })
 })
 

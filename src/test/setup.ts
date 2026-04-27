@@ -1,9 +1,13 @@
 import { cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
-import { afterEach } from 'vitest'
+import { afterEach, beforeAll } from 'vitest'
 
-import { forceUnlock } from '../utils'
+import { forceUnlock, initTailwindMerge } from '../utils'
 import { resetVisualViewportForTests, testVisualViewport } from './vv-mock'
+
+beforeAll(async () => {
+  await initTailwindMerge()
+})
 
 Object.defineProperty(window, 'visualViewport', {
   configurable: true,
