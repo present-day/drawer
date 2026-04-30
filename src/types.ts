@@ -51,18 +51,23 @@ export interface DrawerProps {
    */
   defaultSnapPoint?: SnapPoint
   /**
-   * Controlled active snap point. Pair with `setActiveSnapPoint` to fully
-   * control snap state from outside the component.
+   * Controlled active snap point. Pair with `onSnapPointChange` to observe
+   * snap changes initiated by this component; update this prop to drive the
+   * drawer to a specific stop from outside.
    */
   activeSnapPoint?: SnapPoint
   /**
-   * Called whenever the active snap point changes — from drag, ref controls,
-   * `defaultSnapPoint` resolution, or programmatic `activeSnapPoint` updates.
-   * Named to match the controlled-state setter convention used by Vaul / the
-   * shadcn drawer (`setActiveSnapPoint(point)`); we additionally pass the
-   * resolved index for callers that need it.
+   * Called when the drawer initiates a snap change — on drag end, ref control
+   * calls (`snapTo`, `expand`, `collapse`), or `defaultSnapPoint` resolution on
+   * open. The resolved index is passed alongside the raw `SnapPoint` value for
+   * callers that need it.
+   *
+   * **Not** called for parent-driven updates: when the parent sets
+   * `activeSnapPoint` directly the drawer animates to that stop but does not
+   * echo the value back via this callback — the parent is already the source
+   * of truth and echoing would risk feedback loops.
    */
-  setActiveSnapPoint?: (point: SnapPoint, index: number) => void
+  onSnapPointChange?: (point: SnapPoint, index: number) => void
   /** Drag below lowest snap dismisses the drawer (default true) */
   dismissible?: boolean
   /** Show overlay + lock body scroll (default true) */

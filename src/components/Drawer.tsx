@@ -56,7 +56,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       modal = true,
       topInsetPx = DRAWER_TOP_INSET_PX,
       children,
-      setActiveSnapPoint,
+      onSnapPointChange,
       onDragStart,
       onDrag,
       onDragEnd,
@@ -244,7 +244,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         dragMeta?: { velocityY: number; endY: number; progress: number },
         // `notify: false` is used by the controlled-mode `activeSnapPoint`
         // effect: there the parent is the source of truth and already knows
-        // which stop it asked for, so calling `setActiveSnapPoint` would be
+        // which stop it asked for, so calling `onSnapPointChange` would be
         // redundant (and risks a feedback loop for callers that derive other
         // state from the callback).
         notify: boolean = true,
@@ -255,7 +255,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
         const raw = indexToRawValue(nextIdx)
         if (raw !== null && notify) {
-          setActiveSnapPoint?.(raw, nextIdx)
+          onSnapPointChange?.(raw, nextIdx)
         }
         if (dragMeta && raw !== null) {
           const dragInfo: DragEndInfo = {
@@ -286,7 +286,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         onAnimationComplete,
         onAnimationStart,
         onDragEnd,
-        setActiveSnapPoint,
+        onSnapPointChange,
         snapHeights,
         spring,
         updateProgress,
@@ -338,7 +338,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       if (activeSnapPoint == null) {
         const introRaw = indexToRawValue(targetIndex)
         if (introRaw !== null) {
-          setActiveSnapPoint?.(introRaw, targetIndex)
+          onSnapPointChange?.(introRaw, targetIndex)
         }
       }
       heightMv.set(0)
@@ -359,7 +359,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       snapHeights,
       heightMv,
       indexToRawValue,
-      setActiveSnapPoint,
+      onSnapPointChange,
       spring,
       updateProgress,
     ])
@@ -456,7 +456,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       lastActiveSnapRef.current = activeSnapPoint
       const idx = resolveSnapToIndex(activeSnapPoint)
       setSnapIndex(idx)
-      // Parent-driven change: skip the `setActiveSnapPoint` notification —
+      // Parent-driven change: skip the `onSnapPointChange` notification —
       // the parent already knows it just set this value and will receive a
       // redundant call (or worse, churn) if we echo it back.
       snapToHeightAnimated(idx, undefined, /* notify */ false)
