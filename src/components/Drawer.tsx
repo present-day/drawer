@@ -104,17 +104,39 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         onViewportChange,
       })
 
-    const { snapHeights, defaultIndex, resolveSnapToIndex, indexToRawValue } =
-      useDrawerSnap({
-        sizing,
-        viewportHeight: viewport.height || availableHeight,
-        topInsetPx,
-        defaultSnapPoint,
-        contentMeasureRef: measureRef,
-        measureAttachGeneration,
-      })
+    const {
+      snapHeights,
+      rawSnapValues,
+      defaultIndex,
+      resolveSnapToIndex,
+      indexToRawValue,
+    } = useDrawerSnap({
+      sizing,
+      viewportHeight: viewport.height || availableHeight,
+      topInsetPx,
+      defaultSnapPoint,
+      contentMeasureRef: measureRef,
+      measureAttachGeneration,
+    })
 
     const [snapIndex, setSnapIndex] = useState(defaultIndex)
+    // `snapIndex` is a numeric index into the px-sorted heights, but its
+    // *meaning* is the raw stop the user picked (e.g. `'auto'`, `480`,
+    // `'full'`). When 'auto' grows or shrinks the array re-sorts, and that
+    // same numeric index can suddenly point at a different raw stop. The
+    // remap logic below preserves logical identity across resorts.
+    //
+    // We snapshot the previous `rawSnapValues` array (and the snapIndex it
+    // was associated with) instead of mirroring the active raw value into a
+    // separate ref. Mirroring would lose the old identity: any code path
+    // that recomputes `indexToRawValue` against the *new* array (e.g. when
+    // the rawValues memo invalidates) would clobber the mirror with the
+    // new-position raw before the remap effect could read the old one.
+    // Snapshotting the prior array sidesteps that ordering hazard entirely.
+    const prevRawSnapValuesRef = useRef<readonly SnapPointValue[] | null>(
+      null,
+    )
+    const prevSnapIndexRef = useRef<number>(defaultIndex)
     const heightMv = useMotionValue(0)
     const dragHeightStartRef = useRef(0)
 
@@ -251,9 +273,16 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     const introStartedRef = useRef(false)
     const [resnapReady, setResnapReady] = useState(false)
+    // Tracks the height the resnap effect last kicked off an animation toward.
+    // Used to avoid restarting the spring every frame when AUTO measurements
+    // wobble by a pixel or two while the panel is still animating — a
+    // continually re-targeted spring manifests as the drawer creeping upward
+    // 1px at a time.
+    const lastResnapTargetRef = useRef<number | null>(null)
     const resetDrawerMotionAfterExit = useCallback(() => {
       heightMv.set(0)
       updateProgress(0)
+      lastResnapTargetRef.current = null
     }, [heightMv, updateProgress])
 
     useEffect(() => {
@@ -304,6 +333,18 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const targetH = snapHeights[targetIdx] ?? minSnap
 
       if (Math.abs(heightMv.get() - targetH) < 2) return
+      // Already animating toward (effectively) this same target — let the
+      // current spring finish instead of restarting it with a near-identical
+      // goal. Without this, a measurement that wobbles by ~1px per frame
+      // re-fires `animate()` continuously and the spring never gets to
+      // overshoot/settle, producing a slow pixel-by-pixel drift.
+      if (
+        lastResnapTargetRef.current !== null &&
+        Math.abs(lastResnapTargetRef.current - targetH) < 2
+      ) {
+        return
+      }
+      lastResnapTargetRef.current = targetH
 
       animate(heightMv, targetH, {
         ...spring,
@@ -322,6 +363,43 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       updateProgress,
       resnapReady,
     ])
+
+    // Remap `snapIndex` by raw identity whenever the resolved raw-values
+    // array reorders. Without this, when 'auto' grows past a fixed stop and
+    // the px-sorted arrays re-sort, the drawer silently switches stops just
+    // because the same numeric index now refers to a different raw value.
+    //
+    // Identity is read from the *previous* rawSnapValues snapshot at the
+    // *previous* snapIndex — not from the new array — so reordering is
+    // detected correctly. Three transitions to consider:
+    //   - Pure resort (rawSnapValues changed, snapIndex unchanged): look up
+    //     the old raw in the new array and update snapIndex if it moved.
+    //   - Pure index change (intro / drag-end / snapTo): user/system picked
+    //     a new stop; do not remap, just record the new position.
+    //   - Both changed simultaneously: prefer the explicit snapIndex change
+    //     (the caller already chose against the new array contents).
+    useEffect(() => {
+      const prevArr = prevRawSnapValuesRef.current
+      const prevIdx = prevSnapIndexRef.current
+      const arrayChanged = prevArr !== null && prevArr !== rawSnapValues
+      const indexChanged = prevIdx !== snapIndex
+
+      if (arrayChanged && !indexChanged) {
+        const prevRaw = prevArr?.[prevIdx]
+        if (prevRaw !== undefined) {
+          const newIdx = rawSnapValues.indexOf(prevRaw)
+          // -1: previous raw is gone (sizing prop changed). Leave snapIndex
+          // alone — the resnap / activeSnapPoint effects will land it
+          // somewhere sensible.
+          if (newIdx >= 0 && newIdx !== snapIndex) {
+            setSnapIndex(newIdx)
+          }
+        }
+      }
+
+      prevRawSnapValuesRef.current = rawSnapValues
+      prevSnapIndexRef.current = snapIndex
+    }, [rawSnapValues, snapIndex])
 
     const lastActiveSnapRef = useRef<SnapPointValue | undefined>(undefined)
     useEffect(() => {

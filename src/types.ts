@@ -13,8 +13,14 @@ export type DrawerSlots = {
   handleIndicatorClassName?: string
 }
 
-/** A snap point: decimal 0–1 (fraction of available height) or px when value > 1 */
-export type SnapPointValue = number
+/**
+ * A snap point. Numeric values are fractions of available height when ≤ 1
+ * and pixel heights when > 1. The string literals match
+ * {@link DRAWER_SIZING}: `'auto'` resolves to the measured intrinsic content
+ * height (live, via `ResizeObserver`); `'full'` resolves to the full available
+ * drawer height (viewport minus top inset).
+ */
+export type SnapPointValue = number | 'auto' | 'full'
 
 export type DrawerSizingPreset =
   (typeof DRAWER_SIZING)[keyof typeof DRAWER_SIZING]

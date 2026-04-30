@@ -25,6 +25,7 @@ type ScenarioId =
   | 'imperative'
   | 'controlledSnap'
   | 'autoLoading'
+  | 'snapsLoadingTallerThanContent'
 
 type LogLine = { t: number; text: string }
 
@@ -353,9 +354,103 @@ function AutoLoadingDemo({
   )
 }
 
+/**
+ * Mixed sizing: `'auto'` as one snap, plus explicit pixel/full stops above it.
+ * Demonstrates the loading→taller transition where the auto stop tracks the
+ * measured content while the higher stops remain fixed and exceed the content.
+ *
+ * Verifies:
+ *   1. `'auto'` slot follows the live `ResizeObserver` measurement (skeleton
+ *      → 4 paragraphs grows the lowest stop, with the panel docked there).
+ *   2. Dragging up to the `'full'` stop sits the panel well above content
+ *      height without the slow 1px-per-frame upward drift.
+ *   3. Swapping content while sitting at a non-auto snap does not jolt the
+ *      drawer off that stop.
+ */
+function SnapsLoadingTallerThanContentDemo({
+  open,
+  onOpenChange,
+  onLog,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onLog: (line: string) => void
+}) {
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!open) return
+    setLoading(true)
+    const t = window.setTimeout(() => {
+      setLoading(false)
+      onLog('simulated fetch done — content swapped to taller block')
+    }, 1500)
+    return () => {
+      clearTimeout(t)
+    }
+  }, [open, onLog])
+
+  return (
+    <Drawer
+      key="snaps-loading-taller-than-content"
+      open={open}
+      onOpenChange={onOpenChange}
+      // First stop is content-fit ('auto'), second is a fixed pixel value, and
+      // the top stop fills the available drawer area ('full'). Default opens
+      // at 480px — taller than the loading skeleton, so you can verify the
+      // 'auto' slot moves in/out beneath the active snap as content settles.
+      sizing={[SNAP_POINT.AUTO, 480, DRAWER_SIZING.FULL]}
+      defaultSnapPoint={480}
+      title="Mixed sizing: AUTO + pixel + FULL"
+      onSnapPointChange={(p, i) => onLog(`onSnapPointChange: ${p} i=${i}`)}
+      onAnimationComplete={(p) =>
+        onLog(`onAnimationComplete: snap ${String(p)}`)
+      }
+    >
+      <Drawer.Content>
+        <Drawer.Handle />
+        <div className="px-4 pb-5 pt-0">
+          <h3 className="mb-2 text-sm font-medium text-zinc-800">
+            sizing=[AUTO, 480, FULL] · skeleton, then taller
+          </h3>
+          <p className="mb-3 text-xs text-zinc-500">
+            Default opens at 480px. Drag down to land on the AUTO slot
+            (content-fit) — its height grows when the fetch completes. Drag up
+            to FULL — panel should land cleanly with no slow upward drift.
+          </p>
+          {loading ? (
+            <div
+              className="space-y-2"
+              role="status"
+              aria-live="polite"
+              aria-busy="true"
+            >
+              <div className="h-3 w-2/3 max-w-sm animate-pulse rounded bg-zinc-200" />
+              <div className="h-3 w-1/2 max-w-xs animate-pulse rounded bg-zinc-200" />
+              <div className="h-3 w-3/5 max-w-sm animate-pulse rounded bg-zinc-200" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {(['s1', 's2', 's3', 's4'] as const).map((id, i) => (
+                <p key={id} className="text-sm leading-relaxed text-zinc-600">
+                  Loaded section {i + 1} — content is now taller. The AUTO slot
+                  tracks this height; the 480 and FULL stops do not.
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      </Drawer.Content>
+    </Drawer>
+  )
+}
+
 type StandardScenario = Exclude<
   ScenarioId,
-  'imperative' | 'controlledSnap' | 'autoLoading'
+  | 'imperative'
+  | 'controlledSnap'
+  | 'autoLoading'
+  | 'snapsLoadingTallerThanContent'
 >
 
 function getScenarioDrawer(
@@ -560,6 +655,15 @@ export function PlaygroundApp() {
         />
       )
     }
+    if (scenario === 'snapsLoadingTallerThanContent') {
+      return (
+        <SnapsLoadingTallerThanContentDemo
+          open={open}
+          onOpenChange={handleOpenChange}
+          onLog={pushLog}
+        />
+      )
+    }
     const { drawer: d, children } = getScenarioDrawer(scenario, () =>
       handleOpenChange(false),
     )
@@ -616,6 +720,11 @@ export function PlaygroundApp() {
           title="AUTO — loading then taller"
           description="Two-line skeleton for ~1.5s, then more copy; sheet height should follow."
           onOpen={() => openScenario('autoLoading')}
+        />
+        <Panel
+          title="Mixed: AUTO + pixel + FULL snaps"
+          description="sizing=[AUTO, 480, FULL] with a skeleton→taller content swap. AUTO slot tracks measured content; 480/FULL stay above it."
+          onOpen={() => openScenario('snapsLoadingTallerThanContent')}
         />
         <Panel
           title="FULL"
