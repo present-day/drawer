@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { createRef } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { DRAWER_SIZING } from '../constants'
 import type { DrawerRef } from '../types'
 import { Drawer } from './Drawer'
 
@@ -14,7 +13,7 @@ describe('Drawer', () => {
       <Drawer
         open={false}
         onOpenChange={onOpenChange}
-        sizing={DRAWER_SIZING.FULL}
+        snapPoints={['full']}
       >
         <Drawer.Content>Panel</Drawer.Content>
       </Drawer>,
@@ -27,7 +26,7 @@ describe('Drawer', () => {
     const user = userEvent.setup()
 
     render(
-      <Drawer open onOpenChange={onOpenChange} sizing={DRAWER_SIZING.FULL}>
+      <Drawer open onOpenChange={onOpenChange} snapPoints={['full']}>
         <Drawer.Content>
           <Drawer.Handle />
           <span>Hello drawer</span>
@@ -57,7 +56,7 @@ describe('Drawer', () => {
     const ref = createRef<DrawerRef>()
 
     render(
-      <Drawer ref={ref} open onOpenChange={onOpenChange} sizing={[0.5]}>
+      <Drawer ref={ref} open onOpenChange={onOpenChange} snapPoints={[0.5]}>
         <Drawer.Content>Ref test</Drawer.Content>
       </Drawer>,
     )
@@ -79,7 +78,7 @@ describe('Drawer', () => {
       <Drawer
         open
         onOpenChange={vi.fn()}
-        sizing={DRAWER_SIZING.FULL}
+        snapPoints={['full']}
         title="Sheet title"
         description="Extra context for assistive tech"
       >
@@ -105,7 +104,7 @@ describe('Drawer', () => {
       <Drawer
         open
         onOpenChange={vi.fn()}
-        sizing={DRAWER_SIZING.FULL}
+        snapPoints={['full']}
         ariaLabel="Filters"
       >
         <Drawer.Content>Body</Drawer.Content>
@@ -120,7 +119,7 @@ describe('Drawer', () => {
     const onOpenChange = vi.fn()
     const user = userEvent.setup()
     render(
-      <Drawer open onOpenChange={onOpenChange} sizing={DRAWER_SIZING.FULL}>
+      <Drawer open onOpenChange={onOpenChange} snapPoints={['full']}>
         <Drawer.Content>Body</Drawer.Content>
       </Drawer>,
     )

@@ -1,11 +1,10 @@
 import {
-  DRAWER_SIZING,
   type DragEndInfo,
   Drawer,
   type DrawerProps,
   type DrawerRef,
   SNAP_POINT,
-  type SnapPointValue,
+  type SnapPoint,
 } from '@present-day/drawer'
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 
@@ -84,7 +83,7 @@ function searchWithListContent(kind: 'auto' | 'snaps') {
           {kind === 'auto' ? (
             <>
               Focus the field to show the on-screen keyboard. With{' '}
-              <code className="text-zinc-800">sizing=auto</code>, height follows
+              <code className="text-zinc-800">snapPoints=['auto']</code>, height follows
               content and the sheet should stay aligned above the keyboard.
             </>
           ) : (
@@ -170,9 +169,9 @@ function ImperativeDemo({
         key="imperative"
         open={open}
         onOpenChange={onOpenChange}
-        sizing={[0.35, 0.6, 0.9]}
+        snapPoints={[0.35, 0.6, 0.9]}
         title="Imperative API"
-        onSnapPointChange={(p, i) => onLog(`snap: raw=${p} index=${i}`)}
+        setActiveSnapPoint={(p, i) => onLog(`snap: raw=${p} index=${i}`)}
         onAnimationComplete={(p) => onLog(`anim done: ${p}`)}
         onDragEnd={(_e, info) =>
           onLog(
@@ -239,7 +238,7 @@ function ControlledSnapDemo({
   onOpenChange: (open: boolean) => void
   onLog: (line: string) => void
 }) {
-  const [active, setActive] = useState<SnapPointValue>(0.3)
+  const [active, setActive] = useState<SnapPoint>(0.3)
   return (
     <>
       {open ? (
@@ -268,12 +267,12 @@ function ControlledSnapDemo({
         key="controlled"
         open={open}
         onOpenChange={onOpenChange}
-        sizing={[0.25, 0.5, 0.75]}
+        snapPoints={[0.25, 0.5, 0.75]}
         defaultSnapPoint={0.3}
         activeSnapPoint={active}
-        onSnapPointChange={(p, i) => {
+        setActiveSnapPoint={(p, i) => {
           setActive(p)
-          onLog(`onSnapPointChange: raw=${p} i=${i}`)
+          onLog(`setActiveSnapPoint: raw=${p} i=${i}`)
         }}
       >
         {baseContent('Active snap is driven by the buttons in the top-right', [
@@ -314,9 +313,9 @@ function AutoLoadingDemo({
       key="auto-loading"
       open={open}
       onOpenChange={onOpenChange}
-      sizing={DRAWER_SIZING.AUTO}
+      snapPoints={['auto']}
       title="AUTO and async content"
-      onSnapPointChange={(p, i) => onLog(`onSnapPointChange: ${p} i=${i}`)}
+      setActiveSnapPoint={(p, i) => onLog(`setActiveSnapPoint: ${p} i=${i}`)}
       onAnimationComplete={(p) =>
         onLog(`onAnimationComplete: snap ${String(p)}`)
       }
@@ -355,7 +354,7 @@ function AutoLoadingDemo({
 }
 
 /**
- * Mixed sizing: `'auto'` as one snap, plus explicit pixel/full stops above it.
+ * Mixed snap points: `'auto'` as one snap, plus explicit pixel/full stops above it.
  * Demonstrates the loading→taller transition where the auto stop tracks the
  * measured content while the higher stops remain fixed and exceed the content.
  *
@@ -399,10 +398,10 @@ function SnapsLoadingTallerThanContentDemo({
       // the top stop fills the available drawer area ('full'). Default opens
       // at 480px — taller than the loading skeleton, so you can verify the
       // 'auto' slot moves in/out beneath the active snap as content settles.
-      sizing={[SNAP_POINT.AUTO, 480, DRAWER_SIZING.FULL]}
+      snapPoints={[SNAP_POINT.AUTO, 480, SNAP_POINT.FULL]}
       defaultSnapPoint={480}
-      title="Mixed sizing: AUTO + pixel + FULL"
-      onSnapPointChange={(p, i) => onLog(`onSnapPointChange: ${p} i=${i}`)}
+      title="Mixed snap points: AUTO + pixel + FULL"
+      setActiveSnapPoint={(p, i) => onLog(`setActiveSnapPoint: ${p} i=${i}`)}
       onAnimationComplete={(p) =>
         onLog(`onAnimationComplete: snap ${String(p)}`)
       }
@@ -411,7 +410,7 @@ function SnapsLoadingTallerThanContentDemo({
         <Drawer.Handle />
         <div className="px-4 pb-5 pt-0">
           <h3 className="mb-2 text-sm font-medium text-zinc-800">
-            sizing=[AUTO, 480, FULL] · skeleton, then taller
+            snapPoints=[AUTO, 480, FULL] · skeleton, then taller
           </h3>
           <p className="mb-3 text-xs text-zinc-500">
             Default opens at 480px. Drag down to land on the AUTO slot
@@ -468,7 +467,7 @@ function getScenarioDrawer(
     }
   > = {
     autoShort: {
-      drawer: { sizing: DRAWER_SIZING.AUTO },
+      drawer: { snapPoints: ['auto'] },
       children: baseContent('Content-sized (AUTO)', [
         <p key="1" className="text-sm text-zinc-600">
           A short body — height follows intrinsic content. Resize the window to
@@ -477,23 +476,25 @@ function getScenarioDrawer(
       ]),
     },
     autoLong: {
-      drawer: { sizing: DRAWER_SIZING.AUTO },
+      drawer: { snapPoints: ['auto'] },
       children: longScrollableContent(),
     },
     autoSearch: {
       drawer: {
-        sizing: DRAWER_SIZING.AUTO,
+        snapPoints: ['auto'],
         title: 'Search',
         description: 'AUTO height with a search field — keyboard test on iOS',
       },
       children: searchWithListContent('auto'),
     },
     full: {
-      drawer: { sizing: DRAWER_SIZING.FULL },
+      drawer: { snapPoints: ['full'] },
       children: longScrollableContent(),
     },
     snapsFractions: {
-      drawer: { sizing: [SNAP_POINT.PEEK, SNAP_POINT.HALF, SNAP_POINT.MAX] },
+      drawer: {
+        snapPoints: [SNAP_POINT.PEEK, SNAP_POINT.HALF, SNAP_POINT.MAX],
+      },
       children: baseContent('Fractions + px-style constants', [
         <p key="1" className="text-sm text-zinc-600">
           Snaps: PEEK (80px), HALF, MAX. Flick up/down to change stops.
@@ -501,7 +502,7 @@ function getScenarioDrawer(
       ]),
     },
     snapsPixels: {
-      drawer: { sizing: [140, 300, 480] },
+      drawer: { snapPoints: [140, 300, 480] },
       children: baseContent('Fixed pixel stops', [
         <p key="1" className="text-sm text-zinc-600">
           Values &gt; 1 are read as pixel heights. Try slow drags to land
@@ -511,7 +512,7 @@ function getScenarioDrawer(
     },
     snapsSearch: {
       drawer: {
-        sizing: [0.45, 0.75, 0.96],
+        snapPoints: [0.45, 0.75, 0.96],
         defaultSnapPoint: 0.75,
         title: 'Search',
         description: 'Fractional snaps with a search field',
@@ -519,7 +520,7 @@ function getScenarioDrawer(
       children: searchWithListContent('snaps'),
     },
     defaultSnap: {
-      drawer: { sizing: [0.2, 0.45, 0.7], defaultSnapPoint: 0.45 },
+      drawer: { snapPoints: [0.2, 0.45, 0.7], defaultSnapPoint: 0.45 },
       children: baseContent('Opens at middle (defaultSnapPoint=0.45)', [
         <p key="1" className="text-sm text-zinc-600">
           Close and re-open: intro animation should target the default stop.
@@ -527,7 +528,7 @@ function getScenarioDrawer(
       ]),
     },
     notDismissible: {
-      drawer: { sizing: [0.35, 0.65], dismissible: false },
+      drawer: { snapPoints: [0.35, 0.65], dismissible: false },
       children: baseContent('Cannot drag-dismiss', [
         <p key="1" className="text-sm text-zinc-600">
           Dragging below the lowest snap should not close the panel. Use the bar
@@ -544,7 +545,7 @@ function getScenarioDrawer(
       ]),
     },
     nonModal: {
-      drawer: { modal: false, sizing: DRAWER_SIZING.AUTO },
+      drawer: { modal: false, snapPoints: ['auto'] },
       children: baseContent(
         'Non-modal (no dimmer, no body lock by default pattern)',
         [
@@ -556,7 +557,7 @@ function getScenarioDrawer(
       ),
     },
     topInset0: {
-      drawer: { topInsetPx: 0, sizing: [0.35, 0.65, 0.92] },
+      drawer: { topInsetPx: 0, snapPoints: [0.35, 0.65, 0.92] },
       children: baseContent('topInsetPx = 0', [
         <p key="1" className="text-sm text-zinc-600">
           Full viewport height is available for snap math (no map chrome
@@ -568,7 +569,7 @@ function getScenarioDrawer(
       drawer: {
         title: 'Accessible title for screen readers',
         description: 'Optional description string linked to the dialog.',
-        sizing: [0.4, 0.7],
+        snapPoints: [0.4, 0.7],
       },
       children: baseContent('Visually plain content', [
         <p key="1" className="text-sm text-zinc-600">
@@ -607,9 +608,9 @@ export function PlaygroundApp() {
     pushLog(`open scenario: ${id}`)
   }
 
-  const onSnapPointChange = useCallback(
-    (p: SnapPointValue, i: number) => {
-      pushLog(`onSnapPointChange: raw=${p} index=${i}`)
+  const setActiveSnapPoint = useCallback(
+    (p: SnapPoint, i: number) => {
+      pushLog(`setActiveSnapPoint: raw=${p} index=${i}`)
     },
     [pushLog],
   )
@@ -673,7 +674,7 @@ export function PlaygroundApp() {
         open={open}
         onOpenChange={handleOpenChange}
         {...d}
-        onSnapPointChange={onSnapPointChange}
+        setActiveSnapPoint={setActiveSnapPoint}
         onDragEnd={onDragEnd}
         onAnimationComplete={(p) => pushLog(`onAnimationComplete: ${p}`)}
       >
@@ -723,7 +724,7 @@ export function PlaygroundApp() {
         />
         <Panel
           title="Mixed: AUTO + pixel + FULL snaps"
-          description="sizing=[AUTO, 480, FULL] with a skeleton→taller content swap. AUTO slot tracks measured content; 480/FULL stay above it."
+          description="snapPoints=[AUTO, 480, FULL] with a skeleton→taller content swap. AUTO slot tracks measured content; 480/FULL stay above it."
           onOpen={() => openScenario('snapsLoadingTallerThanContent')}
         />
         <Panel

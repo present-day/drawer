@@ -1,37 +1,40 @@
+import type { SnapPoint } from './types'
+
 /** Labels for `useDrawerContext` error messages (keep in sync with compound components). */
 export const DRAWER_CONTEXT_CONSUMER = {
   Content: 'Drawer.Content',
   Scrollable: 'Drawer.Scrollable',
 } as const
 
-/** Preset `sizing` modes for `Drawer` (content-sized, full height, or explicit snap array). */
-export const DRAWER_SIZING = {
-  AUTO: 'auto',
-  FULL: 'full',
-} as const
-
+/**
+ * Predefined snap points for the `Drawer`’s `snapPoints` prop.
+ *
+ * Each member is a {@link SnapPoint}: a pixel value (`> 1`), a fraction of
+ * available height (`≤ 1`), or one of the string tokens `'auto'` / `'full'`.
+ *
+ * - `AUTO` — content-fit (live `ResizeObserver` measurement)
+ * - `PEEK` — small fixed peek (80px)
+ * - `QUARTER` / `THIRD` / `HALF` / `TWO_THIRDS` / `THREE_QUARTERS` — fractions
+ * - `NEAR_FULL` — `0.9` of available height (was `SNAP_POINT.FULL` pre-v2)
+ * - `MAX` — full available drawer height as a fraction (`1`)
+ * - `FULL` — full available drawer height as a token; equivalent to `MAX`
+ *   but composes with mixed arrays like `['auto', 480, 'full']`
+ *
+ * @example
+ *   <Drawer snapPoints={[SNAP_POINT.AUTO, 480, SNAP_POINT.FULL]} />
+ */
 export const SNAP_POINT = {
+  AUTO: 'auto',
   PEEK: 80,
   QUARTER: 0.25,
   THIRD: 0.33,
   HALF: 0.5,
   TWO_THIRDS: 0.66,
   THREE_QUARTERS: 0.75,
-  FULL: 0.9,
+  NEAR_FULL: 0.9,
   MAX: 1,
-  /**
-   * Resolves to the measured intrinsic content height (the same value
-   * `DRAWER_SIZING.AUTO` produces). Use as one snap stop within a sizing
-   * array to mix a content-fit stop with explicit pixel/fraction stops:
-   * `sizing={[SNAP_POINT.AUTO, 480, DRAWER_SIZING.FULL]}`.
-   *
-   * Note: `DRAWER_SIZING.FULL` is also accepted inside the snap array (it
-   * resolves to the full available drawer height). It is intentionally not
-   * re-exported here as `SNAP_POINT.FULL` because `SNAP_POINT.FULL` already
-   * exists with a different value (`0.9`).
-   */
-  AUTO: 'auto',
-} as const
+  FULL: 'full',
+} as const satisfies Record<string, SnapPoint>
 
 export const SPRING_CONFIG = {
   default: { stiffness: 400, damping: 40, mass: 1 },

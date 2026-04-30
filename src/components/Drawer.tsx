@@ -25,7 +25,6 @@ import {
 import { createPortal } from 'react-dom'
 import {
   DRAWER_DRAG_SLOP_PX,
-  DRAWER_SIZING,
   DRAWER_TOP_INSET_PX,
   RUBBER_BAND_FACTOR,
   SPRING_CONFIG,
@@ -38,8 +37,10 @@ import type {
   DragEndInfo,
   DrawerProps,
   DrawerRef,
-  SnapPointValue,
+  SnapPoint,
 } from '../types'
+
+const DEFAULT_SNAP_POINTS: readonly SnapPoint[] = ['auto']
 import { cn, getLockCount, lockBody, unlockBody } from '../utils'
 import { DrawerContent } from './drawer/DrawerContent'
 import { DrawerHandle } from './drawer/DrawerHandle'
@@ -51,14 +52,14 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const {
       open,
       onOpenChange,
-      sizing = DRAWER_SIZING.AUTO,
+      snapPoints = DEFAULT_SNAP_POINTS,
       defaultSnapPoint,
       activeSnapPoint,
       dismissible = true,
       modal = true,
       topInsetPx = DRAWER_TOP_INSET_PX,
       children,
-      onSnapPointChange,
+      setActiveSnapPoint,
       onDragStart,
       onDrag,
       onDragEnd,
@@ -111,7 +112,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       resolveSnapToIndex,
       indexToRawValue,
     } = useDrawerSnap({
-      sizing,
+      snapPoints,
       viewportHeight: viewport.height || availableHeight,
       topInsetPx,
       defaultSnapPoint,
@@ -133,9 +134,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     // the rawValues memo invalidates) would clobber the mirror with the
     // new-position raw before the remap effect could read the old one.
     // Snapshotting the prior array sidesteps that ordering hazard entirely.
-    const prevRawSnapValuesRef = useRef<readonly SnapPointValue[] | null>(
-      null,
-    )
+    const prevRawSnapValuesRef = useRef<readonly SnapPoint[] | null>(null)
     const prevSnapIndexRef = useRef<number>(defaultIndex)
     const heightMv = useMotionValue(0)
     const dragHeightStartRef = useRef(0)
@@ -245,7 +244,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             new PointerEvent('pointerup') as unknown as PointerEvent,
             dragInfo,
           )
-          onSnapPointChange?.(raw, nextIdx)
+          setActiveSnapPoint?.(raw, nextIdx)
         }
 
         animate(heightMv, targetH, {
@@ -264,7 +263,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         onAnimationComplete,
         onAnimationStart,
         onDragEnd,
-        onSnapPointChange,
+        setActiveSnapPoint,
         snapHeights,
         spring,
         updateProgress,
@@ -388,9 +387,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const prevRaw = prevArr?.[prevIdx]
         if (prevRaw !== undefined) {
           const newIdx = rawSnapValues.indexOf(prevRaw)
-          // -1: previous raw is gone (sizing prop changed). Leave snapIndex
-          // alone — the resnap / activeSnapPoint effects will land it
-          // somewhere sensible.
+          // -1: previous raw is gone (snapPoints prop changed). Leave
+          // snapIndex alone — the resnap / activeSnapPoint effects will land
+          // it somewhere sensible.
           if (newIdx >= 0 && newIdx !== snapIndex) {
             setSnapIndex(newIdx)
           }
@@ -401,7 +400,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       prevSnapIndexRef.current = snapIndex
     }, [rawSnapValues, snapIndex])
 
-    const lastActiveSnapRef = useRef<SnapPointValue | undefined>(undefined)
+    const lastActiveSnapRef = useRef<SnapPoint | undefined>(undefined)
     useEffect(() => {
       if (!open) {
         lastActiveSnapRef.current = undefined
@@ -574,7 +573,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     useImperativeHandle(
       ref,
       () => ({
-        snapTo: (point: SnapPointValue) => {
+        snapTo: (point: SnapPoint) => {
           const idx = resolveSnapToIndex(point)
           setSnapIndex(idx)
           snapToHeightAnimated(idx)

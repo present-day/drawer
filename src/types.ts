@@ -1,7 +1,5 @@
 import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
 
-import type { DRAWER_SIZING } from './constants'
-
 /**
  * Optional class names applied from `Drawer`’s `slots` prop. Merge order for each
  * part is: package defaults → `slots.*` → part’s own `className` (and handle’s
@@ -14,28 +12,45 @@ export type DrawerSlots = {
 }
 
 /**
- * A snap point. Numeric values are fractions of available height when ≤ 1
- * and pixel heights when > 1. The string literals match
- * {@link DRAWER_SIZING}: `'auto'` resolves to the measured intrinsic content
- * height (live, via `ResizeObserver`); `'full'` resolves to the full available
- * drawer height (viewport minus top inset).
+ * A single snap point.
+ *
+ * - `number` ≤ 1 → fraction of available drawer height (e.g. `0.5` is half)
+ * - `number` > 1 → pixel height (e.g. `480` is 480px)
+ * - `'auto'`     → measured intrinsic content height (live, via `ResizeObserver`)
+ * - `'full'`     → full available drawer height (viewport minus top inset)
+ *
+ * Use as elements of `Drawer`’s `snapPoints` array, or as the type of a
+ * `defaultSnapPoint` / `activeSnapPoint` value.
  */
-export type SnapPointValue = number | 'auto' | 'full'
-
-export type DrawerSizingPreset =
-  (typeof DRAWER_SIZING)[keyof typeof DRAWER_SIZING]
-
-export type DrawerSizing = DrawerSizingPreset | SnapPointValue[]
+export type SnapPoint = number | 'auto' | 'full'
 
 export interface DrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** `DRAWER_SIZING.AUTO` = content-sized (default), `FULL` = 100% height, or explicit snap array */
-  sizing?: DrawerSizing
-  /** Which snap to open to. Ignored for `DRAWER_SIZING.AUTO` / `FULL` */
-  defaultSnapPoint?: SnapPointValue
-  /** Controlled snap point (raw value, same encoding as sizing array) */
-  activeSnapPoint?: SnapPointValue
+  /**
+   * Snap stops, evaluated bottom-to-top after sorting by resolved pixel height.
+   * Defaults to `['auto']` — the drawer height follows the intrinsic content
+   * height. Pass `['full']` for a single full-height drawer, or mix tokens
+   * with numeric stops, e.g. `['auto', 480, 'full']`.
+   */
+  snapPoints?: SnapPoint[]
+  /**
+   * Which snap to open to. When omitted, opens at the largest stop.
+   */
+  defaultSnapPoint?: SnapPoint
+  /**
+   * Controlled active snap point. Pair with `setActiveSnapPoint` to fully
+   * control snap state from outside the component.
+   */
+  activeSnapPoint?: SnapPoint
+  /**
+   * Called whenever the active snap point changes — from drag, ref controls,
+   * `defaultSnapPoint` resolution, or programmatic `activeSnapPoint` updates.
+   * Named to match the controlled-state setter convention used by Vaul / the
+   * shadcn drawer (`setActiveSnapPoint(point)`); we additionally pass the
+   * resolved index for callers that need it.
+   */
+  setActiveSnapPoint?: (point: SnapPoint, index: number) => void
   /** Drag below lowest snap dismisses the drawer (default true) */
   dismissible?: boolean
   /** Show overlay + lock body scroll (default true) */
@@ -82,7 +97,6 @@ export interface DrawerProps {
    */
   slots?: DrawerSlots
 
-  onSnapPointChange?: (snapPoint: SnapPointValue, index: number) => void
   onDragStart?: (
     event: MouseEvent | TouchEvent | PointerEvent,
     info: DragInfo,
@@ -96,16 +110,16 @@ export interface DrawerProps {
     info: DragEndInfo,
   ) => void
   onAnimationStart?: (from: number, to: number) => void
-  onAnimationComplete?: (snapPoint: SnapPointValue) => void
+  onAnimationComplete?: (snapPoint: SnapPoint) => void
   onViewportChange?: (viewport: ViewportInfo) => void
 }
 
 export interface DrawerRef {
-  snapTo: (point: SnapPointValue) => void
+  snapTo: (point: SnapPoint) => void
   expand: () => void
   collapse: () => void
   dismiss: () => void
-  getActiveSnapPoint: () => SnapPointValue | null
+  getActiveSnapPoint: () => SnapPoint | null
   getHeight: () => number
 }
 
@@ -116,7 +130,7 @@ export interface DragInfo {
 }
 
 export interface DragEndInfo extends DragInfo {
-  targetSnapPoint: SnapPointValue
+  targetSnapPoint: SnapPoint
 }
 
 export interface ViewportInfo {

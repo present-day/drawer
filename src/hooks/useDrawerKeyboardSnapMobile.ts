@@ -3,7 +3,7 @@
 import { type RefObject, useCallback, useEffect, useRef } from 'react'
 
 import { SNAP_POINT } from '../constants'
-import type { DrawerRef, SnapPointValue, ViewportInfo } from '../types'
+import type { DrawerRef, SnapPoint, ViewportInfo } from '../types'
 
 type Options = {
   open: boolean
@@ -21,10 +21,10 @@ export function useDrawerKeyboardSnapMobile({
   drawerRef,
 }: Options) {
   const wasKeyboardOpenRef = useRef(false)
-  // SnapPointValue widened to include `'auto'` / `'full'` — the saved snap
+  // `SnapPoint` is widened to include `'auto'` / `'full'` — the saved snap
   // could be either a numeric stop or one of those tokens, so the restore
   // target must also accept the broader type.
-  const snapBeforeKeyboardRef = useRef<SnapPointValue | null>(null)
+  const snapBeforeKeyboardRef = useRef<SnapPoint | null>(null)
 
   useEffect(() => {
     if (!open || !isMobile) {

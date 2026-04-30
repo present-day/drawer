@@ -2,14 +2,13 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { createRef } from 'react'
 import { describe, expect, it } from 'vitest'
 
-import { DRAWER_SIZING } from '../constants'
 import { useDrawerSnap } from './useDrawerSnap'
 
 describe('useDrawerSnap (hook)', () => {
   it('exposes defaultIndex 0 when there are no snap heights', () => {
     const { result } = renderHook(() =>
       useDrawerSnap({
-        sizing: [],
+        snapPoints: [],
         viewportHeight: 800,
         topInsetPx: 0,
         defaultSnapPoint: 0.5,
@@ -23,7 +22,7 @@ describe('useDrawerSnap (hook)', () => {
   it('returns null from indexToRawValue for an out-of-range index', () => {
     const { result } = renderHook(() =>
       useDrawerSnap({
-        sizing: [0.2, 0.4, 0.6],
+        snapPoints: [0.2, 0.4, 0.6],
         viewportHeight: 800,
         topInsetPx: 0,
         contentMeasureRef: { current: null },
@@ -35,7 +34,7 @@ describe('useDrawerSnap (hook)', () => {
   it('finds a snap index for a raw snap point', () => {
     const { result } = renderHook(() =>
       useDrawerSnap({
-        sizing: [0.25, 0.75],
+        snapPoints: [0.25, 0.75],
         viewportHeight: 800,
         topInsetPx: 0,
         contentMeasureRef: { current: null },
@@ -47,7 +46,7 @@ describe('useDrawerSnap (hook)', () => {
     expect(idx1).toBe(1)
   })
 
-  it('wires AUTO sizing to ResizeObserver on the content element', async () => {
+  it("wires ['auto'] to ResizeObserver on the content element", async () => {
     const prevRo = globalThis.ResizeObserver
     const Obs = class {
       _cb: ResizeObserverCallback
@@ -81,7 +80,7 @@ describe('useDrawerSnap (hook)', () => {
 
       const { result } = renderHook(() =>
         useDrawerSnap({
-          sizing: DRAWER_SIZING.AUTO,
+          snapPoints: ['auto'],
           viewportHeight: 800,
           topInsetPx: 0,
           contentMeasureRef: ref,
@@ -100,7 +99,7 @@ describe('useDrawerSnap (hook)', () => {
   it('defaultIndex is the last snap when defaultSnapPoint is omitted', () => {
     const { result } = renderHook(() =>
       useDrawerSnap({
-        sizing: [0.1, 0.3, 0.5],
+        snapPoints: [0.1, 0.3, 0.5],
         viewportHeight: 800,
         topInsetPx: 0,
         contentMeasureRef: { current: null },
@@ -111,10 +110,10 @@ describe('useDrawerSnap (hook)', () => {
     expect(result.current.defaultIndex).toBe(n - 1)
   })
 
-  it('does not start ResizeObserver when the measure ref is null (AUTO)', () => {
+  it("does not start ResizeObserver when the measure ref is null (['auto'])", () => {
     const { result } = renderHook(() =>
       useDrawerSnap({
-        sizing: DRAWER_SIZING.AUTO,
+        snapPoints: ['auto'],
         viewportHeight: 800,
         topInsetPx: 0,
         contentMeasureRef: { current: null },
@@ -161,7 +160,7 @@ describe('useDrawerSnap (hook)', () => {
       const { result, rerender } = renderHook(
         ({ gen }: { gen: number }) =>
           useDrawerSnap({
-            sizing: DRAWER_SIZING.AUTO,
+            snapPoints: ['auto'],
             viewportHeight: 800,
             topInsetPx: 0,
             contentMeasureRef: ref,

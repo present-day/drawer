@@ -16,7 +16,6 @@ export { DrawerOverlay } from './components/drawer/DrawerOverlay'
 export { DrawerScrollable } from './components/drawer/DrawerScrollable'
 // Constants (for customization)
 export {
-  DRAWER_SIZING,
   DRAWER_TOP_INSET_PX,
   // Common constants
   SNAP_POINT,
@@ -44,10 +43,8 @@ export type {
   // Common types
   DragInfo,
   DrawerDragEvent,
-  DrawerSizing,
-  DrawerSizingPreset,
   DrawerSlots,
-  SnapPointValue,
+  SnapPoint,
   ViewportInfo,
 } from './types'
 

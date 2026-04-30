@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createRef } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { DRAWER_SIZING } from '../constants'
 import { emitVisualViewportEvent, setVisualViewportSize } from '../test/vv-mock'
 import type { DrawerRef } from '../types'
 import { forceUnlock, getLockCount, lockBody, unlockBody } from '../utils'
@@ -55,7 +54,7 @@ describe('Drawer (coverage)', () => {
       <Drawer
         open
         onOpenChange={onOpenChange}
-        sizing={[0.2, 0.4, 0.6]}
+        snapPoints={[0.2, 0.4, 0.6]}
         onViewportChange={onViewportChange}
         overlayClassName="ov-extra"
         activeSnapPoint={0.4}
@@ -90,7 +89,7 @@ describe('Drawer (coverage)', () => {
       <Drawer
         open
         onOpenChange={onOpenChange}
-        sizing={DRAWER_SIZING.FULL}
+        snapPoints={['full']}
         modal={false}
       >
         <Drawer.Content>nm</Drawer.Content>
@@ -101,7 +100,7 @@ describe('Drawer (coverage)', () => {
       <Drawer
         open={false}
         onOpenChange={onOpenChange}
-        sizing={DRAWER_SIZING.FULL}
+        snapPoints={['full']}
         modal={false}
       >
         <Drawer.Content>out</Drawer.Content>
@@ -122,7 +121,7 @@ describe('Drawer (coverage)', () => {
         open
         dismissible={false}
         onOpenChange={onOpenChange}
-        sizing={DRAWER_SIZING.FULL}
+        snapPoints={['full']}
       >
         <Drawer.Content>x</Drawer.Content>
       </Drawer>,
@@ -135,7 +134,7 @@ describe('Drawer (coverage)', () => {
   it('ignores drags on interactive nodes and on scrolled scroll regions, and right mouse button', async () => {
     const onOpenChange = vi.fn()
     render(
-      <Drawer open onOpenChange={onOpenChange} sizing={[0.3, 0.7]}>
+      <Drawer open onOpenChange={onOpenChange} snapPoints={[0.3, 0.7]}>
         <Drawer.Content>
           <button type="button">trap</button>
           <div data-drawer-no-drag>no</div>
@@ -183,7 +182,7 @@ describe('Drawer (coverage)', () => {
       <Drawer
         open
         onOpenChange={onOpenChange}
-        sizing={[0.25, 0.5, 0.75]}
+        snapPoints={[0.25, 0.5, 0.75]}
         onDragStart={onDragStart}
         onDrag={onDrag}
       >
@@ -213,7 +212,7 @@ describe('Drawer (coverage)', () => {
     const ref = createRef<DrawerRef>()
     const onOpenChange = vi.fn()
     render(
-      <Drawer ref={ref} open onOpenChange={onOpenChange} sizing={[0.1, 0.9]}>
+      <Drawer ref={ref} open onOpenChange={onOpenChange} snapPoints={[0.1, 0.9]}>
         <Drawer.Content>z</Drawer.Content>
       </Drawer>,
     )
@@ -233,7 +232,7 @@ describe('Drawer (coverage)', () => {
     setVisualViewportSize(900, 0)
     const onOpenChange = vi.fn()
     render(
-      <Drawer open onOpenChange={onOpenChange} sizing={[0.3, 0.6, 0.9]}>
+      <Drawer open onOpenChange={onOpenChange} snapPoints={[0.3, 0.6, 0.9]}>
         <Drawer.Content>q</Drawer.Content>
       </Drawer>,
     )
@@ -250,7 +249,7 @@ describe('Drawer (coverage)', () => {
     setVisualViewportSize(700, 10)
     const onOpenChange = vi.fn()
     render(
-      <Drawer open onOpenChange={onOpenChange} sizing={DRAWER_SIZING.FULL}>
+      <Drawer open onOpenChange={onOpenChange} snapPoints={['full']}>
         <Drawer.Content>kv</Drawer.Content>
       </Drawer>,
     )
