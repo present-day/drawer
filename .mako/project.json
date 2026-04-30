@@ -3,12 +3,8 @@
   "projectId": "project_1991475f-dc0a-4b38-ba98-6c3bb034410b",
   "root": ".",
   "displayName": "@present-day/drawer",
-  "frameworks": [
-    "vite-react"
-  ],
-  "languages": [
-    "typescript"
-  ],
+  "frameworks": ["vite-react"],
+  "languages": ["typescript"],
   "packageManager": "bun",
   "database": {
     "kind": "unknown",
@@ -23,11 +19,7 @@
     }
   },
   "indexing": {
-    "include": [
-      "docs",
-      "playground",
-      "src"
-    ],
+    "include": ["docs", "playground", "src"],
     "exclude": [
       ".mako",
       ".mako-ai",
@@ -40,10 +32,7 @@
   },
   "capabilities": {
     "supportLevel": "adapted",
-    "entryPoints": [
-      "src/index.ts",
-      "playground/src/main.tsx"
-    ],
+    "entryPoints": ["src/index.ts", "playground/src/main.tsx"],
     "middlewareFiles": [],
     "serverOnlyModules": [],
     "authGuardSymbols": []
