@@ -233,3 +233,6 @@ temp/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# SQLite
+*.db
