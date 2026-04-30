@@ -123,11 +123,20 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     // `snapIndex` is a numeric index into the px-sorted heights, but its
     // *meaning* is the raw stop the user picked (e.g. `'auto'`, `480`,
     // `'full'`). When 'auto' grows or shrinks the array re-sorts, and that
-    // same numeric index can suddenly point at a different raw stop. Mirror
-    // the active raw value so we can remap `snapIndex` by identity whenever
-    // the sort changes — the drawer should stay parked on the same logical
-    // stop, not silently switch beneath the user.
-    const lastRawSnapRef = useRef<SnapPointValue | null>(null)
+    // same numeric index can suddenly point at a different raw stop. The
+    // remap logic below preserves logical identity across resorts.
+    //
+    // We snapshot the previous `rawSnapValues` array (and the snapIndex it
+    // was associated with) instead of mirroring the active raw value into a
+    // separate ref. Mirroring would lose the old identity: any code path
+    // that recomputes `indexToRawValue` against the *new* array (e.g. when
+    // the rawValues memo invalidates) would clobber the mirror with the
+    // new-position raw before the remap effect could read the old one.
+    // Snapshotting the prior array sidesteps that ordering hazard entirely.
+    const prevRawSnapValuesRef = useRef<readonly SnapPointValue[] | null>(
+      null,
+    )
+    const prevSnapIndexRef = useRef<number>(defaultIndex)
     const heightMv = useMotionValue(0)
     const dragHeightStartRef = useRef(0)
 
@@ -355,27 +364,41 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       resnapReady,
     ])
 
-    // Keep `lastRawSnapRef` in lockstep with the active stop. Sets from
-    // intro / drag-end / activeSnapPoint / imperative API all flow through
-    // `setSnapIndex`, so this single effect captures every transition.
-    useEffect(() => {
-      lastRawSnapRef.current = indexToRawValue(snapIndex)
-    }, [snapIndex, indexToRawValue])
-
     // Remap `snapIndex` by raw identity whenever the resolved raw-values
     // array reorders. Without this, when 'auto' grows past a fixed stop and
     // the px-sorted arrays re-sort, the drawer silently switches stops just
     // because the same numeric index now refers to a different raw value.
+    //
+    // Identity is read from the *previous* rawSnapValues snapshot at the
+    // *previous* snapIndex — not from the new array — so reordering is
+    // detected correctly. Three transitions to consider:
+    //   - Pure resort (rawSnapValues changed, snapIndex unchanged): look up
+    //     the old raw in the new array and update snapIndex if it moved.
+    //   - Pure index change (intro / drag-end / snapTo): user/system picked
+    //     a new stop; do not remap, just record the new position.
+    //   - Both changed simultaneously: prefer the explicit snapIndex change
+    //     (the caller already chose against the new array contents).
     useEffect(() => {
-      const prevRaw = lastRawSnapRef.current
-      if (prevRaw === null) return
-      const newIdx = rawSnapValues.indexOf(prevRaw)
-      // -1: previous raw is no longer in the array (sizing prop changed).
-      // Leave snapIndex alone — the resnap effect / activeSnapPoint effect
-      // will pick a sensible position.
-      if (newIdx === -1) return
-      if (newIdx === snapIndex) return
-      setSnapIndex(newIdx)
+      const prevArr = prevRawSnapValuesRef.current
+      const prevIdx = prevSnapIndexRef.current
+      const arrayChanged = prevArr !== null && prevArr !== rawSnapValues
+      const indexChanged = prevIdx !== snapIndex
+
+      if (arrayChanged && !indexChanged) {
+        const prevRaw = prevArr?.[prevIdx]
+        if (prevRaw !== undefined) {
+          const newIdx = rawSnapValues.indexOf(prevRaw)
+          // -1: previous raw is gone (sizing prop changed). Leave snapIndex
+          // alone — the resnap / activeSnapPoint effects will land it
+          // somewhere sensible.
+          if (newIdx >= 0 && newIdx !== snapIndex) {
+            setSnapIndex(newIdx)
+          }
+        }
+      }
+
+      prevRawSnapValuesRef.current = rawSnapValues
+      prevSnapIndexRef.current = snapIndex
     }, [rawSnapValues, snapIndex])
 
     const lastActiveSnapRef = useRef<SnapPointValue | undefined>(undefined)
