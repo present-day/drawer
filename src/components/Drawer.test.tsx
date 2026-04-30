@@ -126,4 +126,123 @@ describe('Drawer', () => {
       expect(onOpenChange).toHaveBeenCalledWith(false)
     })
   })
+
+  describe('onClose transition semantics', () => {
+    it('does not call onClose when initially mounted with open=false', () => {
+      const onClose = vi.fn()
+      render(
+        <Drawer
+          open={false}
+          onOpenChange={vi.fn()}
+          onClose={onClose}
+          snapPoints={['full']}
+        >
+          <Drawer.Content>Body</Drawer.Content>
+        </Drawer>,
+      )
+      expect(onClose).not.toHaveBeenCalled()
+    })
+
+    it('calls onClose exactly once when controlled open transitions true → false', async () => {
+      const onClose = vi.fn()
+      const { rerender } = render(
+        <Drawer
+          open={true}
+          onOpenChange={vi.fn()}
+          onClose={onClose}
+          snapPoints={['full']}
+        >
+          <Drawer.Content>Body</Drawer.Content>
+        </Drawer>,
+      )
+      await screen.findByRole('dialog')
+      expect(onClose).not.toHaveBeenCalled()
+
+      rerender(
+        <Drawer
+          open={false}
+          onOpenChange={vi.fn()}
+          onClose={onClose}
+          snapPoints={['full']}
+        >
+          <Drawer.Content>Body</Drawer.Content>
+        </Drawer>,
+      )
+
+      await waitFor(() => {
+        expect(onClose).toHaveBeenCalledTimes(1)
+      })
+    })
+
+    it('does not call onClose on subsequent renders when already closed', async () => {
+      const onClose = vi.fn()
+      const { rerender } = render(
+        <Drawer
+          open={true}
+          onOpenChange={vi.fn()}
+          onClose={onClose}
+          snapPoints={['full']}
+        >
+          <Drawer.Content>Body</Drawer.Content>
+        </Drawer>,
+      )
+      await screen.findByRole('dialog')
+
+      rerender(
+        <Drawer
+          open={false}
+          onOpenChange={vi.fn()}
+          onClose={onClose}
+          snapPoints={['full']}
+        >
+          <Drawer.Content>Body</Drawer.Content>
+        </Drawer>,
+      )
+      await waitFor(() => {
+        expect(onClose).toHaveBeenCalledTimes(1)
+      })
+
+      // Re-render again while still closed — onClose must not fire again
+      rerender(
+        <Drawer
+          open={false}
+          onOpenChange={vi.fn()}
+          onClose={onClose}
+          snapPoints={['full']}
+        >
+          <Drawer.Content>Body</Drawer.Content>
+        </Drawer>,
+      )
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('calls onClose exactly once in the uncontrolled flow when closed via overlay click', async () => {
+      const onClose = vi.fn()
+      const onOpenChange = vi.fn()
+      const user = userEvent.setup()
+
+      render(
+        <Drawer
+          defaultOpen
+          onOpenChange={onOpenChange}
+          onClose={onClose}
+          snapPoints={['full']}
+        >
+          <Drawer.Content>Body</Drawer.Content>
+        </Drawer>,
+      )
+      await screen.findByRole('dialog')
+      expect(onClose).not.toHaveBeenCalled()
+
+      const [overlay] = screen.getAllByRole('button', { hidden: true })
+      if (!overlay) expect.fail('expected modal overlay button')
+      await user.click(overlay)
+
+      await waitFor(() => {
+        expect(onClose).toHaveBeenCalledTimes(1)
+      })
+      // Ensure no extra calls after the transition settles
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+  })
 })
