@@ -2,7 +2,6 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { createRef } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { DRAWER_SIZING } from '../../constants'
 import { Drawer } from '../Drawer'
 
 const slots = {
@@ -14,12 +13,7 @@ const slots = {
 describe('Drawer parts & slots', () => {
   it('applies slot class names in merge order: defaults → slots → part props', async () => {
     render(
-      <Drawer
-        open
-        onOpenChange={vi.fn()}
-        sizing={DRAWER_SIZING.FULL}
-        slots={slots}
-      >
+      <Drawer open onOpenChange={vi.fn()} snapPoints={['full']} slots={slots}>
         <Drawer.Content className="content-extra">
           <Drawer.Handle
             className="handle-extra"
@@ -49,7 +43,7 @@ describe('Drawer parts & slots', () => {
 
   it('renders custom handle children instead of the default bar', () => {
     render(
-      <Drawer open onOpenChange={vi.fn()} sizing={DRAWER_SIZING.FULL}>
+      <Drawer open onOpenChange={vi.fn()} snapPoints={['full']}>
         <Drawer.Content>
           <Drawer.Handle>
             <span data-testid="custom">grab</span>
@@ -67,7 +61,7 @@ describe('Drawer parts & slots', () => {
     const contentRef = createRef<HTMLDivElement>()
     const scrollRef = createRef<HTMLDivElement>()
     render(
-      <Drawer open onOpenChange={vi.fn()} sizing={DRAWER_SIZING.FULL}>
+      <Drawer open onOpenChange={vi.fn()} snapPoints={['full']}>
         <Drawer.Content ref={contentRef} data-testid="c">
           <Drawer.Scrollable ref={scrollRef}>a</Drawer.Scrollable>
         </Drawer.Content>
@@ -86,7 +80,7 @@ describe('Drawer parts & slots', () => {
     const handleCb = vi.fn()
     function ScrollWrapper() {
       return (
-        <Drawer open onOpenChange={vi.fn()} sizing={DRAWER_SIZING.FULL}>
+        <Drawer open onOpenChange={vi.fn()} snapPoints={['full']}>
           <Drawer.Content
             className="c2"
             ref={(el) => {

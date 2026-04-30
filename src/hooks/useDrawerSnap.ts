@@ -10,17 +10,16 @@ import {
 
 import {
   DISMISS_THRESHOLD_PX,
-  DRAWER_SIZING,
   DRAWER_TOP_INSET_PX,
   VELOCITY_THRESHOLD,
 } from '../constants'
-import type { DrawerSizing, SnapPointValue } from '../types'
+import type { SnapPoint } from '../types'
 
 /** Used only when we have not received a real measurement yet (0 / null). */
 const AUTO_FALLBACK_HEIGHT_PX = 0
 
 export function resolveSnapValueToPx(
-  value: SnapPointValue,
+  value: SnapPoint,
   availableHeight: number,
   measuredAutoHeight?: number | null,
 ): number {
@@ -42,18 +41,39 @@ export function resolveSnapValueToPx(
   return Math.max(0, Math.round(value))
 }
 
-export function resolveSizingToHeights(
-  sizing: DrawerSizing,
+/**
+ * Resolve a `snapPoints` array to ascending pixel heights and the raw values
+ * that produced them. The `'auto'` slot grows or shrinks with `measuredAutoHeight`;
+ * the `'full'` slot always equals the full available drawer height. Duplicate
+ * resolved heights are removed (first occurrence wins after sorting).
+ */
+export function resolveSnapPointsToHeights(
+  snapPoints: readonly SnapPoint[],
   availableHeight: number,
   measuredAutoHeight?: number | null,
-): { heights: number[]; rawValues: SnapPointValue[] } {
+): { heights: number[]; rawValues: SnapPoint[] } {
   const cap = Math.max(0, availableHeight)
 
-  if (sizing === DRAWER_SIZING.FULL) {
-    return { heights: [cap], rawValues: [1] }
+  // Empty array: caller passed `snapPoints={[]}` (rare but legal). Keep the
+  // hook output empty so the Drawer renders nothing snappable.
+  if (snapPoints.length === 0) {
+    return { heights: [], rawValues: [] }
   }
 
-  if (sizing === DRAWER_SIZING.AUTO) {
+  // Single 'auto' fast-path: this is the default sizing case. We don't take
+  // the generic path here because we want a 0 fallback height while the
+  // measurement is still pending — the generic path's dedupe-after-sort
+  // would still produce the same result, but this keeps the hot default
+  // free of array allocation/sort overhead.
+  //
+  // NOTE: rawValues preserves the original `'auto'` token (not the resolved
+  // pixel height). Downstream consumers — `getActiveSnapPoint()` and
+  // `useDrawerKeyboardSnapMobile` (saves the active snap before the keyboard
+  // opens, restores after it closes) — rely on the raw being `'auto'` so
+  // the slot continues to track measured content after restore. Returning
+  // the resolved pixel height here would freeze the stop at whatever size
+  // the content was at save time.
+  if (snapPoints.length === 1 && snapPoints[0] === 'auto') {
     const measured = Math.min(
       cap,
       Math.max(0, Math.round(measuredAutoHeight ?? 0)),
@@ -63,17 +83,17 @@ export function resolveSizingToHeights(
     // "minimum shelf" used when measured < 120px caused short content to
     // jump to 200px. `measured === 0` means layout has not reported size yet.
     const resolvedHeight = measured > 0 ? measured : fallback
-    return { heights: [resolvedHeight], rawValues: [resolvedHeight] }
+    return { heights: [resolvedHeight], rawValues: ['auto'] }
   }
 
-  const pairs = sizing.map((raw) => ({
+  const pairs = snapPoints.map((raw) => ({
     raw,
     px: resolveSnapValueToPx(raw, cap, measuredAutoHeight),
   }))
   pairs.sort((a, b) => a.px - b.px)
 
   const heights: number[] = []
-  const rawValues: SnapPointValue[] = []
+  const rawValues: SnapPoint[] = []
   for (const p of pairs) {
     if (!heights.includes(p.px)) {
       heights.push(p.px)
@@ -86,10 +106,10 @@ export function resolveSizingToHeights(
 
 export function heightToSnapRawValue(
   heightPx: number,
-  rawValues: SnapPointValue[],
+  rawValues: SnapPoint[],
   heights: number[],
   availableHeight: number,
-): SnapPointValue {
+): SnapPoint {
   const idx = heights.indexOf(heightPx)
   const rawAtHeight = rawValues[idx]
   if (idx >= 0 && rawAtHeight !== undefined) {
@@ -124,7 +144,7 @@ export function maxDescendantScrollOverflow(el: HTMLElement): number {
 }
 
 /**
- * Intrinsic height for {@link DRAWER_SIZING.AUTO}: sums each **direct** child’s
+ * Intrinsic height for the `'auto'` snap point: sums each **direct** child’s
  * layout block size, using `scrollHeight` for `[data-drawer-scroll]` so the
  * value reflects full scrollable content instead of the flex-clamped layout
  * height (which `ResizeObserver`’s `contentRect` on the content root tracks).
@@ -173,7 +193,9 @@ export function measureIntrinsicAutoHeight(root: HTMLElement): number {
       // `offsetHeight` so we don't inflate AUTO to the panel height for
       // children that currently stretch to fill it.
       const contribution =
-        withDescendantOverflow === 0 ? child.scrollHeight : withDescendantOverflow
+        withDescendantOverflow === 0
+          ? child.scrollHeight
+          : withDescendantOverflow
       sum += contribution
     }
   }
@@ -273,14 +295,29 @@ function nearestHeightIndex(
 
 /**
  * Pick snap index after drag end using velocity-weighted rules.
+ *
+ * When `snapToSequentialPoint` is true, fast swipes only advance one snap stop
+ * at a time rather than flying past intermediate stops. Slow drag (nearest-stop)
+ * is unaffected.
  */
 export function resolveSnapAfterDrag(args: {
   visibleHeight: number
   velocityY: number
   heightsAsc: number[]
   dismissible: boolean
+  /** Current snap index — required when `snapToSequentialPoint` is true. */
+  currentSnapIndex?: number
+  /** When true, velocity-based skipping is limited to one adjacent stop. */
+  snapToSequentialPoint?: boolean
 }): { type: 'snap'; index: number } | { type: 'dismiss' } {
-  const { visibleHeight, velocityY, heightsAsc, dismissible } = args
+  const {
+    visibleHeight,
+    velocityY,
+    heightsAsc,
+    dismissible,
+    currentSnapIndex,
+    snapToSequentialPoint,
+  } = args
   if (heightsAsc.length === 0) {
     return { type: 'dismiss' }
   }
@@ -303,6 +340,15 @@ export function resolveSnapAfterDrag(args: {
   }
 
   if (velocityY > VELOCITY_THRESHOLD) {
+    // Fast downward swipe.
+    if (snapToSequentialPoint && currentSnapIndex !== undefined) {
+      // Sequential mode: only go to the previous adjacent stop.
+      const prevIdx = currentSnapIndex - 1
+      if (prevIdx < 0) {
+        return dismissible ? { type: 'dismiss' } : { type: 'snap', index: 0 }
+      }
+      return { type: 'snap', index: prevIdx }
+    }
     const below = heightsAsc.filter((h) => h < visibleHeight - 16)
     if (below.length > 0) {
       const li = below.length - 1
@@ -317,6 +363,12 @@ export function resolveSnapAfterDrag(args: {
   }
 
   if (velocityY < -VELOCITY_THRESHOLD) {
+    // Fast upward swipe.
+    if (snapToSequentialPoint && currentSnapIndex !== undefined) {
+      // Sequential mode: only go to the next adjacent stop.
+      const nextIdx = Math.min(currentSnapIndex + 1, heightsAsc.length - 1)
+      return { type: 'snap', index: nextIdx }
+    }
     const above = heightsAsc.filter((h) => h > visibleHeight + 16)
     const targetAbove = above[0]
     if (targetAbove !== undefined) {
@@ -347,12 +399,12 @@ export function resolveSnapAfterDrag(args: {
 }
 
 export type UseDrawerSnapArgs = {
-  sizing: DrawerSizing
+  snapPoints: readonly SnapPoint[]
   /** Raw visual viewport height (before top inset) */
   viewportHeight: number
   /** Subtracted from viewport height for snap math; default map inset. */
   topInsetPx?: number
-  defaultSnapPoint?: SnapPointValue
+  defaultSnapPoint?: SnapPoint
   contentMeasureRef: RefObject<HTMLElement | null>
   /**
    * Bumped by the Drawer whenever the measure element attaches/detaches.
@@ -365,7 +417,7 @@ export type UseDrawerSnapArgs = {
 }
 
 export function useDrawerSnap({
-  sizing,
+  snapPoints,
   viewportHeight,
   topInsetPx = DRAWER_TOP_INSET_PX,
   defaultSnapPoint,
@@ -378,12 +430,10 @@ export function useDrawerSnap({
     null,
   )
 
-  // Measurement is needed both for `DRAWER_SIZING.AUTO` and for any explicit
-  // snap array that contains an `'auto'` slot (mixed-mode sizing). `'full'`
-  // does not need measurement since it always resolves to availableHeight.
-  const needsAutoMeasurement =
-    sizing === DRAWER_SIZING.AUTO ||
-    (Array.isArray(sizing) && sizing.includes('auto'))
+  // Measurement is needed any time `'auto'` appears in the snap array. Other
+  // tokens (`'full'`) and numeric stops are derivable from `availableHeight`
+  // alone.
+  const needsAutoMeasurement = snapPoints.includes('auto')
 
   useEffect(() => {
     if (!needsAutoMeasurement) return
@@ -405,8 +455,13 @@ export function useDrawerSnap({
   }, [contentMeasureRef, needsAutoMeasurement, measureAttachGeneration])
 
   const { heights, rawValues } = useMemo(
-    () => resolveSizingToHeights(sizing, availableHeight, measuredAutoHeight),
-    [sizing, availableHeight, measuredAutoHeight],
+    () =>
+      resolveSnapPointsToHeights(
+        snapPoints,
+        availableHeight,
+        measuredAutoHeight,
+      ),
+    [snapPoints, availableHeight, measuredAutoHeight],
   )
 
   const defaultIndex = useMemo(() => {
@@ -426,7 +481,7 @@ export function useDrawerSnap({
     rawSnapValues: rawValues,
     defaultIndex,
     resolveSnapToIndex: useCallback(
-      (point: SnapPointValue) => {
+      (point: SnapPoint) => {
         const target = resolveSnapValueToPx(
           point,
           availableHeight,
@@ -437,7 +492,7 @@ export function useDrawerSnap({
       [availableHeight, heights, measuredAutoHeight],
     ),
     indexToRawValue: useCallback(
-      (index: number): SnapPointValue | null => {
+      (index: number): SnapPoint | null => {
         const h = heights[index]
         if (h === undefined) return null
         return heightToSnapRawValue(h, rawValues, heights, availableHeight)

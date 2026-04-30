@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { DRAWER_SIZING, VELOCITY_THRESHOLD } from '../constants'
+import { VELOCITY_THRESHOLD } from '../constants'
 import {
   heightToSnapRawValue,
   maxDescendantScrollOverflow,
   measureIntrinsicAutoHeight,
-  resolveSizingToHeights,
   resolveSnapAfterDrag,
+  resolveSnapPointsToHeights,
   resolveSnapValueToPx,
 } from './useDrawerSnap'
 
@@ -143,45 +143,46 @@ describe('resolveSnapValueToPx', () => {
   })
 })
 
-describe('resolveSizingToHeights', () => {
-  it('FULL returns a single height capped to available space', () => {
-    const { heights, rawValues } = resolveSizingToHeights(
-      DRAWER_SIZING.FULL,
-      700,
-    )
-    expect(heights).toEqual([700])
-    expect(rawValues).toEqual([1])
+describe('resolveSnapPointsToHeights', () => {
+  it('returns empty arrays when given an empty snap array', () => {
+    const { heights, rawValues } = resolveSnapPointsToHeights([], 700)
+    expect(heights).toEqual([])
+    expect(rawValues).toEqual([])
   })
 
-  it('AUTO uses zero fallback when no measured height yet', () => {
-    const { heights } = resolveSizingToHeights(DRAWER_SIZING.AUTO, 800, null)
+  it("['full'] returns a single height capped to available space", () => {
+    const { heights, rawValues } = resolveSnapPointsToHeights(['full'], 700)
+    expect(heights).toEqual([700])
+    expect(rawValues).toEqual(['full'])
+  })
+
+  it("['auto'] uses zero fallback when no measured height yet", () => {
+    const { heights } = resolveSnapPointsToHeights(['auto'], 800, null)
     expect(heights.length).toBe(1)
     expect(heights[0]).toBe(0)
     expect(heights[0]).toBeLessThanOrEqual(800)
   })
 
-  it('AUTO uses a small positive measured height (no 200px minimum shelf)', () => {
-    const { heights, rawValues } = resolveSizingToHeights(
-      DRAWER_SIZING.AUTO,
-      800,
-      48,
-    )
+  it("['auto'] uses a small positive measured height (no 200px minimum shelf)", () => {
+    const { heights, rawValues } = resolveSnapPointsToHeights(['auto'], 800, 48)
     expect(heights).toEqual([48])
-    expect(rawValues).toEqual([48])
+    // raw stays as 'auto' so the slot keeps tracking the live measurement
+    // after restores (e.g. via useDrawerKeyboardSnapMobile).
+    expect(rawValues).toEqual(['auto'])
   })
 
-  it('AUTO uses measured height when content is substantial', () => {
-    const { heights, rawValues } = resolveSizingToHeights(
-      DRAWER_SIZING.AUTO,
+  it("['auto'] uses measured height when content is substantial", () => {
+    const { heights, rawValues } = resolveSnapPointsToHeights(
+      ['auto'],
       800,
       360,
     )
     expect(heights).toEqual([360])
-    expect(rawValues).toEqual([360])
+    expect(rawValues).toEqual(['auto'])
   })
 
   it('dedupes snap points and sorts ascending', () => {
-    const { heights, rawValues } = resolveSizingToHeights(
+    const { heights, rawValues } = resolveSnapPointsToHeights(
       [0.25, 0.5, 0.25, 0.75],
       400,
     )
@@ -190,7 +191,7 @@ describe('resolveSizingToHeights', () => {
   })
 
   it("array with 'auto' substitutes the measured content height", () => {
-    const { heights, rawValues } = resolveSizingToHeights(
+    const { heights, rawValues } = resolveSnapPointsToHeights(
       ['auto', 480, 0.92],
       1000,
       280,
@@ -201,21 +202,24 @@ describe('resolveSizingToHeights', () => {
   })
 
   it("array with 'full' resolves to the full available height", () => {
-    const { heights, rawValues } = resolveSizingToHeights(['full', 200], 800)
+    const { heights, rawValues } = resolveSnapPointsToHeights(
+      ['full', 200],
+      800,
+    )
     expect(heights).toEqual([200, 800])
     expect(rawValues).toEqual([200, 'full'])
   })
 
   it("'auto' inside an array updates as measured height changes", () => {
-    const { heights: a } = resolveSizingToHeights(['auto', 480], 800, 100)
-    const { heights: b } = resolveSizingToHeights(['auto', 480], 800, 600)
+    const { heights: a } = resolveSnapPointsToHeights(['auto', 480], 800, 100)
+    const { heights: b } = resolveSnapPointsToHeights(['auto', 480], 800, 600)
     expect(a).toEqual([100, 480])
     // 'auto' grew past 480; resort puts auto last
     expect(b).toEqual([480, 600])
   })
 
   it("'auto' caps at the available viewport even if measured is taller", () => {
-    const { heights } = resolveSizingToHeights(['auto', 0.5], 600, 1500)
+    const { heights } = resolveSnapPointsToHeights(['auto', 0.5], 600, 1500)
     // 'auto' clamped to 600, 0.5 -> 300
     expect(heights).toEqual([300, 600])
   })

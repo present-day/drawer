@@ -58,7 +58,7 @@ function AdvancedExample() {
     <Drawer
       open={isOpen}
       onOpenChange={setIsOpen}
-      sizing={[0.3, 0.6, 0.9]} // 30%, 60%, 90% of screen height
+      snapPoints={[0.3, 0.6, 0.9]} // 30%, 60%, 90% of screen height
       defaultSnapPoint={0.6}
     >
       <Drawer.Content className="p-6">
@@ -159,22 +159,24 @@ When the drawer is **open**, it listens to `window.visualViewport` (`resize` and
 
 ### Drawer Props
 
-| Prop               | Type                      | Default  | Description                       |
-| ------------------ | ------------------------- | -------- | --------------------------------- |
-| `open`             | `boolean`                 | -        | Controls the open state           |
-| `onOpenChange`     | `(open: boolean) => void` | -        | Called when open state changes    |
-| `sizing`           | `DrawerSizing`            | `'auto'` | Snap point configuration          |
-| `defaultSnapPoint` | `number`                  | -        | Initial snap point                |
-| `dismissible`      | `boolean`                 | `true`   | Allow dismissing by dragging down; Escape closes when true |
-| `modal`            | `boolean`                 | `true`   | Show overlay and lock body scroll |
-| `focusTrap`        | `boolean`                 | `true`   | When `modal`, trap keyboard focus in the panel; set `false` to opt out |
-| `title`            | `ReactNode`               | -        | Screen-reader title (`aria-labelledby`); use for accessible name if you have no visible title |
-| `description`     | `ReactNode`               | -        | Optional; `aria-describedby`      |
-| `ariaLabel`        | `string`                  | -        | Alternative accessible name if `title` is omitted |
-| `overlayClassName` | `string`                  | -        | Merged with default modal overlay |
-| `slots`            | `DrawerSlots`             | -        | Optional class names for content / handle |
-| `topInsetPx`      | `number`                  | map inset | Pixels subtracted from visual height for snap math |
-| `onViewportChange` | `(viewport: ViewportInfo) => void` | - | Fired when the visual viewport updates while open; includes `layoutBottomInset`, `height`, `offsetTop`, `keyboardHeight`, `isKeyboardOpen` |
+| Prop                  | Type                                              | Default    | Description                       |
+| --------------------- | ------------------------------------------------- | ---------- | --------------------------------- |
+| `open`                | `boolean`                                         | -          | Controls the open state           |
+| `onOpenChange`        | `(open: boolean) => void`                         | -          | Called when open state changes    |
+| `snapPoints`          | `SnapPoint[]`                                     | `['auto']` | Snap stops; each entry is a fraction (`≤ 1`), pixel value (`> 1`), `'auto'`, or `'full'` |
+| `defaultSnapPoint`    | `SnapPoint`                                       | last stop  | Initial snap point                |
+| `activeSnapPoint`     | `SnapPoint`                                       | -          | Controlled active snap            |
+| `setActiveSnapPoint`  | `(point: SnapPoint, index: number) => void`       | -          | Called when the active snap changes (drag, ref controls, programmatic). Name matches Vaul / shadcn drawer; the `index` is provided as a convenience |
+| `dismissible`         | `boolean`                                         | `true`     | Allow dismissing by dragging down; Escape closes when true |
+| `modal`               | `boolean`                                         | `true`     | Show overlay and lock body scroll |
+| `focusTrap`           | `boolean`                                         | `true`     | When `modal`, trap keyboard focus in the panel; set `false` to opt out |
+| `title`               | `ReactNode`                                       | -          | Screen-reader title (`aria-labelledby`); use for accessible name if you have no visible title |
+| `description`         | `ReactNode`                                       | -          | Optional; `aria-describedby`      |
+| `ariaLabel`           | `string`                                          | -          | Alternative accessible name if `title` is omitted |
+| `overlayClassName`    | `string`                                          | -          | Merged with default modal overlay |
+| `slots`               | `DrawerSlots`                                     | -          | Optional class names for content / handle |
+| `topInsetPx`          | `number`                                          | map inset  | Pixels subtracted from visual height for snap math |
+| `onViewportChange`    | `(viewport: ViewportInfo) => void`                | -          | Fired when the visual viewport updates while open; includes `layoutBottomInset`, `height`, `offsetTop`, `keyboardHeight`, `isKeyboardOpen` |
 
 ### Components
 
@@ -185,12 +187,28 @@ When the drawer is **open**, it listens to `window.visualViewport` (`resize` and
 
 ## Migration
 
-Breaking changes: the `BottomSheet` compatibility layer and `BOTTOM_SHEET_*` names are removed. Use the `Drawer` API everywhere, and update any custom CSS or `data-*` hooks that targeted the old names.
+### v1 → v2
+
+The `sizing` prop and `DRAWER_SIZING` constant are removed in favor of a single, array-shaped `snapPoints` prop that aligns with [Vaul](https://vaul.emilkowal.ski) and [shadcn drawer](https://ui.shadcn.com/docs/components/drawer). See [`MIGRATION.md`](./MIGRATION.md) for a full diff and codemod-friendly find/replace list.
+
+Quick summary:
+
+- `sizing="auto"` → omit (now the default) or pass `snapPoints={['auto']}`
+- `sizing="full"` → `snapPoints={['full']}`
+- `sizing={[…]}` → `snapPoints={[…]}`
+- `onSnapPointChange` → `setActiveSnapPoint` (matches Vaul’s controlled-setter convention)
+- `SnapPointValue` type → `SnapPoint`
+- `DrawerSizing` / `DrawerSizingPreset` types removed
+- `SNAP_POINT.FULL` (was `0.9`) → either `SNAP_POINT.NEAR_FULL` (the same `0.9` value) or `SNAP_POINT.MAX` (`1`, full height). The new `SNAP_POINT.FULL` token resolves to `'full'`.
+
+### Earlier: BottomSheet → Drawer
+
+The `BottomSheet` compatibility layer and `BOTTOM_SHEET_*` names were removed in v1. Use the `Drawer` API everywhere, and update any custom CSS or `data-*` hooks that targeted the old names.
 
 - **Components**: `BottomSheet` → `Drawer`, `BottomSheetContent` / `Handle` / `Overlay` / `Scrollable` → the corresponding `Drawer*` exports, composed as `Drawer.Content` and `Drawer`’s other static properties.
 - **Context / hooks**: `useBottomSheetContext` → `useDrawerContext`, `useBottomSheetDrag` → `useDrawerDrag`, `useBottomSheetSnap` → `useDrawerSnap`, `useBottomSheetKeyboardSnapMobile` → `useDrawerKeyboardSnapMobile`. (There is no separate `BottomSheetContext` export; the underlying context is `DrawerContext` if you need it in advanced code.)
-- **Types**: all `BottomSheet*` types → the matching `Drawer*` / `*Drawer*` names (e.g. `BottomSheetProps` → `DrawerProps`, `BottomSheetRef` → `DrawerRef`, `BottomSheetSizing` → `DrawerSizing`).
-- **Constants**: `BOTTOM_SHEET_SIZING` → `DRAWER_SIZING`, `BOTTOM_SHEET_TOP_INSET_PX` → `DRAWER_TOP_INSET_PX`, `BOTTOM_SHEET_CONTEXT_CONSUMER` → `DRAWER_CONTEXT_CONSUMER` (kept in source; not re-exported from the package `index` — use `Drawer` and its parts in normal use), `BOTTOM_SHEET_DRAG_SLOP_PX` → `DRAWER_DRAG_SLOP_PX` (internal tuning constant).
+- **Types**: all `BottomSheet*` types → the matching `Drawer*` / `*Drawer*` names (e.g. `BottomSheetProps` → `DrawerProps`, `BottomSheetRef` → `DrawerRef`).
+- **Constants**: `BOTTOM_SHEET_TOP_INSET_PX` → `DRAWER_TOP_INSET_PX`, `BOTTOM_SHEET_CONTEXT_CONSUMER` → `DRAWER_CONTEXT_CONSUMER` (kept in source; not re-exported from the package `index` — use `Drawer` and its parts in normal use), `BOTTOM_SHEET_DRAG_SLOP_PX` → `DRAWER_DRAG_SLOP_PX` (internal tuning constant).
 - **Data attributes**: `data-bottom-sheet-scroll` → `data-drawer-scroll`, `data-bottom-sheet-no-drag` → `data-drawer-no-drag`.
 - **CSS custom properties** on the motion panel: `--bottom-sheet-height` → `--drawer-height`, `--bottom-sheet-progress` → `--drawer-progress`, `--bottom-sheet-available-height` → `--drawer-available-height`. New: `--drawer-layout-bottom-inset` (visual-viewport bottom anchoring; see *Mobile Safari, soft keyboard* above).
 
