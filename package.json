@@ -1,6 +1,6 @@
 {
   "name": "@present-day/drawer",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "description": "A flexible drawer component with smooth animations and snap points",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -15,6 +15,7 @@
     "playground:preview": "vite preview --config playground/vite.config.mts",
     "build": "tsup",
     "dev": "tsup --watch",
+    "prepublishOnly": "bun run build",
     "lint": "biome check .",
     "format": "biome check --write .",
     "type-check": "tsc --noEmit",
