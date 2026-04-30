@@ -36,6 +36,14 @@ export interface DrawerProps {
    */
   onOpenChange?: (open: boolean) => void
   /**
+   * Called whenever the drawer transitions from open to closed — whether
+   * triggered internally (drag-dismiss, overlay click, escape, `dismiss()`)
+   * or by the parent flipping a controlled `open` prop. Mirrors vaul's
+   * `onClose` for consumers that want a single hook for close-only side
+   * effects without filtering `onOpenChange`.
+   */
+  onClose?: () => void
+  /**
    * Initial open state for uncontrolled mode. Ignored when `open` is provided.
    */
   defaultOpen?: boolean

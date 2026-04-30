@@ -48,6 +48,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const {
       open: controlledOpen,
       onOpenChange: onOpenChangeProp,
+      onClose: onCloseProp,
       defaultOpen,
       snapPoints = DEFAULT_SNAP_POINTS,
       defaultSnapPoint,
@@ -88,6 +89,14 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       },
       [isControlled, onOpenChangeProp],
     )
+
+    const wasOpenRef = useRef(open)
+    useEffect(() => {
+      if (wasOpenRef.current && !open) {
+        onCloseProp?.()
+      }
+      wasOpenRef.current = open
+    }, [open, onCloseProp])
 
     const reduceMotion = useReducedMotion()
     const measureRef = useRef<HTMLDivElement>(null)

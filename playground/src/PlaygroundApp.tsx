@@ -30,6 +30,11 @@ type LogLine = { t: number; text: string }
 
 const LONG_ITEMS = Array.from({ length: 45 }, (_, i) => i + 1)
 
+// The package ships Drawer.Content bare (shadcn-style) — consumers pick a
+// surface color. The playground uses plain white so every scenario is
+// readable without each example having to repeat the className.
+const playgroundDrawerSlots = { contentClassName: 'bg-white' }
+
 function Panel({
   title,
   description,
@@ -170,6 +175,7 @@ function ImperativeDemo({
         key="imperative"
         open={open}
         onOpenChange={onOpenChange}
+        slots={playgroundDrawerSlots}
         snapPoints={[0.35, 0.6, 0.9]}
         title="Imperative API"
         setActiveSnapPoint={(p, i) => onLog(`snap: raw=${p} index=${i}`)}
@@ -268,6 +274,7 @@ function ControlledSnapDemo({
         key="controlled"
         open={open}
         onOpenChange={onOpenChange}
+        slots={playgroundDrawerSlots}
         snapPoints={[0.25, 0.5, 0.75]}
         defaultSnapPoint={0.5}
         activeSnapPoint={active}
@@ -314,6 +321,7 @@ function AutoLoadingDemo({
       key="auto-loading"
       open={open}
       onOpenChange={onOpenChange}
+      slots={playgroundDrawerSlots}
       snapPoints={['auto']}
       title="AUTO and async content"
       setActiveSnapPoint={(p, i) => onLog(`setActiveSnapPoint: ${p} i=${i}`)}
@@ -395,6 +403,7 @@ function SnapsLoadingTallerThanContentDemo({
       key="snaps-loading-taller-than-content"
       open={open}
       onOpenChange={onOpenChange}
+      slots={playgroundDrawerSlots}
       // First stop is content-fit ('auto'), second is a fixed pixel value, and
       // the top stop fills the available drawer area ('full'). Default opens
       // at 480px — taller than the loading skeleton, so you can verify the
@@ -674,6 +683,7 @@ export function PlaygroundApp() {
         key={scenario}
         open={open}
         onOpenChange={handleOpenChange}
+        slots={playgroundDrawerSlots}
         {...d}
         setActiveSnapPoint={setActiveSnapPoint}
         onDragEnd={onDragEnd}
