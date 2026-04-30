@@ -37,7 +37,7 @@ export const DrawerContent = forwardRef<HTMLDivElement, DrawerContentProps>(
         ref={setRefs}
         data-drawer-content
         className={cn(
-          'flex min-h-0 flex-1 touch-manipulation flex-col overscroll-y-none rounded-t-3xl bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.15)]',
+          'flex min-h-0 flex-1 touch-manipulation flex-col overscroll-y-none rounded-t-3xl',
           slots.contentClassName,
           className,
         )}

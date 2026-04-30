@@ -1,13 +1,12 @@
 import { type ClassValue, clsx } from 'clsx'
 
 let twMerge: ((input: string) => string) | undefined
-let isTwMergeInitialized = false
 let twMergeInitPromise: Promise<void> | undefined
 
 /**
- * Lazily resolve `tailwind-merge` (an optional peer dep). Safe to call many
- * times — the import is shared. Once it resolves, future `cn()` calls dedupe
- * Tailwind classes; until then they fall back to plain `clsx`.
+ * Eagerly resolve `tailwind-merge` (an optional peer dep) at module load time.
+ * Safe to call many times — the import is shared. Once it resolves, `cn()`
+ * calls dedupe Tailwind classes; until then they fall back to plain `clsx`.
  */
 function ensureTwMergeInit(): Promise<void> {
   if (twMergeInitPromise) return twMergeInitPromise
@@ -20,28 +19,24 @@ function ensureTwMergeInit(): Promise<void> {
       // the clsx-only fallback in `cn`.
       twMerge = undefined
     })
-    .finally(() => {
-      isTwMergeInitialized = true
-    })
   return twMergeInitPromise
 }
+
+// Kick off the import at module load time so tailwind-merge is ready before
+// the first render. By the time a user can physically open the drawer, the
+// async import (a few ms at most) will have resolved.
+void ensureTwMergeInit()
 
 /**
  * Opt-in: pre-warm tailwind-merge so the very first render can dedupe classes
  * synchronously. Optional — `cn()` works without it (the import kicks off
- * lazily on first use; renders before it resolves use the clsx-only fallback).
+ * eagerly at module load; renders before it resolves use the clsx-only fallback).
  */
 export async function initTailwindMerge(): Promise<void> {
   await ensureTwMergeInit()
 }
 
 export function cn(...inputs: ClassValue[]) {
-  // Kick off the dynamic import on first use; do not block rendering on it.
-  // Subsequent renders pick up `twMerge` once the promise has resolved.
-  if (!isTwMergeInitialized) {
-    void ensureTwMergeInit()
-  }
-
   const classes = clsx(inputs)
   return twMerge ? twMerge(classes) : classes
 }
