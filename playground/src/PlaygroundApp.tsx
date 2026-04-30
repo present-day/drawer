@@ -400,7 +400,7 @@ function SnapsLoadingTallerThanContentDemo({
       // at 480px — taller than the loading skeleton, so you can verify the
       // 'auto' slot moves in/out beneath the active snap as content settles.
       sizing={[SNAP_POINT.AUTO, 480, DRAWER_SIZING.FULL]}
-      defaultSnapPoint={SNAP_POINT.AUTO}
+      defaultSnapPoint={480}
       title="Mixed sizing: AUTO + pixel + FULL"
       onSnapPointChange={(p, i) => onLog(`onSnapPointChange: ${p} i=${i}`)}
       onAnimationComplete={(p) =>

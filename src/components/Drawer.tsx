@@ -104,17 +104,30 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         onViewportChange,
       })
 
-    const { snapHeights, defaultIndex, resolveSnapToIndex, indexToRawValue } =
-      useDrawerSnap({
-        sizing,
-        viewportHeight: viewport.height || availableHeight,
-        topInsetPx,
-        defaultSnapPoint,
-        contentMeasureRef: measureRef,
-        measureAttachGeneration,
-      })
+    const {
+      snapHeights,
+      rawSnapValues,
+      defaultIndex,
+      resolveSnapToIndex,
+      indexToRawValue,
+    } = useDrawerSnap({
+      sizing,
+      viewportHeight: viewport.height || availableHeight,
+      topInsetPx,
+      defaultSnapPoint,
+      contentMeasureRef: measureRef,
+      measureAttachGeneration,
+    })
 
     const [snapIndex, setSnapIndex] = useState(defaultIndex)
+    // `snapIndex` is a numeric index into the px-sorted heights, but its
+    // *meaning* is the raw stop the user picked (e.g. `'auto'`, `480`,
+    // `'full'`). When 'auto' grows or shrinks the array re-sorts, and that
+    // same numeric index can suddenly point at a different raw stop. Mirror
+    // the active raw value so we can remap `snapIndex` by identity whenever
+    // the sort changes — the drawer should stay parked on the same logical
+    // stop, not silently switch beneath the user.
+    const lastRawSnapRef = useRef<SnapPointValue | null>(null)
     const heightMv = useMotionValue(0)
     const dragHeightStartRef = useRef(0)
 
@@ -341,6 +354,29 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       updateProgress,
       resnapReady,
     ])
+
+    // Keep `lastRawSnapRef` in lockstep with the active stop. Sets from
+    // intro / drag-end / activeSnapPoint / imperative API all flow through
+    // `setSnapIndex`, so this single effect captures every transition.
+    useEffect(() => {
+      lastRawSnapRef.current = indexToRawValue(snapIndex)
+    }, [snapIndex, indexToRawValue])
+
+    // Remap `snapIndex` by raw identity whenever the resolved raw-values
+    // array reorders. Without this, when 'auto' grows past a fixed stop and
+    // the px-sorted arrays re-sort, the drawer silently switches stops just
+    // because the same numeric index now refers to a different raw value.
+    useEffect(() => {
+      const prevRaw = lastRawSnapRef.current
+      if (prevRaw === null) return
+      const newIdx = rawSnapValues.indexOf(prevRaw)
+      // -1: previous raw is no longer in the array (sizing prop changed).
+      // Leave snapIndex alone — the resnap effect / activeSnapPoint effect
+      // will pick a sensible position.
+      if (newIdx === -1) return
+      if (newIdx === snapIndex) return
+      setSnapIndex(newIdx)
+    }, [rawSnapValues, snapIndex])
 
     const lastActiveSnapRef = useRef<SnapPointValue | undefined>(undefined)
     useEffect(() => {
