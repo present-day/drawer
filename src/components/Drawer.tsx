@@ -251,9 +251,16 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     const introStartedRef = useRef(false)
     const [resnapReady, setResnapReady] = useState(false)
+    // Tracks the height the resnap effect last kicked off an animation toward.
+    // Used to avoid restarting the spring every frame when AUTO measurements
+    // wobble by a pixel or two while the panel is still animating — a
+    // continually re-targeted spring manifests as the drawer creeping upward
+    // 1px at a time.
+    const lastResnapTargetRef = useRef<number | null>(null)
     const resetDrawerMotionAfterExit = useCallback(() => {
       heightMv.set(0)
       updateProgress(0)
+      lastResnapTargetRef.current = null
     }, [heightMv, updateProgress])
 
     useEffect(() => {
@@ -304,6 +311,18 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const targetH = snapHeights[targetIdx] ?? minSnap
 
       if (Math.abs(heightMv.get() - targetH) < 2) return
+      // Already animating toward (effectively) this same target — let the
+      // current spring finish instead of restarting it with a near-identical
+      // goal. Without this, a measurement that wobbles by ~1px per frame
+      // re-fires `animate()` continuously and the spring never gets to
+      // overshoot/settle, producing a slow pixel-by-pixel drift.
+      if (
+        lastResnapTargetRef.current !== null &&
+        Math.abs(lastResnapTargetRef.current - targetH) < 2
+      ) {
+        return
+      }
+      lastResnapTargetRef.current = targetH
 
       animate(heightMv, targetH, {
         ...spring,

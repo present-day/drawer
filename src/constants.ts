@@ -19,6 +19,18 @@ export const SNAP_POINT = {
   THREE_QUARTERS: 0.75,
   FULL: 0.9,
   MAX: 1,
+  /**
+   * Resolves to the measured intrinsic content height (the same value
+   * `DRAWER_SIZING.AUTO` produces). Use as one snap stop within a sizing
+   * array to mix a content-fit stop with explicit pixel/fraction stops:
+   * `sizing={[SNAP_POINT.AUTO, 480, DRAWER_SIZING.FULL]}`.
+   *
+   * Note: `DRAWER_SIZING.FULL` is also accepted inside the snap array (it
+   * resolves to the full available drawer height). It is intentionally not
+   * re-exported here as `SNAP_POINT.FULL` because `SNAP_POINT.FULL` already
+   * exists with a different value (`0.9`).
+   */
+  AUTO: 'auto',
 } as const
 
 export const SPRING_CONFIG = {

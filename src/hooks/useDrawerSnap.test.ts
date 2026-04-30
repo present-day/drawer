@@ -127,6 +127,20 @@ describe('resolveSnapValueToPx', () => {
   it('treats values > 1 as pixel heights', () => {
     expect(resolveSnapValueToPx(320, 800)).toBe(320)
   })
+
+  it("'full' resolves to the full available height", () => {
+    expect(resolveSnapValueToPx('full', 800)).toBe(800)
+  })
+
+  it("'auto' resolves to measured content height (capped at viewport)", () => {
+    expect(resolveSnapValueToPx('auto', 800, 320)).toBe(320)
+    expect(resolveSnapValueToPx('auto', 400, 900)).toBe(400)
+  })
+
+  it("'auto' resolves to 0 when no measurement is available yet", () => {
+    expect(resolveSnapValueToPx('auto', 800, null)).toBe(0)
+    expect(resolveSnapValueToPx('auto', 800)).toBe(0)
+  })
 })
 
 describe('resolveSizingToHeights', () => {
@@ -173,6 +187,37 @@ describe('resolveSizingToHeights', () => {
     )
     expect(heights).toEqual([100, 200, 300])
     expect(rawValues).toEqual([0.25, 0.5, 0.75])
+  })
+
+  it("array with 'auto' substitutes the measured content height", () => {
+    const { heights, rawValues } = resolveSizingToHeights(
+      ['auto', 480, 0.92],
+      1000,
+      280,
+    )
+    // 'auto' -> 280, 480 -> 480, 0.92 -> 920; sorted ascending
+    expect(heights).toEqual([280, 480, 920])
+    expect(rawValues).toEqual(['auto', 480, 0.92])
+  })
+
+  it("array with 'full' resolves to the full available height", () => {
+    const { heights, rawValues } = resolveSizingToHeights(['full', 200], 800)
+    expect(heights).toEqual([200, 800])
+    expect(rawValues).toEqual([200, 'full'])
+  })
+
+  it("'auto' inside an array updates as measured height changes", () => {
+    const { heights: a } = resolveSizingToHeights(['auto', 480], 800, 100)
+    const { heights: b } = resolveSizingToHeights(['auto', 480], 800, 600)
+    expect(a).toEqual([100, 480])
+    // 'auto' grew past 480; resort puts auto last
+    expect(b).toEqual([480, 600])
+  })
+
+  it("'auto' caps at the available viewport even if measured is taller", () => {
+    const { heights } = resolveSizingToHeights(['auto', 0.5], 600, 1500)
+    // 'auto' clamped to 600, 0.5 -> 300
+    expect(heights).toEqual([300, 600])
   })
 })
 

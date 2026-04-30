@@ -22,7 +22,20 @@ const AUTO_FALLBACK_HEIGHT_PX = 0
 export function resolveSnapValueToPx(
   value: SnapPointValue,
   availableHeight: number,
+  measuredAutoHeight?: number | null,
 ): number {
+  // String tokens describe height policies, not literal numbers:
+  //   - 'auto' uses the live measured content height (capped at the viewport)
+  //   - 'full' uses the full available drawer height
+  if (value === 'auto') {
+    return Math.min(
+      Math.max(0, availableHeight),
+      Math.max(0, Math.round(measuredAutoHeight ?? 0)),
+    )
+  }
+  if (value === 'full') {
+    return Math.max(0, availableHeight)
+  }
   if (value <= 1) {
     return Math.max(0, Math.round(value * availableHeight))
   }
@@ -55,7 +68,7 @@ export function resolveSizingToHeights(
 
   const pairs = sizing.map((raw) => ({
     raw,
-    px: resolveSnapValueToPx(raw, cap),
+    px: resolveSnapValueToPx(raw, cap, measuredAutoHeight),
   }))
   pairs.sort((a, b) => a.px - b.px)
 
@@ -117,10 +130,14 @@ export function maxDescendantScrollOverflow(el: HTMLElement): number {
  * height (which `ResizeObserver`’s `contentRect` on the content root tracks).
  * Other direct children add **layout height plus** the max descendant
  * `(scrollHeight − clientHeight)` under that child so unmarked scroll areas
- * still expand AUTO. For non-scroll children we also take the maximum with
- * `scrollHeight` / bounding height so a flex child is not read as 0 when the
- * panel height is still animating (offsetHeight collapsed while the sheet is
- * short). Prefer `Drawer.Handle` and `Drawer.Scrollable` as direct children of
+ * still expand AUTO. For non-scroll children, when `offsetHeight` collapses to
+ * 0 (a flex child while the panel height is still animating short), fall back
+ * to `scrollHeight` so AUTO does not under-measure. We deliberately do NOT use
+ * `getBoundingClientRect().height` as a floor: for stretchy children that
+ * fill the panel, that value tracks the panel height and creates a feedback
+ * loop where the measured height grows in lockstep with the animating panel —
+ * the user-visible symptom is the drawer sliding upward pixel-by-pixel.
+ * Prefer `Drawer.Handle` and `Drawer.Scrollable` as direct children of
  * `Drawer.Content` when possible.
  */
 export function measureIntrinsicAutoHeight(root: HTMLElement): number {
@@ -130,15 +147,34 @@ export function measureIntrinsicAutoHeight(root: HTMLElement): number {
     if (!(child instanceof HTMLElement)) continue
     if (child.hasAttribute('data-drawer-scroll')) {
       sawScrollRegion = true
-      sum += child.scrollHeight
+      // When content overflows the scroll container, `scrollHeight` reports
+      // the natural overflow content size — exactly what AUTO wants in order
+      // to expand the drawer to fit. When content fits, however, `scrollHeight`
+      // equals `clientHeight`, which tracks the (possibly animating) container
+      // height. Using it directly there feeds the panel's height back into
+      // the measurement and produces a slow upward drift. In the no-overflow
+      // case sum the direct children's own offsetHeights so the measurement
+      // reflects intrinsic content rather than the stretched container.
+      const scrollOverflow = child.scrollHeight - child.clientHeight
+      if (scrollOverflow > 0) {
+        sum += child.scrollHeight
+      } else {
+        let inner = 0
+        for (const grand of child.children) {
+          if (grand instanceof HTMLElement) inner += grand.offsetHeight
+        }
+        sum += inner
+      }
     } else {
       const withDescendantOverflow =
         child.offsetHeight + maxDescendantScrollOverflow(child)
-      const fromIntrinsic = Math.max(
-        child.scrollHeight,
-        child.getBoundingClientRect().height,
-      )
-      sum += Math.max(withDescendantOverflow, fromIntrinsic)
+      // Only use scrollHeight as a fallback when the layout collapsed the
+      // child to 0 (flex item during the intro animation). Otherwise trust
+      // `offsetHeight` so we don't inflate AUTO to the panel height for
+      // children that currently stretch to fill it.
+      const contribution =
+        withDescendantOverflow === 0 ? child.scrollHeight : withDescendantOverflow
+      sum += contribution
     }
   }
   if (sawScrollRegion || sum > 0) {
@@ -342,8 +378,15 @@ export function useDrawerSnap({
     null,
   )
 
+  // Measurement is needed both for `DRAWER_SIZING.AUTO` and for any explicit
+  // snap array that contains an `'auto'` slot (mixed-mode sizing). `'full'`
+  // does not need measurement since it always resolves to availableHeight.
+  const needsAutoMeasurement =
+    sizing === DRAWER_SIZING.AUTO ||
+    (Array.isArray(sizing) && sizing.includes('auto'))
+
   useEffect(() => {
-    if (sizing !== DRAWER_SIZING.AUTO) return
+    if (!needsAutoMeasurement) return
     const el = contentMeasureRef.current
     if (!el) {
       setMeasuredAutoHeight(null)
@@ -351,9 +394,15 @@ export function useDrawerSnap({
     }
 
     return bindAutoMeasureObservers(el, (h) => {
-      setMeasuredAutoHeight(h)
+      // Hysteresis: ignore sub-pixel jitter (≤1px) so transient layout noise
+      // during the open animation doesn't churn `snapHeights` and re-target
+      // the resnap spring every frame.
+      setMeasuredAutoHeight((prev) => {
+        if (prev !== null && Math.abs(prev - h) <= 1) return prev
+        return h
+      })
     })
-  }, [contentMeasureRef, sizing, measureAttachGeneration])
+  }, [contentMeasureRef, needsAutoMeasurement, measureAttachGeneration])
 
   const { heights, rawValues } = useMemo(
     () => resolveSizingToHeights(sizing, availableHeight, measuredAutoHeight),
@@ -363,9 +412,13 @@ export function useDrawerSnap({
   const defaultIndex = useMemo(() => {
     if (heights.length === 0) return 0
     if (defaultSnapPoint === undefined) return heights.length - 1
-    const target = resolveSnapValueToPx(defaultSnapPoint, availableHeight)
+    const target = resolveSnapValueToPx(
+      defaultSnapPoint,
+      availableHeight,
+      measuredAutoHeight,
+    )
     return nearestHeightIndex(target, heights)
-  }, [heights, defaultSnapPoint, availableHeight])
+  }, [heights, defaultSnapPoint, availableHeight, measuredAutoHeight])
 
   return {
     availableHeight,
@@ -374,10 +427,14 @@ export function useDrawerSnap({
     defaultIndex,
     resolveSnapToIndex: useCallback(
       (point: SnapPointValue) => {
-        const target = resolveSnapValueToPx(point, availableHeight)
+        const target = resolveSnapValueToPx(
+          point,
+          availableHeight,
+          measuredAutoHeight,
+        )
         return nearestHeightIndex(target, heights)
       },
-      [availableHeight, heights],
+      [availableHeight, heights, measuredAutoHeight],
     ),
     indexToRawValue: useCallback(
       (index: number): SnapPointValue | null => {
