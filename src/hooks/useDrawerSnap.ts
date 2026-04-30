@@ -65,6 +65,14 @@ export function resolveSnapPointsToHeights(
   // measurement is still pending — the generic path's dedupe-after-sort
   // would still produce the same result, but this keeps the hot default
   // free of array allocation/sort overhead.
+  //
+  // NOTE: rawValues preserves the original `'auto'` token (not the resolved
+  // pixel height). Downstream consumers — `getActiveSnapPoint()` and
+  // `useDrawerKeyboardSnapMobile` (saves the active snap before the keyboard
+  // opens, restores after it closes) — rely on the raw being `'auto'` so
+  // the slot continues to track measured content after restore. Returning
+  // the resolved pixel height here would freeze the stop at whatever size
+  // the content was at save time.
   if (snapPoints.length === 1 && snapPoints[0] === 'auto') {
     const measured = Math.min(
       cap,
@@ -75,7 +83,7 @@ export function resolveSnapPointsToHeights(
     // "minimum shelf" used when measured < 120px caused short content to
     // jump to 200px. `measured === 0` means layout has not reported size yet.
     const resolvedHeight = measured > 0 ? measured : fallback
-    return { heights: [resolvedHeight], rawValues: [resolvedHeight] }
+    return { heights: [resolvedHeight], rawValues: ['auto'] }
   }
 
   const pairs = snapPoints.map((raw) => ({
@@ -185,7 +193,9 @@ export function measureIntrinsicAutoHeight(root: HTMLElement): number {
       // `offsetHeight` so we don't inflate AUTO to the panel height for
       // children that currently stretch to fill it.
       const contribution =
-        withDescendantOverflow === 0 ? child.scrollHeight : withDescendantOverflow
+        withDescendantOverflow === 0
+          ? child.scrollHeight
+          : withDescendantOverflow
       sum += contribution
     }
   }
@@ -416,7 +426,11 @@ export function useDrawerSnap({
 
   const { heights, rawValues } = useMemo(
     () =>
-      resolveSnapPointsToHeights(snapPoints, availableHeight, measuredAutoHeight),
+      resolveSnapPointsToHeights(
+        snapPoints,
+        availableHeight,
+        measuredAutoHeight,
+      ),
     [snapPoints, availableHeight, measuredAutoHeight],
   )
 

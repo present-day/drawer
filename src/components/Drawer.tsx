@@ -33,14 +33,10 @@ import { DrawerContext, type DrawerContextValue } from '../context'
 import { DrawerSlotsProvider } from '../drawerSlotsContext'
 import { resolveSnapAfterDrag, useDrawerSnap } from '../hooks/useDrawerSnap'
 import { useVisualViewport } from '../hooks/useVisualViewport'
-import type {
-  DragEndInfo,
-  DrawerProps,
-  DrawerRef,
-  SnapPoint,
-} from '../types'
+import type { DragEndInfo, DrawerProps, DrawerRef, SnapPoint } from '../types'
 
 const DEFAULT_SNAP_POINTS: readonly SnapPoint[] = ['auto']
+
 import { cn, getLockCount, lockBody, unlockBody } from '../utils'
 import { DrawerContent } from './drawer/DrawerContent'
 import { DrawerHandle } from './drawer/DrawerHandle'
@@ -227,12 +223,21 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       (
         nextIdx: number,
         dragMeta?: { velocityY: number; endY: number; progress: number },
+        // `notify: false` is used by the controlled-mode `activeSnapPoint`
+        // effect: there the parent is the source of truth and already knows
+        // which stop it asked for, so calling `setActiveSnapPoint` would be
+        // redundant (and risks a feedback loop for callers that derive other
+        // state from the callback).
+        notify: boolean = true,
       ) => {
         const targetH = snapHeights[nextIdx] ?? minSnap
         const fromH = heightMv.get()
         onAnimationStart?.(fromH, targetH)
 
         const raw = indexToRawValue(nextIdx)
+        if (raw !== null && notify) {
+          setActiveSnapPoint?.(raw, nextIdx)
+        }
         if (dragMeta && raw !== null) {
           const dragInfo: DragEndInfo = {
             y: dragMeta.endY,
@@ -244,7 +249,6 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             new PointerEvent('pointerup') as unknown as PointerEvent,
             dragInfo,
           )
-          setActiveSnapPoint?.(raw, nextIdx)
         }
 
         animate(heightMv, targetH, {
@@ -301,6 +305,15 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       if (introStartedRef.current) return
       introStartedRef.current = true
       setSnapIndex(defaultIndex)
+      // Notify controllers of the resolved opening stop. Important when the
+      // drawer opens uncontrolled or via `defaultSnapPoint`: the parent
+      // otherwise has no way to know which numerical/raw stop the intro
+      // animation actually targeted (e.g. a measured 'auto' height) until
+      // the user drags or hits a ref control.
+      const introRaw = indexToRawValue(defaultIndex)
+      if (introRaw !== null) {
+        setActiveSnapPoint?.(introRaw, defaultIndex)
+      }
       heightMv.set(0)
       updateProgress(0)
       animate(heightMv, h, {
@@ -317,6 +330,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       minSnap,
       snapHeights,
       heightMv,
+      indexToRawValue,
+      setActiveSnapPoint,
       spring,
       updateProgress,
     ])
@@ -413,7 +428,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       lastActiveSnapRef.current = activeSnapPoint
       const idx = resolveSnapToIndex(activeSnapPoint)
       setSnapIndex(idx)
-      snapToHeightAnimated(idx)
+      // Parent-driven change: skip the `setActiveSnapPoint` notification —
+      // the parent already knows it just set this value and will receive a
+      // redundant call (or worse, churn) if we echo it back.
+      snapToHeightAnimated(idx, undefined, /* notify */ false)
     }, [activeSnapPoint, open, resolveSnapToIndex, snapToHeightAnimated])
 
     useEffect(() => {

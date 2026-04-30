@@ -83,8 +83,9 @@ function searchWithListContent(kind: 'auto' | 'snaps') {
           {kind === 'auto' ? (
             <>
               Focus the field to show the on-screen keyboard. With{' '}
-              <code className="text-zinc-800">snapPoints=['auto']</code>, height follows
-              content and the sheet should stay aligned above the keyboard.
+              <code className="text-zinc-800">snapPoints=['auto']</code>, height
+              follows content and the sheet should stay aligned above the
+              keyboard.
             </>
           ) : (
             <>
@@ -238,7 +239,7 @@ function ControlledSnapDemo({
   onOpenChange: (open: boolean) => void
   onLog: (line: string) => void
 }) {
-  const [active, setActive] = useState<SnapPoint>(0.3)
+  const [active, setActive] = useState<SnapPoint>(0.5)
   return (
     <>
       {open ? (
@@ -268,7 +269,7 @@ function ControlledSnapDemo({
         open={open}
         onOpenChange={onOpenChange}
         snapPoints={[0.25, 0.5, 0.75]}
-        defaultSnapPoint={0.3}
+        defaultSnapPoint={0.5}
         activeSnapPoint={active}
         setActiveSnapPoint={(p, i) => {
           setActive(p)

@@ -89,13 +89,13 @@ import {
 } from '@present-day/drawer'
 
 const stops: DrawerSizing = ['auto', 480, 'full']
-const active = useState<SnapPointValue>(0.5)
+const [active, setActive] = useState<SnapPointValue>(0.5)
 
 // after
 import { type SnapPoint } from '@present-day/drawer'
 
 const stops: SnapPoint[] = ['auto', 480, 'full']
-const active = useState<SnapPoint>(0.5)
+const [active, setActive] = useState<SnapPoint>(0.5)
 ```
 
 ### 4. Update `SNAP_POINT.FULL` users

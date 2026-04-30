@@ -13,12 +13,7 @@ const slots = {
 describe('Drawer parts & slots', () => {
   it('applies slot class names in merge order: defaults → slots → part props', async () => {
     render(
-      <Drawer
-        open
-        onOpenChange={vi.fn()}
-        snapPoints={['full']}
-        slots={slots}
-      >
+      <Drawer open onOpenChange={vi.fn()} snapPoints={['full']} slots={slots}>
         <Drawer.Content className="content-extra">
           <Drawer.Handle
             className="handle-extra"

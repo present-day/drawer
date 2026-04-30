@@ -212,7 +212,12 @@ describe('Drawer (coverage)', () => {
     const ref = createRef<DrawerRef>()
     const onOpenChange = vi.fn()
     render(
-      <Drawer ref={ref} open onOpenChange={onOpenChange} snapPoints={[0.1, 0.9]}>
+      <Drawer
+        ref={ref}
+        open
+        onOpenChange={onOpenChange}
+        snapPoints={[0.1, 0.9]}
+      >
         <Drawer.Content>z</Drawer.Content>
       </Drawer>,
     )

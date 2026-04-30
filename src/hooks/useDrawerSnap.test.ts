@@ -166,7 +166,9 @@ describe('resolveSnapPointsToHeights', () => {
   it("['auto'] uses a small positive measured height (no 200px minimum shelf)", () => {
     const { heights, rawValues } = resolveSnapPointsToHeights(['auto'], 800, 48)
     expect(heights).toEqual([48])
-    expect(rawValues).toEqual([48])
+    // raw stays as 'auto' so the slot keeps tracking the live measurement
+    // after restores (e.g. via useDrawerKeyboardSnapMobile).
+    expect(rawValues).toEqual(['auto'])
   })
 
   it("['auto'] uses measured height when content is substantial", () => {
@@ -176,7 +178,7 @@ describe('resolveSnapPointsToHeights', () => {
       360,
     )
     expect(heights).toEqual([360])
-    expect(rawValues).toEqual([360])
+    expect(rawValues).toEqual(['auto'])
   })
 
   it('dedupes snap points and sorts ascending', () => {

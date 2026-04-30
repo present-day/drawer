@@ -10,11 +10,7 @@ describe('Drawer', () => {
   it('renders nothing when closed', () => {
     const onOpenChange = vi.fn()
     render(
-      <Drawer
-        open={false}
-        onOpenChange={onOpenChange}
-        snapPoints={['full']}
-      >
+      <Drawer open={false} onOpenChange={onOpenChange} snapPoints={['full']}>
         <Drawer.Content>Panel</Drawer.Content>
       </Drawer>,
     )
