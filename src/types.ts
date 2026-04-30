@@ -25,13 +25,25 @@ export type DrawerSlots = {
 export type SnapPoint = number | 'auto' | 'full'
 
 export interface DrawerProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  /**
+   * Controlled open state. Pair with `onOpenChange` for fully controlled mode.
+   * Omit (and use `defaultOpen`) for uncontrolled mode.
+   */
+  open?: boolean
+  /**
+   * Called when the drawer requests an open/close transition. Required in
+   * controlled mode; optional in uncontrolled mode.
+   */
+  onOpenChange?: (open: boolean) => void
+  /**
+   * Initial open state for uncontrolled mode. Ignored when `open` is provided.
+   */
+  defaultOpen?: boolean
   /**
    * Snap stops, evaluated bottom-to-top after sorting by resolved pixel height.
-   * Defaults to `['auto']` — the drawer height follows the intrinsic content
-   * height. Pass `['full']` for a single full-height drawer, or mix tokens
-   * with numeric stops, e.g. `['auto', 480, 'full']`.
+   * Defaults to `[‘auto’]` — the drawer height follows the intrinsic content
+   * height. Pass `[‘full’]` for a single full-height drawer, or mix tokens
+   * with numeric stops, e.g. `[‘auto’, 480, ‘full’]`.
    */
   snapPoints?: SnapPoint[]
   /**
@@ -61,6 +73,35 @@ export interface DrawerProps {
    * or manage focus yourself.
    */
   focusTrap?: boolean
+  /**
+   * When `true`, only a `Drawer.Handle` element can initiate a drag — touches
+   * on the rest of the content area are ignored. Useful when the content area
+   * contains its own gestures (e.g. a map or canvas).
+   */
+  handleOnly?: boolean
+  /**
+   * Index into `snapPoints` at which the overlay becomes fully opaque (0-based,
+   * evaluated against the px-sorted snap array). Below that snap the overlay
+   * fades in proportionally as the drawer rises. Omit for the default
+   * all-or-nothing overlay that fades over the open animation.
+   *
+   * @example
+   *   // snapPoints={[‘auto’, ‘full’]} — no overlay at ‘auto’, full overlay at ‘full’
+   *   fadeFromIndex={1}
+   */
+  fadeFromIndex?: number
+  /**
+   * Disables velocity-based snap-skipping: with a fast swipe the drawer only
+   * moves one snap stop at a time rather than flying past intermediate stops.
+   * Position-based snapping (slow drag, nearest-stop) is unaffected.
+   */
+  snapToSequentialPoint?: boolean
+  /**
+   * Set to `true` when this drawer is rendered inside another drawer. Stops
+   * pointer events from bubbling to the outer drawer’s drag handlers so the
+   * two drawers do not fight over the same gesture.
+   */
+  nested?: boolean
   /**
    * Accessible name when you do not pass `title` (e.g. a short label for screen
    * readers). Prefer `title` (or a visible title in content) for modal drawers.

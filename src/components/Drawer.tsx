@@ -46,8 +46,9 @@ import { DrawerScrollable } from './drawer/DrawerScrollable'
 const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
   function DrawerRoot(props, ref) {
     const {
-      open,
-      onOpenChange,
+      open: controlledOpen,
+      onOpenChange: onOpenChangeProp,
+      defaultOpen,
       snapPoints = DEFAULT_SNAP_POINTS,
       defaultSnapPoint,
       activeSnapPoint,
@@ -65,10 +66,28 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       overlayClassName,
       slots,
       focusTrap = true,
+      handleOnly = false,
+      fadeFromIndex,
+      snapToSequentialPoint = false,
+      nested = false,
       ariaLabel,
       title,
       description,
     } = props
+
+    // Uncontrolled open state — used when `open` is not provided.
+    const isControlled = controlledOpen !== undefined
+    const [uncontrolledOpen, setUncontrolledOpen] = useState(
+      () => defaultOpen ?? false,
+    )
+    const open = isControlled ? (controlledOpen as boolean) : uncontrolledOpen
+    const onOpenChange = useCallback(
+      (nextOpen: boolean) => {
+        if (!isControlled) setUncontrolledOpen(nextOpen)
+        onOpenChangeProp?.(nextOpen)
+      },
+      [isControlled, onOpenChangeProp],
+    )
 
     const reduceMotion = useReducedMotion()
     const measureRef = useRef<HTMLDivElement>(null)
@@ -296,23 +315,31 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         }
         return
       }
-      const h = snapHeights[defaultIndex] ?? minSnap
+      // Honor a controlled activeSnapPoint on open: use it as the intro target
+      // so we snap to the parent's requested stop, not just defaultIndex.
+      // Fall back to defaultIndex when activeSnapPoint is not provided.
+      const targetIndex =
+        activeSnapPoint != null
+          ? resolveSnapToIndex(activeSnapPoint)
+          : defaultIndex
+      const h = snapHeights[targetIndex]
       // Require a positive measurement; the previous `< 32` guard prevented
       // intro from starting for short content (e.g. AUTO with a tight loading
       // skeleton), which also blocked `resnapReady` and stopped the resnap
       // effect from animating to taller content once it loaded.
-      if (h <= 0) return
+      if (h === undefined || h <= 0) return
       if (introStartedRef.current) return
       introStartedRef.current = true
-      setSnapIndex(defaultIndex)
-      // Notify controllers of the resolved opening stop. Important when the
-      // drawer opens uncontrolled or via `defaultSnapPoint`: the parent
-      // otherwise has no way to know which numerical/raw stop the intro
-      // animation actually targeted (e.g. a measured 'auto' height) until
-      // the user drags or hits a ref control.
-      const introRaw = indexToRawValue(defaultIndex)
-      if (introRaw !== null) {
-        setActiveSnapPoint?.(introRaw, defaultIndex)
+      setSnapIndex(targetIndex)
+      // Notify controllers only in uncontrolled mode — if activeSnapPoint is
+      // already controlled the parent is the source of truth and already knows
+      // which stop was requested; echoing it back is redundant and risks a
+      // feedback loop for callers that derive other state from the callback.
+      if (activeSnapPoint == null) {
+        const introRaw = indexToRawValue(targetIndex)
+        if (introRaw !== null) {
+          setActiveSnapPoint?.(introRaw, targetIndex)
+        }
       }
       heightMv.set(0)
       updateProgress(0)
@@ -326,8 +353,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       })
     }, [
       open,
+      activeSnapPoint,
       defaultIndex,
-      minSnap,
+      resolveSnapToIndex,
       snapHeights,
       heightMv,
       indexToRawValue,
@@ -546,6 +574,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           velocityY,
           heightsAsc: snapHeights,
           dismissible,
+          currentSnapIndex: snapIndex,
+          snapToSequentialPoint,
         })
 
         if (decision.type === 'dismiss') {
@@ -582,7 +612,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         minSnap,
         onOpenChange,
         snapHeights,
+        snapIndex,
         snapToHeightAnimated,
+        snapToSequentialPoint,
         spring,
         updateProgress,
       ],
@@ -623,13 +655,20 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const shouldIgnorePointerTarget = useCallback(
       (target: EventTarget | null) => {
         if (!(target instanceof Element)) return true
-        return Boolean(
+        if (
           target.closest(
             'button, a, input, textarea, select, [contenteditable="true"], [data-drawer-no-drag]',
-          ),
-        )
+          )
+        ) {
+          return true
+        }
+        // handleOnly: only allow drag to start from within a Drawer.Handle element.
+        if (handleOnly && !target.closest('[data-drawer-handle]')) {
+          return true
+        }
+        return false
       },
-      [],
+      [handleOnly],
     )
 
     const handleDrawerPointerDown = useCallback(
@@ -750,6 +789,25 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       [heightMv, runSnapFromVisible],
     )
 
+    // Overlay opacity — when `fadeFromIndex` is set, the overlay fades in
+    // proportionally as the drawer rises from the stop below `fadeFromIndex`
+    // to `snapHeights[fadeFromIndex]`. Below that band the overlay is invisible;
+    // at or above it the overlay is fully opaque. When unset, the overlay uses
+    // the standard open/close animation (opacity 0 → 1).
+    //
+    // `heightState` updates every frame during drag (via `useMotionValueEvent`),
+    // so this memo tracks the current height without an additional motion value.
+    // The overlay uses `transition={{ duration: 0 }}` in this mode so the
+    // `animate` target jumps instantly to match without a trailing spring.
+    const overlayTargetOpacity = useMemo(() => {
+      if (fadeFromIndex === undefined) return 1
+      const upper = snapHeights[fadeFromIndex] ?? 0
+      const lower =
+        fadeFromIndex > 0 ? (snapHeights[fadeFromIndex - 1] ?? 0) : 0
+      if (upper <= lower) return 1
+      return Math.max(0, Math.min(1, (heightState - lower) / (upper - lower)))
+    }, [fadeFromIndex, snapHeights, heightState])
+
     if (!mounted) {
       return null
     }
@@ -769,9 +827,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
                 aria-hidden
                 tabIndex={-1}
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                animate={{ opacity: overlayTargetOpacity }}
                 exit={{ opacity: 0 }}
-                transition={reduceMotion ? { duration: 0 } : { duration: 0.2 }}
+                transition={
+                  fadeFromIndex !== undefined || reduceMotion
+                    ? { duration: 0 }
+                    : { duration: 0.2 }
+                }
                 className={cn(
                   'fixed inset-0 z-50 bg-black/50',
                   overlayClassName,
@@ -804,10 +866,24 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
                 'fixed inset-x-0 z-50 flex max-h-dvh touch-none flex-col outline-none pointer-events-auto overscroll-y-none',
               )}
               onKeyDown={handleDialogKeyDown}
-              onPointerDown={handleDrawerPointerDown}
-              onPointerMove={handleDrawerPointerMove}
-              onPointerUp={endDragSession}
-              onPointerCancel={endDragSession}
+              onPointerDown={(e) => {
+                // Prevent the outer drawer from picking up this gesture when
+                // this drawer is nested inside another.
+                if (nested) e.stopPropagation()
+                handleDrawerPointerDown(e)
+              }}
+              onPointerMove={(e) => {
+                if (nested) e.stopPropagation()
+                handleDrawerPointerMove(e)
+              }}
+              onPointerUp={(e) => {
+                if (nested) e.stopPropagation()
+                endDragSession(e)
+              }}
+              onPointerCancel={(e) => {
+                if (nested) e.stopPropagation()
+                endDragSession(e)
+              }}
             >
               <DrawerSlotsProvider value={slots ?? {}}>
                 {title != null ? (

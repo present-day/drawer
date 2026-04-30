@@ -295,14 +295,29 @@ function nearestHeightIndex(
 
 /**
  * Pick snap index after drag end using velocity-weighted rules.
+ *
+ * When `snapToSequentialPoint` is true, fast swipes only advance one snap stop
+ * at a time rather than flying past intermediate stops. Slow drag (nearest-stop)
+ * is unaffected.
  */
 export function resolveSnapAfterDrag(args: {
   visibleHeight: number
   velocityY: number
   heightsAsc: number[]
   dismissible: boolean
+  /** Current snap index — required when `snapToSequentialPoint` is true. */
+  currentSnapIndex?: number
+  /** When true, velocity-based skipping is limited to one adjacent stop. */
+  snapToSequentialPoint?: boolean
 }): { type: 'snap'; index: number } | { type: 'dismiss' } {
-  const { visibleHeight, velocityY, heightsAsc, dismissible } = args
+  const {
+    visibleHeight,
+    velocityY,
+    heightsAsc,
+    dismissible,
+    currentSnapIndex,
+    snapToSequentialPoint,
+  } = args
   if (heightsAsc.length === 0) {
     return { type: 'dismiss' }
   }
@@ -325,6 +340,15 @@ export function resolveSnapAfterDrag(args: {
   }
 
   if (velocityY > VELOCITY_THRESHOLD) {
+    // Fast downward swipe.
+    if (snapToSequentialPoint && currentSnapIndex !== undefined) {
+      // Sequential mode: only go to the previous adjacent stop.
+      const prevIdx = currentSnapIndex - 1
+      if (prevIdx < 0) {
+        return dismissible ? { type: 'dismiss' } : { type: 'snap', index: 0 }
+      }
+      return { type: 'snap', index: prevIdx }
+    }
     const below = heightsAsc.filter((h) => h < visibleHeight - 16)
     if (below.length > 0) {
       const li = below.length - 1
@@ -339,6 +363,12 @@ export function resolveSnapAfterDrag(args: {
   }
 
   if (velocityY < -VELOCITY_THRESHOLD) {
+    // Fast upward swipe.
+    if (snapToSequentialPoint && currentSnapIndex !== undefined) {
+      // Sequential mode: only go to the next adjacent stop.
+      const nextIdx = Math.min(currentSnapIndex + 1, heightsAsc.length - 1)
+      return { type: 'snap', index: nextIdx }
+    }
     const above = heightsAsc.filter((h) => h > visibleHeight + 16)
     const targetAbove = above[0]
     if (targetAbove !== undefined) {
