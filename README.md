@@ -14,6 +14,8 @@ A flexible and performant React drawer component with smooth animations and cust
 ## Installation
 
 ```bash
+bun add @present-day/drawer motion
+# or
 npm install @present-day/drawer motion
 # or
 yarn add @present-day/drawer motion
