@@ -181,4 +181,64 @@ describe('useDrawerSnap (hook)', () => {
       globalThis.ResizeObserver = prevRo
     }
   })
+
+  // Regression: clearing a search query can unmount results for a frame. The
+  // transient 0 measurement must not collapse the AUTO stop to 0 — a 0-height
+  // open drawer reads as "the drawer closed itself".
+  it('keeps the last positive AUTO measurement when content transiently measures 0', async () => {
+    const prevRo = globalThis.ResizeObserver
+    const Obs = class {
+      _cb: ResizeObserverCallback
+      constructor(cb: ResizeObserverCallback) {
+        this._cb = cb
+      }
+      observe() {
+        this._cb([], this as unknown as ResizeObserver)
+      }
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+    globalThis.ResizeObserver = Obs
+
+    let contentHeight = 320
+    const el = document.createElement('div')
+    const child = document.createElement('div')
+    Object.defineProperty(child, 'offsetHeight', {
+      configurable: true,
+      get: () => contentHeight,
+    })
+    el.appendChild(child)
+    document.body.appendChild(el)
+
+    try {
+      const ref = createRef<HTMLDivElement | null>()
+      ref.current = el
+
+      const { result, rerender } = renderHook(
+        ({ gen }: { gen: number }) =>
+          useDrawerSnap({
+            snapPoints: ['auto'],
+            viewportHeight: 800,
+            topInsetPx: 0,
+            contentMeasureRef: ref,
+            measureAttachGeneration: gen,
+          }),
+        { initialProps: { gen: 0 } },
+      )
+
+      await waitFor(() => {
+        expect(result.current.snapHeights[0]).toBe(320)
+      })
+
+      contentHeight = 0
+      rerender({ gen: 1 })
+
+      // Give the re-bound observers a couple frames to (re)measure.
+      await new Promise((r) => setTimeout(r, 100))
+      expect(result.current.snapHeights[0]).toBe(320)
+    } finally {
+      el.remove()
+      globalThis.ResizeObserver = prevRo
+    }
+  })
 })
