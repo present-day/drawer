@@ -1,3 +1,22 @@
+# Migration
+
+## v2.1 → v2.2
+
+No API removals. Two default behaviors changed:
+
+- **Safe-area bottom padding is on by default.** The panel now gets
+  `padding-bottom: env(safe-area-inset-bottom, 0px)` and `'auto'` snap heights
+  grow by the resolved inset. If your app already pads drawer content for the
+  home indicator, pass `safeAreaBottom={false}` to keep your existing layout.
+- **Escape inside a non-empty text field no longer dismisses.** The field
+  clears first (native `type="search"` behavior); a second Escape on the empty
+  field dismisses. `e.preventDefault()` on the keydown suppresses dismissal
+  entirely.
+- The keyboard lift (`bottom` offset) is now animated with the same spring as
+  the height, and the panel gets an instant viewport `max-height` clamp — no
+  action needed, but custom chrome that assumed an unanimated `bottom` should
+  read `--drawer-layout-bottom-inset` for the target value.
+
 # Migration: v1 → v2
 
 `@present-day/drawer` v2 collapses the `sizing` prop and `DRAWER_SIZING`

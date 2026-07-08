@@ -138,6 +138,15 @@ export interface DrawerProps {
    * for edge-to-top panels (e.g. full-screen search).
    */
   topInsetPx?: number
+  /**
+   * Bottom safe-area handling (home indicator). `true` (default) pads the
+   * panel with `env(safe-area-inset-bottom, 0px)` and grows `'auto'` snap
+   * heights by the resolved inset so content still fits. Pass a number to
+   * force an explicit pixel inset, or `false` to opt out (e.g. when the app
+   * already pads its drawer content). The active inset is exposed on the
+   * panel as `--drawer-safe-area-bottom`.
+   */
+  safeAreaBottom?: boolean | number
   children: React.ReactNode
 
   /**

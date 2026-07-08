@@ -85,7 +85,7 @@ The panel is exposed as a **`role="dialog"`** with **`aria-modal="true"`** when 
 **Focus**
 
 - For **`modal` + `open`**, a **focus trap** keeps keyboard focus in the panel by default, with focus returned to the previously focused element on close. Set **`focusTrap={false}`** if you need to manage focus yourself (e.g. portaled sub-trees) or for non-modal behavior.
-- Clicks on the **backdrop** still work: outside clicks that dismiss are allowed; Escape closes the drawer when **`dismissible`** is true.
+- Clicks on the **backdrop** still work: outside clicks that dismiss are allowed; Escape closes the drawer when **`dismissible`** is true. Inside a **non-empty** text field, Escape clears the field first and only a second press dismisses (see *Escape behavior in editable fields*).
 
 **Example: hidden title and description (visual UI unchanged)**
 
@@ -151,9 +151,23 @@ This package does not include app-specific chrome (e.g. big close buttons). Afte
 
 When the drawer is **open**, it listens to `window.visualViewport` (`resize` and `scroll`). Snap heights and `--drawer-available-height` use the **visual** viewport height. The panel is `position: fixed` with an extra **`bottom` offset** so its bottom edge follows the **visual** viewport, not only the **layout** viewport. That avoids the common iOS case where a fixed `bottom: 0` sheet stays behind the on-screen keyboard even though heights were already keyboard-aware. The offset is exposed as `layoutBottomInset` on the [`ViewportInfo`](./src/types.ts) object: `max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop)`.
 
+The keyboard transition is kept stable by three behaviors (v2.2+):
+
+- The **`bottom` offset is animated** with the same spring as the height, so the panel rises smoothly above the keyboard instead of teleporting up while the height spring lags.
+- An **instant `max-height` clamp** (visual viewport height minus `topInsetPx`) is applied on the same render that observes the new viewport, so the panel top can never overshoot out of the visible viewport while springs settle.
+- While the keyboard is open **and focus is inside the panel**, `'auto'` snap heights will not **shrink** below the current height. Clearing a search query often unmounts the results for a moment; without the floor, the sheet collapses mid-typing and the next tap lands on the dismiss overlay. Growth still passes through, and the floor releases when the keyboard hides. Transient **zero** content measurements are ignored while open for the same reason.
+
 **Optional** [`useDrawerKeyboardSnapMobile`](./src/hooks/useDrawerKeyboardSnapMobile.ts) (re-exported from the package) can be wired to **`onViewportChange`** to snap the sheet to its maximum height when a soft keyboard is detected on mobile, then restore the previous snap when the keyboard hides. That is **separate** from the built-in bottom anchoring: you do not need the hook for the sheet to sit above the keyboard, but the hook is useful if you want the sheet to expand for text fields in partial-height modes.
 
-**CSS** on the motion panel: in addition to `--drawer-height`, `--drawer-progress`, and `--drawer-available-height`, the panel sets **`--drawer-layout-bottom-inset`** (same value as the inline `bottom` used for anchoring).
+**CSS** on the motion panel: in addition to `--drawer-height`, `--drawer-progress`, and `--drawer-available-height`, the panel sets **`--drawer-layout-bottom-inset`** (same value as the animated `bottom` target used for anchoring) and **`--drawer-safe-area-bottom`** (see below).
+
+### Safe-area insets
+
+By default the panel is padded with **`env(safe-area-inset-bottom, 0px)`** so content clears the home indicator, and `'auto'` snap heights **grow by the resolved inset** so the padding doesn't squeeze measured content. Control it with the **`safeAreaBottom`** prop: pass a **number** for an explicit pixel inset, or **`false`** to opt out when your app already pads its drawer content. The active inset is exposed on the panel as **`--drawer-safe-area-bottom`**. The default **`topInsetPx`** (96px) keeps the sheet clear of the top notch/safe area.
+
+### Escape behavior in editable fields
+
+Pressing **Escape** inside a **non-empty** `input`, `textarea`, or `contenteditable` does **not** dismiss the drawer — the field clears first (the browser's native `type="search"` behavior), and a **second** Escape on the now-empty field dismisses. The drawer also ignores Escape events whose default was prevented, so apps can claim Escape for their own shortcuts.
 
 ## API Reference
 
@@ -176,6 +190,7 @@ When the drawer is **open**, it listens to `window.visualViewport` (`resize` and
 | `overlayClassName`    | `string`                                          | -          | Merged with default modal overlay |
 | `slots`               | `DrawerSlots`                                     | -          | Optional class names for content / handle |
 | `topInsetPx`          | `number`                                          | map inset  | Pixels subtracted from visual height for snap math |
+| `safeAreaBottom`      | `boolean \| number`                               | `true`     | Bottom safe-area padding: `true` uses `env(safe-area-inset-bottom)`, a number forces pixels, `false` opts out |
 | `onViewportChange`    | `(viewport: ViewportInfo) => void`                | -          | Fired when the visual viewport updates while open; includes `layoutBottomInset`, `height`, `offsetTop`, `keyboardHeight`, `isKeyboardOpen` |
 
 ### Components

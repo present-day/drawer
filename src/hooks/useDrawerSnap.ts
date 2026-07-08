@@ -22,14 +22,19 @@ export function resolveSnapValueToPx(
   value: SnapPoint,
   availableHeight: number,
   measuredAutoHeight?: number | null,
+  autoExtraPx = 0,
 ): number {
   // String tokens describe height policies, not literal numbers:
   //   - 'auto' uses the live measured content height (capped at the viewport)
   //   - 'full' uses the full available drawer height
   if (value === 'auto') {
+    // `autoExtraPx` is panel chrome outside the measured content (safe-area
+    // bottom padding); it only applies once a real measurement exists so the
+    // 0 "not measured yet" state keeps gating the intro animation.
+    const base = Math.max(0, Math.round(measuredAutoHeight ?? 0))
     return Math.min(
       Math.max(0, availableHeight),
-      Math.max(0, Math.round(measuredAutoHeight ?? 0)),
+      base > 0 ? base + Math.max(0, Math.round(autoExtraPx)) : 0,
     )
   }
   if (value === 'full') {
@@ -51,6 +56,7 @@ export function resolveSnapPointsToHeights(
   snapPoints: readonly SnapPoint[],
   availableHeight: number,
   measuredAutoHeight?: number | null,
+  autoExtraPx = 0,
 ): { heights: number[]; rawValues: SnapPoint[] } {
   const cap = Math.max(0, availableHeight)
 
@@ -74,9 +80,10 @@ export function resolveSnapPointsToHeights(
   // the resolved pixel height here would freeze the stop at whatever size
   // the content was at save time.
   if (snapPoints.length === 1 && snapPoints[0] === 'auto') {
+    const base = Math.max(0, Math.round(measuredAutoHeight ?? 0))
     const measured = Math.min(
       cap,
-      Math.max(0, Math.round(measuredAutoHeight ?? 0)),
+      base > 0 ? base + Math.max(0, Math.round(autoExtraPx)) : 0,
     )
     const fallback = Math.min(AUTO_FALLBACK_HEIGHT_PX, cap)
     // Trust any positive measure (including very short UIs). The old
@@ -88,7 +95,7 @@ export function resolveSnapPointsToHeights(
 
   const pairs = snapPoints.map((raw) => ({
     raw,
-    px: resolveSnapValueToPx(raw, cap, measuredAutoHeight),
+    px: resolveSnapValueToPx(raw, cap, measuredAutoHeight, autoExtraPx),
   }))
   pairs.sort((a, b) => a.px - b.px)
 
@@ -407,6 +414,11 @@ export type UseDrawerSnapArgs = {
   defaultSnapPoint?: SnapPoint
   contentMeasureRef: RefObject<HTMLElement | null>
   /**
+   * Panel chrome (safe-area bottom padding) that sits outside the measured
+   * content; added to `'auto'` heights so content still fits inside the panel.
+   */
+  autoExtraPx?: number
+  /**
    * Bumped by the Drawer whenever the measure element attaches/detaches.
    * Required because a mutation to `contentMeasureRef.current` is invisible
    * to React effect deps; without it the ResizeObserver is never re-bound
@@ -422,6 +434,7 @@ export function useDrawerSnap({
   topInsetPx = DRAWER_TOP_INSET_PX,
   defaultSnapPoint,
   contentMeasureRef,
+  autoExtraPx = 0,
   measureAttachGeneration = 0,
 }: UseDrawerSnapArgs) {
   const availableHeight = Math.max(0, Math.round(viewportHeight - topInsetPx))
@@ -449,6 +462,11 @@ export function useDrawerSnap({
       // the resnap spring every frame.
       setMeasuredAutoHeight((prev) => {
         if (prev !== null && Math.abs(prev - h) <= 1) return prev
+        // Transient zero: content swapped out for a frame (clearing a search
+        // query unmounts the results list before the empty state renders).
+        // Collapsing AUTO to 0 would slam the open drawer shut; hold the last
+        // real measurement until content reports a positive height again.
+        if (h === 0 && prev !== null && prev > 0) return prev
         return h
       })
     })
@@ -460,8 +478,9 @@ export function useDrawerSnap({
         snapPoints,
         availableHeight,
         measuredAutoHeight,
+        autoExtraPx,
       ),
-    [snapPoints, availableHeight, measuredAutoHeight],
+    [snapPoints, availableHeight, measuredAutoHeight, autoExtraPx],
   )
 
   const defaultIndex = useMemo(() => {
@@ -471,9 +490,16 @@ export function useDrawerSnap({
       defaultSnapPoint,
       availableHeight,
       measuredAutoHeight,
+      autoExtraPx,
     )
     return nearestHeightIndex(target, heights)
-  }, [heights, defaultSnapPoint, availableHeight, measuredAutoHeight])
+  }, [
+    heights,
+    defaultSnapPoint,
+    availableHeight,
+    measuredAutoHeight,
+    autoExtraPx,
+  ])
 
   return {
     availableHeight,
@@ -486,10 +512,11 @@ export function useDrawerSnap({
           point,
           availableHeight,
           measuredAutoHeight,
+          autoExtraPx,
         )
         return nearestHeightIndex(target, heights)
       },
-      [availableHeight, heights, measuredAutoHeight],
+      [availableHeight, heights, measuredAutoHeight, autoExtraPx],
     ),
     indexToRawValue: useCallback(
       (index: number): SnapPoint | null => {

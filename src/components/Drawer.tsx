@@ -37,6 +37,33 @@ import type { DragEndInfo, DrawerProps, DrawerRef, SnapPoint } from '../types'
 
 const DEFAULT_SNAP_POINTS: readonly SnapPoint[] = ['auto']
 
+const TEXT_INPUT_TYPES = new Set([
+  'text',
+  'search',
+  'tel',
+  'url',
+  'password',
+  'email',
+  'number',
+])
+
+function editableTargetHasContent(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  const editable = target.closest(
+    'input, textarea, [contenteditable="true"], [contenteditable=""]',
+  )
+  if (!editable) return false
+  if (editable instanceof HTMLInputElement) {
+    // Only text-entry inputs participate in Escape-to-clear; checkboxes,
+    // radios, buttons, etc. carry a `value` but hold no user-typed text.
+    return TEXT_INPUT_TYPES.has(editable.type) && editable.value.length > 0
+  }
+  if (editable instanceof HTMLTextAreaElement) {
+    return editable.value.length > 0
+  }
+  return (editable.textContent ?? '').trim().length > 0
+}
+
 import { cn, getLockCount, lockBody, unlockBody } from '../utils'
 import { DrawerContent } from './drawer/DrawerContent'
 import { DrawerHandle } from './drawer/DrawerHandle'
@@ -56,6 +83,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       dismissible = true,
       modal = true,
       topInsetPx = DRAWER_TOP_INSET_PX,
+      safeAreaBottom = true,
       children,
       onSnapPointChange,
       onDragStart,
@@ -129,6 +157,33 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         onViewportChange,
       })
 
+    // Bottom safe-area (home indicator): the panel is padded so content clears
+    // the inset, and AUTO snap heights grow by the same amount so the padding
+    // doesn't squeeze measured content.
+    const safeAreaPaddingBottom =
+      safeAreaBottom === false
+        ? undefined
+        : typeof safeAreaBottom === 'number'
+          ? `${safeAreaBottom}px`
+          : 'env(safe-area-inset-bottom, 0px)'
+    const panelRef = useRef<HTMLDivElement | null>(null)
+    const [measuredSafeAreaBottom, setMeasuredSafeAreaBottom] = useState(0)
+    useLayoutEffect(() => {
+      if (safeAreaBottom !== true || !open) return
+      const el = panelRef.current
+      if (!el) return
+      // env() only resolves through computed style; re-read on viewport
+      // changes (rotation moves the inset between edges).
+      const pb = Number.parseFloat(window.getComputedStyle(el).paddingBottom)
+      setMeasuredSafeAreaBottom(Number.isFinite(pb) ? pb : 0)
+    }, [safeAreaBottom, open, viewport.height])
+    const autoExtraPx =
+      safeAreaBottom === false
+        ? 0
+        : typeof safeAreaBottom === 'number'
+          ? safeAreaBottom
+          : measuredSafeAreaBottom
+
     const {
       snapHeights,
       rawSnapValues,
@@ -141,6 +196,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       topInsetPx,
       defaultSnapPoint,
       contentMeasureRef: measureRef,
+      autoExtraPx,
       measureAttachGeneration,
     })
 
@@ -183,7 +239,6 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const [heightState, setHeightState] = useState(0)
     const titleId = useId()
     const descriptionId = useId()
-    const panelRef = useRef<HTMLDivElement | null>(null)
 
     const ctxValue = useMemo<DrawerContextValue>(
       () => ({
@@ -218,6 +273,16 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     const maxSnap = snapHeights[snapHeights.length - 1] ?? 0
     const minSnap = snapHeights[0] ?? 0
+
+    // Hard ceiling for the rendered panel. `height` animates on a spring, so
+    // when the soft keyboard shrinks the visual viewport the spring lags for
+    // hundreds of ms — without this instant clamp the panel top (search input,
+    // handle) overshoots out of the visible viewport. State-driven, applied on
+    // the same render that observes the new viewport size.
+    const panelMaxHeight =
+      viewport.height > 0
+        ? Math.max(0, Math.round(viewport.height) - topInsetPx)
+        : undefined
 
     const updateProgress = useCallback(
       (h: number) => {
@@ -302,6 +367,21 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       ],
     )
 
+    // Keyboard lift: the panel's `bottom` rises above the soft keyboard. It
+    // shares the height spring's config so both edges travel together — an
+    // unanimated bottom jumps the panel up by the full keyboard height while
+    // the height spring lags, shoving the panel top out of the viewport.
+    const bottomMv = useMotionValue(0)
+    useEffect(() => {
+      if (!open) {
+        bottomMv.set(layoutBottomInset)
+        return
+      }
+      if (bottomMv.get() === layoutBottomInset) return
+      const controls = animate(bottomMv, layoutBottomInset, spring)
+      return () => controls.stop()
+    }, [bottomMv, layoutBottomInset, open, spring])
+
     const introStartedRef = useRef(false)
     const [resnapReady, setResnapReady] = useState(false)
     // Tracks the height the resnap effect last kicked off an animation toward.
@@ -378,10 +458,27 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       if (!open || !resnapReady || snapHeights.length === 0) {
         return
       }
-      if (dragSessionRef.current) return
+      // Only an *active* drag (slop exceeded, finger steering the height) may
+      // suppress resnap. An inactive session is just a resting tap — and a
+      // lost pointerup would otherwise freeze keyboard adaptation forever.
+      if (dragSessionRef.current?.active) return
 
       const targetIdx = Math.min(snapIndex, snapHeights.length - 1)
-      const targetH = snapHeights[targetIdx] ?? minSnap
+      let targetH = snapHeights[targetIdx] ?? minSnap
+
+      // While the soft keyboard is up and the user is typing inside the
+      // panel, never shrink below the current height (still capped to the
+      // viewport clamp). Clearing a query can empty the results and collapse
+      // AUTO — shrinking mid-interaction pulls the field away from the user
+      // and lets their next tap land on the dismiss overlay. Growth still
+      // passes through; the floor releases when the keyboard hides.
+      if (
+        viewport.isKeyboardOpen &&
+        panelRef.current?.contains(document.activeElement)
+      ) {
+        const clamp = panelMaxHeight ?? Number.POSITIVE_INFINITY
+        targetH = Math.max(targetH, Math.min(heightMv.get(), clamp))
+      }
 
       if (Math.abs(heightMv.get() - targetH) < 2) return
       // Already animating toward (effectively) this same target — let the
@@ -413,6 +510,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       spring,
       updateProgress,
       resnapReady,
+      viewport.isKeyboardOpen,
+      panelMaxHeight,
     ])
 
     // Remap `snapIndex` by raw identity whenever the resolved raw-values
@@ -564,10 +663,15 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     const handleDialogKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (e.key === 'Escape' && dismissible) {
-          e.stopPropagation()
-          onOpenChange(false)
-        }
+        if (e.key !== 'Escape' || !dismissible) return
+        // A consumer (or the browser) already claimed this Escape.
+        if (e.defaultPrevented) return
+        // Escape inside a non-empty editable means "clear the field", not
+        // "close the drawer" — the browser clears `type="search"` inputs
+        // natively on this same keydown. Only dismiss once the field is empty.
+        if (editableTargetHasContent(e.target)) return
+        e.stopPropagation()
+        onOpenChange(false)
       },
       [dismissible, onOpenChange],
     )
@@ -862,11 +966,18 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
               style={
                 {
                   height: heightMv,
-                  bottom: layoutBottomInset,
+                  maxHeight: panelMaxHeight,
+                  bottom: bottomMv,
+                  paddingBottom: safeAreaPaddingBottom,
+                  // Height must include the safe-area padding regardless of
+                  // the consumer's global box-sizing reset.
+                  boxSizing: 'border-box',
                   ['--drawer-height' as string]: `${heightState}px`,
                   ['--drawer-progress' as string]: progressState,
                   ['--drawer-available-height' as string]: `${availableHeight}px`,
                   ['--drawer-layout-bottom-inset' as string]: `${layoutBottomInset}px`,
+                  ['--drawer-safe-area-bottom' as string]:
+                    safeAreaPaddingBottom ?? '0px',
                 } as unknown as MotionStyle
               }
               initial={false}
