@@ -35,11 +35,23 @@ jobs:
       # a normal npm token with 2FA on "auth and writes" causes EOTP in CI. If you
       # must use a token instead, use an "Automation" classic token (no OTP) or a
       # Granular access token with publish, not a user publish token.
+      #
+      # The publish step must use the npm CLI, not `bun publish`: the OIDC
+      # trusted-publishing token exchange is implemented in npm >= 11.5 only —
+      # bun has no OIDC support and fails with "missing authentication"
+      # (the v2.0.0 and v2.1.0 tag runs failed exactly this way).
+      # No registry-url / NODE_AUTH_TOKEN here on purpose: setup-node's
+      # registry-url writes an _authToken=${NODE_AUTH_TOKEN} line into .npmrc,
+      # and any configured token (even empty) shadows the OIDC exchange.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Trusted publishing needs npm >= 11.5.1.
+      - run: npm install -g npm@latest
+
       - name: Publish to npm (OIDC)
         # --loglevel=verbose surfaces the trusted-publishing OIDC exchange so
         # misconfigurations show up as real diagnostics instead of a misleading
         # ENEEDAUTH / 404 (see https://github.com/npm/cli/issues/9088).
-        run: bun publish --provenance --loglevel=verbose
-        env:
-          # Avoid any token from the job / org secrets shadowing trusted publishing.
-          NODE_AUTH_TOKEN: ""
+        run: npm publish --provenance --loglevel=verbose
