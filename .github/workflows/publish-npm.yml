@@ -43,7 +43,7 @@ jobs:
       # No registry-url / NODE_AUTH_TOKEN here on purpose: setup-node's
       # registry-url writes an _authToken=${NODE_AUTH_TOKEN} line into .npmrc,
       # and any configured token (even empty) shadows the OIDC exchange.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
 
