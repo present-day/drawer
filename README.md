@@ -2,6 +2,8 @@
 
 A flexible and performant React drawer component with smooth animations and customizable snap points.
 
+**[▶ Try the live playground](https://present-day.github.io/drawer/)**
+
 ## Features
 
 - 🎯 **Flexible Snap Points** - Support for fractional heights, pixel values, and preset modes
