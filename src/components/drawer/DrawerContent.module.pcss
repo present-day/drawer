@@ -1,0 +1,31 @@
+/*
+ * Keyboard backfill. The panel's bottom edge docks above the soft keyboard, so
+ * between that edge and the bottom of the screen sits the keyboard — plus, on
+ * iOS, the form accessory bar ("Done" toolbar), which the visual viewport
+ * reports inconsistently. Anything the drawer doesn't paint there shows the
+ * page behind it as a strip under the drawer.
+ *
+ * This continues the content surface from the panel's bottom edge down to the
+ * bottom of the screen, behind the keyboard: `background: inherit` picks up
+ * whatever the consumer painted on `Drawer.Content`, and the height comes from
+ * the same inset the panel is lifted by, so the two always agree. A
+ * pseudo-element rather than a real node — no DOM injected into the consumer's
+ * content tree, so `:first-child` / `:last-child` selectors keep working.
+ *
+ * Purely cosmetic: it is out of flow, non-interactive, and collapses to zero
+ * height whenever no keyboard is open.
+ *
+ * Extension .pcss avoids tsup's PostCSS onLoad (/.css$/) which breaks CSS module exports.
+ */
+:global([data-drawer-content])::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: var(--drawer-layout-bottom-inset, 0px);
+  background: inherit;
+  /* Not an inherited property; forced so translucent surfaces match. */
+  backdrop-filter: inherit;
+  pointer-events: none;
+}

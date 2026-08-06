@@ -309,6 +309,47 @@ describe('Drawer', () => {
       )
     })
 
+    it('publishes the keyboard inset as a CSS var for the content backfill', async () => {
+      // The panel's bottom edge docks above the keyboard; the surface between
+      // that edge and the screen bottom is painted by a
+      // `[data-drawer-content]::after` rule sized from this variable. Renaming
+      // or dropping it silently reopens the gap (pseudo-element styling is not
+      // observable in this environment, so the contract is asserted instead).
+      render(
+        <Drawer open onOpenChange={vi.fn()} snapPoints={['full']}>
+          <Drawer.Content>Body</Drawer.Content>
+        </Drawer>,
+      )
+      const dialog = await screen.findByRole('dialog')
+      expect(dialog.querySelector('[data-drawer-content]')).toBeTruthy()
+
+      act(() => {
+        setVisualViewportSize(500, 0)
+      })
+      await waitFor(
+        () => {
+          expect(
+            dialog.style.getPropertyValue('--drawer-layout-bottom-inset'),
+          ).toBe('400px')
+        },
+        { timeout: 600 },
+      )
+
+      // Collapses to zero once the keyboard is gone, so the backfill can never
+      // paint a strip over the page when the drawer is docked normally.
+      act(() => {
+        setVisualViewportSize(900, 0)
+      })
+      await waitFor(
+        () => {
+          expect(
+            dialog.style.getPropertyValue('--drawer-layout-bottom-inset'),
+          ).toBe('0px')
+        },
+        { timeout: 600 },
+      )
+    })
+
     it('re-docks flush to the bottom after the keyboard is dismissed with a stale iOS reading', async () => {
       render(
         <Drawer open onOpenChange={vi.fn()} snapPoints={['full']}>

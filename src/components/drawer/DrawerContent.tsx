@@ -6,6 +6,8 @@ import { DRAWER_CONTEXT_CONSUMER } from '../../constants'
 import { useDrawerContext } from '../../context'
 import { useDrawerSlots } from '../../drawerSlotsContext'
 import { cn } from '../../utils'
+// Side-effect import: ships the keyboard backfill rule in the package stylesheet.
+import './DrawerContent.module.pcss'
 
 /**
  * Main panel surface inside the drawer. `className` and `style` are merged after
