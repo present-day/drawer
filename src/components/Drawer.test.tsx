@@ -249,7 +249,7 @@ describe('Drawer', () => {
       })
     })
 
-    it('animates the keyboard lift (bottom inset) instead of jumping instantly', async () => {
+    it('tracks a dense keyboard resize stream synchronously (Android)', async () => {
       render(
         <Drawer open onOpenChange={vi.fn()} snapPoints={['full']}>
           <Drawer.Content>Body</Drawer.Content>
@@ -260,26 +260,89 @@ describe('Drawer', () => {
         expect(dialog.style.maxHeight).toBe('804px')
       })
 
-      // Keyboard opens: layout bottom inset becomes 900 - 700 - 10 = 190.
-      act(() => {
-        setVisualViewportSize(700, 10)
-      })
+      // Chrome Android fires resize events while the keyboard animates; each
+      // small delta applies raw — sampling the OS animation IS the glued
+      // native motion, and any interpolation would trail the keyboard and
+      // open a gap. A default spring would still be mid-flight when these
+      // assertions run.
+      for (const [height, inset] of [
+        [820, 80],
+        [740, 160],
+        [660, 240],
+        [600, 300],
+      ] as const) {
+        act(() => {
+          setVisualViewportSize(height, 0)
+        })
+        await waitFor(
+          () => {
+            expect(dialog.style.bottom).toBe(`${inset}px`)
+          },
+          { timeout: 250 },
+        )
+      }
+    })
 
-      // The render that observes the new viewport must NOT have already
-      // teleported the panel bottom to 190px — the lift is animated.
+    it('glides over a single large keyboard jump instead of teleporting (iOS)', async () => {
+      render(
+        <Drawer open onOpenChange={vi.fn()} snapPoints={['full']}>
+          <Drawer.Content>Body</Drawer.Content>
+        </Drawer>,
+      )
+      const dialog = await screen.findByRole('dialog')
       await waitFor(() => {
-        expect(dialog.style.maxHeight).toBe('604px')
+        expect(dialog.style.maxHeight).toBe('804px')
       })
-      expect(Number.parseFloat(dialog.style.bottom || '0')).toBeLessThan(190)
 
-      // ...but it settles at the inset.
+      // iOS reports the keyboard once, after its animation settles: one
+      // 400px jump. The panel glides on a short native-sheet curve and must
+      // land exactly on the inset — well inside the ~220ms tween, far faster
+      // than the old shared snap spring.
+      act(() => {
+        setVisualViewportSize(500, 0)
+      })
       await waitFor(
         () => {
-          expect(
-            Number.parseFloat(dialog.style.bottom || '0'),
-          ).toBeGreaterThanOrEqual(189)
+          expect(dialog.style.bottom).toBe('400px')
         },
-        { timeout: 3000 },
+        { timeout: 600 },
+      )
+    })
+
+    it('re-docks flush to the bottom after the keyboard is dismissed with a stale iOS reading', async () => {
+      render(
+        <Drawer open onOpenChange={vi.fn()} snapPoints={['full']}>
+          <Drawer.Content>Body</Drawer.Content>
+        </Drawer>,
+      )
+      const dialog = await screen.findByRole('dialog')
+      await waitFor(() => {
+        expect(dialog.style.maxHeight).toBe('804px')
+      })
+
+      // Keyboard opens...
+      act(() => {
+        setVisualViewportSize(500, 0)
+      })
+      await waitFor(
+        () => {
+          expect(dialog.style.bottom).toBe('400px')
+        },
+        { timeout: 600 },
+      )
+
+      // ...and is dismissed, but iOS leaves a residual reading: the visual
+      // viewport never returns exactly to the layout viewport (here 30px
+      // short, offsetTop 10). Below the keyboard threshold the inset is
+      // forced to 0 and the panel glides back flush — no residual hover.
+      act(() => {
+        setVisualViewportSize(880, 10)
+      })
+      await waitFor(
+        () => {
+          expect(dialog.style.bottom).toBe('0px')
+        },
+        { timeout: 600 },
       )
     })
 

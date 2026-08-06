@@ -52,3 +52,19 @@ export const DRAWER_DRAG_SLOP_PX = 3
 
 /** Top inset so the drawer doesn't touch top */
 export const DRAWER_TOP_INSET_PX = 96
+
+/**
+ * Keyboard-inset deltas at or below this apply synchronously (Chrome Android
+ * fires a dense resize stream while the keyboard animates — raw application
+ * samples the OS animation, keeping the panel glued to the keyboard). Larger
+ * single jumps glide instead: iOS reports the keyboard once, after its
+ * animation, and applying 200-300px in one frame reads as a teleport.
+ */
+export const KEYBOARD_INSET_GLIDE_THRESHOLD_PX = 120
+
+/** Native-sheet feel for gliding over a single large keyboard-inset jump. */
+export const KEYBOARD_INSET_GLIDE_TRANSITION = {
+  type: 'tween',
+  duration: 0.22,
+  ease: [0.32, 0.72, 0, 1],
+} as const

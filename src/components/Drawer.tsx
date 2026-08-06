@@ -26,6 +26,8 @@ import { createPortal } from 'react-dom'
 import {
   DRAWER_DRAG_SLOP_PX,
   DRAWER_TOP_INSET_PX,
+  KEYBOARD_INSET_GLIDE_THRESHOLD_PX,
+  KEYBOARD_INSET_GLIDE_TRANSITION,
   RUBBER_BAND_FACTOR,
   SPRING_CONFIG,
 } from '../constants'
@@ -367,20 +369,38 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       ],
     )
 
-    // Keyboard lift: the panel's `bottom` rises above the soft keyboard. It
-    // shares the height spring's config so both edges travel together — an
-    // unanimated bottom jumps the panel up by the full keyboard height while
-    // the height spring lags, shoving the panel top out of the viewport.
+    // Keyboard lift: the panel's `bottom` docks above the soft keyboard,
+    // mirroring how a native bottom sheet rides the keyboard. The inset is a
+    // measured quantity — the keyboard is an OS animation we can't subscribe
+    // to — and each platform reports it differently, so the application is
+    // adaptive:
+    //  - Chrome Android streams resize events while the keyboard animates.
+    //    Small deltas apply synchronously: raw application samples the OS
+    //    animation, keeping the panel glued (a follower spring would trail
+    //    the keyboard and open a gap under the bottom edge).
+    //  - iOS Safari reports once, after the keyboard has settled. A single
+    //    large jump glides on a short native-sheet curve instead of
+    //    teleporting the panel by the full keyboard height.
+    // Springs remain on user-driven drag and snap transitions only. Top-edge
+    // overshoot while the height spring settles is prevented by the instant
+    // `panelMaxHeight` clamp above.
     const bottomMv = useMotionValue(0)
     useEffect(() => {
-      if (!open) {
+      const from = bottomMv.get()
+      if (from === layoutBottomInset) return
+      const isLargeSingleJump =
+        Math.abs(layoutBottomInset - from) > KEYBOARD_INSET_GLIDE_THRESHOLD_PX
+      if (reduceMotion || !open || !isLargeSingleJump) {
         bottomMv.set(layoutBottomInset)
         return
       }
-      if (bottomMv.get() === layoutBottomInset) return
-      const controls = animate(bottomMv, layoutBottomInset, spring)
+      const controls = animate(
+        bottomMv,
+        layoutBottomInset,
+        KEYBOARD_INSET_GLIDE_TRANSITION,
+      )
       return () => controls.stop()
-    }, [bottomMv, layoutBottomInset, open, spring])
+    }, [bottomMv, layoutBottomInset, open, reduceMotion])
 
     const introStartedRef = useRef(false)
     const [resnapReady, setResnapReady] = useState(false)

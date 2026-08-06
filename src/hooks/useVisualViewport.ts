@@ -30,7 +30,6 @@ export function useVisualViewport(
   options: UseVisualViewportOptions = {},
 ): UseVisualViewportResult {
   const { enabled = true, onViewportChange } = options
-  const rafRef = useRef(0)
   const onViewportChangeRef = useRef(onViewportChange)
   onViewportChangeRef.current = onViewportChange
 
@@ -49,42 +48,46 @@ export function useVisualViewport(
       return
     }
 
-    cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => {
-      const height = vv.height
-      const offsetTop = vv.offsetTop
-      const innerH = window.innerHeight
-      const layoutBottomInset = Math.max(
-        0,
-        Math.round(innerH - height - offsetTop),
-      )
-      const keyboardHeight = Math.max(0, innerH - height)
-      const isKeyboardOpen = keyboardHeight > 50
+    // Applied synchronously: the keyboard is already animating when the event
+    // fires, so any deferral (rAF batching included) shows up as the panel
+    // trailing the keyboard. React batches the setStates below on its own.
+    const height = vv.height
+    const offsetTop = vv.offsetTop
+    const innerH = window.innerHeight
+    const keyboardHeight = Math.max(0, innerH - height)
+    const isKeyboardOpen = keyboardHeight > 50
+    // The inset exists to dock the panel above the soft keyboard. When no
+    // keyboard is present it is forced to 0 rather than trusting the
+    // arithmetic: after dismissal iOS can leave vv.height/offsetTop slightly
+    // short of the layout viewport, and that residual would hold the panel
+    // lifted off the bottom edge indefinitely.
+    const layoutBottomInset = isKeyboardOpen
+      ? Math.max(0, Math.round(innerH - height - offsetTop))
+      : 0
 
-      const next: ViewportInfo = {
-        height,
-        offsetTop,
-        keyboardHeight,
-        isKeyboardOpen,
-        layoutBottomInset,
+    const next: ViewportInfo = {
+      height,
+      offsetTop,
+      keyboardHeight,
+      isKeyboardOpen,
+      layoutBottomInset,
+    }
+
+    setViewport((prev) => {
+      if (
+        prev.height === next.height &&
+        prev.offsetTop === next.offsetTop &&
+        prev.keyboardHeight === next.keyboardHeight &&
+        prev.isKeyboardOpen === next.isKeyboardOpen &&
+        prev.layoutBottomInset === next.layoutBottomInset
+      ) {
+        return prev
       }
-
-      setViewport((prev) => {
-        if (
-          prev.height === next.height &&
-          prev.offsetTop === next.offsetTop &&
-          prev.keyboardHeight === next.keyboardHeight &&
-          prev.isKeyboardOpen === next.isKeyboardOpen &&
-          prev.layoutBottomInset === next.layoutBottomInset
-        ) {
-          return prev
-        }
-        return next
-      })
-
-      setAvailableHeight(height)
-      onViewportChangeRef.current?.(next)
+      return next
     })
+
+    setAvailableHeight(height)
+    onViewportChangeRef.current?.(next)
   }, [enabled])
 
   useEffect(() => {
@@ -106,7 +109,6 @@ export function useVisualViewport(
     return () => {
       vv.removeEventListener('resize', update)
       vv.removeEventListener('scroll', update)
-      cancelAnimationFrame(rafRef.current)
     }
   }, [enabled, update])
 
