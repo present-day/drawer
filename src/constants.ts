@@ -17,6 +17,13 @@ export const DRAWER_CONTEXT_CONSUMER = {
  * - `QUARTER` / `THIRD` / `HALF` / `TWO_THIRDS` / `THREE_QUARTERS` — fractions
  * - `NEAR_FULL` — `0.9` of available height (was `SNAP_POINT.FULL` pre-v2)
  * - `MAX` — full available drawer height as a fraction (`1`)
+ * - `SCREEN` — the ENTIRE viewport, ignoring `topInsetPx`. `FULL`/`MAX` stop
+ *   `topInsetPx` short of the top (96px by default, to leave room for map
+ *   chrome), which is correct for a sheet over content but wrong when the
+ *   drawer is the whole task — a long list, or a field with the software
+ *   keyboard up. Unlike setting `topInsetPx={0}`, this is per snap point, so
+ *   a drawer can rest inset and go edge-to-edge only when it needs to:
+ *   `snapPoints={[SNAP_POINT.AUTO, SNAP_POINT.SCREEN]}`
  * - `FULL` — full available drawer height as a token; equivalent to `MAX`
  *   but composes with mixed arrays like `['auto', 480, 'full']`
  *
@@ -34,6 +41,7 @@ export const SNAP_POINT = {
   NEAR_FULL: 0.9,
   MAX: 1,
   FULL: 'full',
+  SCREEN: 'screen',
 } as const satisfies Record<string, SnapPoint>
 
 export const SPRING_CONFIG = {

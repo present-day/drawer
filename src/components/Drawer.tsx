@@ -281,9 +281,19 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     // hundreds of ms — without this instant clamp the panel top (search input,
     // handle) overshoots out of the visible viewport. State-driven, applied on
     // the same render that observes the new viewport size.
+    // A drawer that offers a `'screen'` stop is allowed the whole viewport;
+    // clamping it to `viewport - topInsetPx` here would silently undo that
+    // stop in CSS after the snap logic had already resolved it correctly.
+    // The clamp's purpose (below) is to stop the panel top escaping the
+    // VISIBLE viewport while the keyboard spring lags — the inset is a design
+    // choice layered on top, so dropping it here still satisfies that intent.
+    const allowsScreenSnap = snapPoints.includes('screen')
     const panelMaxHeight =
       viewport.height > 0
-        ? Math.max(0, Math.round(viewport.height) - topInsetPx)
+        ? Math.max(
+            0,
+            Math.round(viewport.height) - (allowsScreenSnap ? 0 : topInsetPx),
+          )
         : undefined
 
     const updateProgress = useCallback(

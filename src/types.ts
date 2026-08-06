@@ -18,11 +18,12 @@ export type DrawerSlots = {
  * - `number` > 1 → pixel height (e.g. `480` is 480px)
  * - `'auto'`     → measured intrinsic content height (live, via `ResizeObserver`)
  * - `'full'`     → full available drawer height (viewport minus top inset)
+ * - `'screen'`   → the ENTIRE viewport, ignoring `topInsetPx`
  *
  * Use as elements of `Drawer`’s `snapPoints` array, or as the type of a
  * `defaultSnapPoint` / `activeSnapPoint` value.
  */
-export type SnapPoint = number | 'auto' | 'full'
+export type SnapPoint = number | 'auto' | 'full' | 'screen'
 
 export interface DrawerProps {
   /**

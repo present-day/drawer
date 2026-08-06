@@ -23,6 +23,13 @@ export function resolveSnapValueToPx(
   availableHeight: number,
   measuredAutoHeight?: number | null,
   autoExtraPx = 0,
+  /**
+   * Raw viewport height, i.e. `availableHeight + topInsetPx`. Only `'screen'`
+   * needs it — every other stop is defined relative to the available height.
+   * Optional so existing internal callers keep compiling; when omitted,
+   * `'screen'` degrades to `'full'` rather than resolving to 0.
+   */
+  viewportHeight?: number,
 ): number {
   // String tokens describe height policies, not literal numbers:
   //   - 'auto' uses the live measured content height (capped at the viewport)
@@ -39,6 +46,12 @@ export function resolveSnapValueToPx(
   }
   if (value === 'full') {
     return Math.max(0, availableHeight)
+  }
+  // The whole viewport, deliberately ignoring topInsetPx: this is the stop a
+  // drawer uses when it IS the screen (long list, or a field with the keyboard
+  // up) rather than a sheet floating over content.
+  if (value === 'screen') {
+    return Math.max(0, Math.round(viewportHeight ?? availableHeight))
   }
   if (value <= 1) {
     return Math.max(0, Math.round(value * availableHeight))
@@ -57,6 +70,7 @@ export function resolveSnapPointsToHeights(
   availableHeight: number,
   measuredAutoHeight?: number | null,
   autoExtraPx = 0,
+  viewportHeight?: number,
 ): { heights: number[]; rawValues: SnapPoint[] } {
   const cap = Math.max(0, availableHeight)
 
@@ -95,7 +109,13 @@ export function resolveSnapPointsToHeights(
 
   const pairs = snapPoints.map((raw) => ({
     raw,
-    px: resolveSnapValueToPx(raw, cap, measuredAutoHeight, autoExtraPx),
+    px: resolveSnapValueToPx(
+      raw,
+      cap,
+      measuredAutoHeight,
+      autoExtraPx,
+      viewportHeight,
+    ),
   }))
   pairs.sort((a, b) => a.px - b.px)
 
@@ -479,8 +499,15 @@ export function useDrawerSnap({
         availableHeight,
         measuredAutoHeight,
         autoExtraPx,
+        viewportHeight,
       ),
-    [snapPoints, availableHeight, measuredAutoHeight, autoExtraPx],
+    [
+      snapPoints,
+      availableHeight,
+      measuredAutoHeight,
+      autoExtraPx,
+      viewportHeight,
+    ],
   )
 
   const defaultIndex = useMemo(() => {
@@ -491,6 +518,7 @@ export function useDrawerSnap({
       availableHeight,
       measuredAutoHeight,
       autoExtraPx,
+      viewportHeight,
     )
     return nearestHeightIndex(target, heights)
   }, [
@@ -499,6 +527,7 @@ export function useDrawerSnap({
     availableHeight,
     measuredAutoHeight,
     autoExtraPx,
+    viewportHeight,
   ])
 
   return {
@@ -513,10 +542,17 @@ export function useDrawerSnap({
           availableHeight,
           measuredAutoHeight,
           autoExtraPx,
+          viewportHeight,
         )
         return nearestHeightIndex(target, heights)
       },
-      [availableHeight, heights, measuredAutoHeight, autoExtraPx],
+      [
+        availableHeight,
+        heights,
+        measuredAutoHeight,
+        autoExtraPx,
+        viewportHeight,
+      ],
     ),
     indexToRawValue: useCallback(
       (index: number): SnapPoint | null => {
