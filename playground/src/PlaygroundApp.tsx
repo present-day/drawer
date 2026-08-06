@@ -501,6 +501,21 @@ function getScenarioDrawer(
       drawer: { snapPoints: ['full'] },
       children: longScrollableContent(),
     },
+    screen: {
+      drawer: { snapPoints: [SNAP_POINT.SCREEN] },
+      children: longScrollableContent(),
+    },
+    screenWithKeyboard: {
+      drawer: {
+        // Rests at content height, expands edge-to-edge on focus. This is the
+        // pairing FULL cannot express: FULL is capped at viewport - topInsetPx,
+        // and topInsetPx is per-drawer, so it cannot be inset at rest AND reach
+        // the top on demand.
+        snapPoints: [SNAP_POINT.AUTO, SNAP_POINT.SCREEN],
+        defaultSnapPoint: SNAP_POINT.AUTO,
+      },
+      children: searchWithListContent('auto'),
+    },
     snapsFractions: {
       drawer: {
         snapPoints: [SNAP_POINT.PEEK, SNAP_POINT.HALF, SNAP_POINT.MAX],
@@ -740,8 +755,18 @@ export function PlaygroundApp() {
         />
         <Panel
           title="FULL"
-          description="Single snap at available height; scroll inside if content is tall."
+          description="Single snap at available height — viewport MINUS topInsetPx (96px). Note the gap at the top."
           onOpen={() => openScenario('full')}
+        />
+        <Panel
+          title="SCREEN"
+          description="Single snap at the ENTIRE viewport — top edge touches the top. Compare against FULL above."
+          onOpen={() => openScenario('screen')}
+        />
+        <Panel
+          title="SCREEN + keyboard"
+          description="AUTO at rest, SCREEN on focus. Tap the field on a phone: the sheet takes the whole screen."
+          onOpen={() => openScenario('screenWithKeyboard')}
         />
         <Panel
           title="Fraction snaps"
