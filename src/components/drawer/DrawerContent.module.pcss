@@ -28,4 +28,22 @@
   /* Not an inherited property; forced so translucent surfaces match. */
   backdrop-filter: inherit;
   pointer-events: none;
+  /*
+   * Softens the join instead of ending the surface on a hard edge. The colour
+   * has to stay `inherit` (the consumer's, unknown here), so the fade is an
+   * alpha mask over that colour rather than a gradient of it.
+   *
+   * The first band is fully opaque: on iOS the only part of this strip a user
+   * can see is the form accessory bar directly under the panel — everything
+   * below is behind the keyboard — so that band must stay solid or the gap
+   * this exists to close reopens. Fixed px, not a percentage, because the
+   * accessory bar is a fixed height while the strip scales with the keyboard.
+   */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 72px,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to bottom, #000 0, #000 72px, transparent 100%);
 }
