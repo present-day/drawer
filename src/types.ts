@@ -140,6 +140,24 @@ export interface DrawerProps {
    */
   topInsetPx?: number
   /**
+   * Pixels the panel is held off the BOTTOM of the viewport, and subtracted
+   * from the height snap points resolve against — the mirror of
+   * `topInsetPx`.
+   *
+   * For sheets that must coexist with persistent bottom chrome (a fixed nav
+   * bar, a tab bar) instead of covering it. The panel is portaled to
+   * `document.body` and its `bottom` is driven by a motion value, so a
+   * consumer cannot offset it from the outside; this is the supported way.
+   *
+   * The soft keyboard still wins: while it is up the panel rides the larger
+   * of this and the keyboard inset, because chrome the keyboard has already
+   * covered should not also hold the sheet up.
+   *
+   * `SNAP_POINT.SCREEN` ignores this, exactly as it ignores `topInsetPx` —
+   * that stop means the whole viewport.
+   */
+  bottomInsetPx?: number
+  /**
    * Bottom safe-area handling (home indicator). `true` (default) pads the
    * panel with `env(safe-area-inset-bottom, 0px)` and grows `'auto'` snap
    * heights by the resolved inset so content still fits. Pass a number to

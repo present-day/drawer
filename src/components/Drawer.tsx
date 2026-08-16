@@ -85,6 +85,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       dismissible = true,
       modal = true,
       topInsetPx = DRAWER_TOP_INSET_PX,
+      bottomInsetPx = 0,
       safeAreaBottom = true,
       children,
       onSnapPointChange,
@@ -196,6 +197,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       snapPoints,
       viewportHeight: viewport.height || availableHeight,
       topInsetPx,
+      bottomInsetPx,
       defaultSnapPoint,
       contentMeasureRef: measureRef,
       autoExtraPx,
@@ -292,7 +294,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       viewport.height > 0
         ? Math.max(
             0,
-            Math.round(viewport.height) - (allowsScreenSnap ? 0 : topInsetPx),
+            Math.round(viewport.height) -
+              (allowsScreenSnap ? 0 : topInsetPx + bottomInsetPx),
           )
         : undefined
 
@@ -394,23 +397,29 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     // Springs remain on user-driven drag and snap transitions only. Top-edge
     // overshoot while the height spring settles is prevented by the instant
     // `panelMaxHeight` clamp above.
-    const bottomMv = useMotionValue(0)
+    //
+    // `bottomInsetPx` is the resting offset — chrome the sheet must sit above
+    // (a fixed nav bar). The keyboard inset wins whenever it is larger, since
+    // chrome the keyboard has already covered should not also hold the panel
+    // up.
+    const bottomMv = useMotionValue(bottomInsetPx)
+    const targetBottom = Math.max(bottomInsetPx, layoutBottomInset)
     useEffect(() => {
       const from = bottomMv.get()
-      if (from === layoutBottomInset) return
+      if (from === targetBottom) return
       const isLargeSingleJump =
-        Math.abs(layoutBottomInset - from) > KEYBOARD_INSET_GLIDE_THRESHOLD_PX
+        Math.abs(targetBottom - from) > KEYBOARD_INSET_GLIDE_THRESHOLD_PX
       if (reduceMotion || !open || !isLargeSingleJump) {
-        bottomMv.set(layoutBottomInset)
+        bottomMv.set(targetBottom)
         return
       }
       const controls = animate(
         bottomMv,
-        layoutBottomInset,
+        targetBottom,
         KEYBOARD_INSET_GLIDE_TRANSITION,
       )
       return () => controls.stop()
-    }, [bottomMv, layoutBottomInset, open, reduceMotion])
+    }, [bottomMv, targetBottom, open, reduceMotion])
 
     const introStartedRef = useRef(false)
     const [resnapReady, setResnapReady] = useState(false)

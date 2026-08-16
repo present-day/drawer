@@ -264,4 +264,51 @@ describe('Drawer (coverage)', () => {
       expect(dialog).toHaveStyle({ bottom: '190px' })
     })
   })
+
+  /**
+   * `bottomInsetPx` holds the panel off the bottom of the viewport so it can
+   * coexist with persistent chrome (a fixed nav bar) instead of covering it.
+   * The panel is portaled to `document.body` and its `bottom` comes from a
+   * motion value, so a consumer cannot do this from the outside.
+   */
+  it('rests the panel at bottomInsetPx', async () => {
+    setVisualViewportSize(900, 0)
+    render(
+      <Drawer
+        open
+        onOpenChange={vi.fn()}
+        snapPoints={['full']}
+        bottomInsetPx={64}
+      >
+        <Drawer.Content>bi</Drawer.Content>
+      </Drawer>,
+    )
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => {
+      expect(dialog).toHaveStyle({ bottom: '64px' })
+    })
+  })
+
+  /**
+   * Chrome the keyboard has already covered should not also hold the sheet up,
+   * so the larger of the two wins.
+   */
+  it('lets a taller keyboard inset override bottomInsetPx', async () => {
+    setVisualViewportSize(700, 10)
+    render(
+      <Drawer
+        open
+        onOpenChange={vi.fn()}
+        snapPoints={['full']}
+        bottomInsetPx={64}
+      >
+        <Drawer.Content>bi2</Drawer.Content>
+      </Drawer>,
+    )
+    const dialog = await screen.findByRole('dialog')
+    // Keyboard inset resolves to 190px, well past the 64px of nav chrome.
+    await waitFor(() => {
+      expect(dialog).toHaveStyle({ bottom: '190px' })
+    })
+  })
 })

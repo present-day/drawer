@@ -24,7 +24,8 @@ export function resolveSnapValueToPx(
   measuredAutoHeight?: number | null,
   autoExtraPx = 0,
   /**
-   * Raw viewport height, i.e. `availableHeight + topInsetPx`. Only `'screen'`
+   * Raw viewport height, i.e. `availableHeight` plus both insets. Only
+   * `'screen'`
    * needs it — every other stop is defined relative to the available height.
    * Optional so existing internal callers keep compiling; when omitted,
    * `'screen'` degrades to `'full'` rather than resolving to 0.
@@ -431,6 +432,12 @@ export type UseDrawerSnapArgs = {
   viewportHeight: number
   /** Subtracted from viewport height for snap math; default map inset. */
   topInsetPx?: number
+  /**
+   * Also subtracted, from the bottom: space reserved for persistent chrome
+   * the sheet must sit above. Without this every fractional stop is too tall
+   * by the inset and `'full'` runs underneath that chrome.
+   */
+  bottomInsetPx?: number
   defaultSnapPoint?: SnapPoint
   contentMeasureRef: RefObject<HTMLElement | null>
   /**
@@ -452,12 +459,16 @@ export function useDrawerSnap({
   snapPoints,
   viewportHeight,
   topInsetPx = DRAWER_TOP_INSET_PX,
+  bottomInsetPx = 0,
   defaultSnapPoint,
   contentMeasureRef,
   autoExtraPx = 0,
   measureAttachGeneration = 0,
 }: UseDrawerSnapArgs) {
-  const availableHeight = Math.max(0, Math.round(viewportHeight - topInsetPx))
+  const availableHeight = Math.max(
+    0,
+    Math.round(viewportHeight - topInsetPx - bottomInsetPx),
+  )
 
   const [measuredAutoHeight, setMeasuredAutoHeight] = useState<number | null>(
     null,
