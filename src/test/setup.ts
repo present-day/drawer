@@ -53,6 +53,20 @@ if (typeof globalThis.Touch === 'undefined') {
   } as unknown as typeof Touch
 }
 
+// Web Animations marks a canceled animation's `finished` rejection as handled,
+// so browsers never report it. happy-dom (>= 20.13) rejects without doing so,
+// and Motion cancels animations it never awaits: every drawer close turned
+// into an unhandled AbortError and failed the run with all tests green. Mark
+// it handled before canceling — the same promise still rejects for anyone
+// awaiting it, exactly as in a browser.
+if (typeof globalThis.Animation === 'function') {
+  const cancel = Animation.prototype.cancel
+  Animation.prototype.cancel = function cancelLikeABrowser(this: Animation) {
+    this.finished?.catch(() => {})
+    return cancel.call(this)
+  }
+}
+
 afterEach(() => {
   cleanup()
   forceUnlock()
