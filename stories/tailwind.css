@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/*
+ * The package ships Tailwind utility classes (overlay, panel, scroll area) but
+ * no compiled CSS for them; consumers build them. Scan the source so those
+ * classes render next to the ones the stories use.
+ */
+@source "../src";
+
+/* Demo colors map to the theme-aware tokens in .storybook/preview.css. */
+@theme inline {
+  --color-surface: var(--demo-surface);
+  --color-subtle: var(--demo-subtle);
+  --color-line: var(--demo-line);
+  --color-fg: var(--demo-fg);
+  --color-muted: var(--demo-muted);
+  --color-accent: var(--demo-accent);
+  --color-accent-fg: var(--demo-accent-fg);
+}

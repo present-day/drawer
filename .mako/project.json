@@ -19,7 +19,7 @@
     }
   },
   "indexing": {
-    "include": ["docs", "playground", "src"],
+    "include": ["docs", "src", "stories"],
     "exclude": [
       ".mako",
       ".mako-ai",
@@ -32,7 +32,7 @@
   },
   "capabilities": {
     "supportLevel": "adapted",
-    "entryPoints": ["src/index.ts", "playground/src/main.tsx"],
+    "entryPoints": ["src/index.ts", "stories/Drawer.stories.tsx"],
     "middlewareFiles": [],
     "serverOnlyModules": [],
     "authGuardSymbols": []

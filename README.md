@@ -2,7 +2,7 @@
 
 A flexible and performant React drawer component with smooth animations and customizable snap points.
 
-**[▶ Try the live playground](https://present-day.github.io/drawer/)**
+**[▶ Try it in Storybook](https://present-day.github.io/drawer/)**
 
 ## Features
 
@@ -248,6 +248,16 @@ The `BottomSheet` compatibility layer and `BOTTOM_SHEET_*` names were removed in
 - **Constants**: `BOTTOM_SHEET_TOP_INSET_PX` → `DRAWER_TOP_INSET_PX`, `BOTTOM_SHEET_CONTEXT_CONSUMER` → `DRAWER_CONTEXT_CONSUMER` (kept in source; not re-exported from the package `index` — use `Drawer` and its parts in normal use), `BOTTOM_SHEET_DRAG_SLOP_PX` → `DRAWER_DRAG_SLOP_PX` (internal tuning constant).
 - **Data attributes**: `data-bottom-sheet-scroll` → `data-drawer-scroll`, `data-bottom-sheet-no-drag` → `data-drawer-no-drag`.
 - **CSS custom properties** on the motion panel: `--bottom-sheet-height` → `--drawer-height`, `--bottom-sheet-progress` → `--drawer-progress`, `--bottom-sheet-available-height` → `--drawer-available-height`. New: `--drawer-layout-bottom-inset` (visual-viewport bottom anchoring; see *Mobile Safari, soft keyboard* above).
+
+## Development
+
+```bash
+bun run storybook   # http://localhost:6006 (toolbar: Theme)
+bun run test
+bun run build
+```
+
+**Testing on a phone:** The drawer portals to `document.body` and positions itself with `position: fixed` against `window.visualViewport`, so the Storybook manager UI (which renders stories in an iframe inside its own chrome) does not reproduce real mobile behavior such as the soft keyboard. Instead, open a story's standalone URL, `iframe.html?id=<story-id>`, on the phone (for example, https://present-day.github.io/drawer/iframe.html?id=drawer--auto-search-keyboard). Stories open the drawer on load and render an in-page event log, and story IDs are shown in the Storybook URL as `?path=/story/<story-id>`.
 
 ## License
 

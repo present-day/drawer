@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { pathToFileURL } from 'node:url'
+import { basename } from 'node:path'
 import postcss from 'postcss'
 import postcssModules from 'postcss-modules'
 import type { Plugin } from 'vite'
@@ -41,7 +41,7 @@ export function postcssModulesPcssPlugin(): Plugin {
       return `const css = ${JSON.stringify(result.css)};
 
 const s = document.createElement('style');
-s.setAttribute('data-drawer-pcss', ${JSON.stringify(pathToFileURL(filePath).href)});
+s.setAttribute('data-drawer-pcss', ${JSON.stringify(basename(filePath))});
 s.textContent = css;
 document.head.appendChild(s);
 
