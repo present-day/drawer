@@ -20,8 +20,7 @@ No API removals. Two default behaviors changed:
 # Migration: v1 → v2
 
 `@present-day/drawer` v2 collapses the `sizing` prop and `DRAWER_SIZING`
-preset object into a single `snapPoints` array, renames the change callback
-to match Vaul / shadcn drawer, and reuses `SNAP_POINT.FULL` for the `'full'`
+preset object into a single `snapPoints` array and reuses `SNAP_POINT.FULL` for the `'full'`
 token. The migration is mechanical and codemod-friendly: every change is a
 1:1 rename or a small literal substitution.
 
@@ -32,7 +31,6 @@ token. The migration is mechanical and codemod-friendly: every change is a
 | `sizing="auto"` / `sizing={DRAWER_SIZING.AUTO}` | omit (default) or `snapPoints={['auto']}` |
 | `sizing="full"` / `sizing={DRAWER_SIZING.FULL}` | `snapPoints={['full']}`            |
 | `sizing={[…]}`                                  | `snapPoints={[…]}`                 |
-| `onSnapPointChange={fn}`                        | `setActiveSnapPoint={fn}`          |
 | `import { DRAWER_SIZING } from '@present-day/drawer'` | _delete_ (no replacement) |
 | `SnapPointValue` (type)                         | `SnapPoint`                        |
 | `DrawerSizing` (type)                           | `SnapPoint[]` (or just remove the annotation) |
@@ -53,11 +51,6 @@ already expressed "full-height" — the preset variant was sugar for what the
 array form could already do, and we paid for it with two parallel constants
 (`DRAWER_SIZING` and `SNAP_POINT`) that overlapped on `'auto'`. v2 keeps
 only the array form.
-
-**`onSnapPointChange` is now `setActiveSnapPoint`** to match the Vaul /
-shadcn drawer convention. The signature is a strict superset of theirs —
-we still pass the resolved `index` as a second argument, so existing
-handlers continue to work after the rename.
 
 **`SnapPoint` (renamed from `SnapPointValue`)** is the public type for any
 single snap stop: `number | 'auto' | 'full'`. Use it in your own helpers and
@@ -84,19 +77,7 @@ state when the value can be any of those.
 `'auto'` is now the default `snapPoints` value, so most call sites can drop
 the prop entirely.
 
-### 2. Rename the callback
-
-```tsx
-// before
-<Drawer onSnapPointChange={(point, index) => …} />
-
-// after
-<Drawer setActiveSnapPoint={(point, index) => …} />
-```
-
-The signature is unchanged.
-
-### 3. Update imports and types
+### 2. Update imports and types
 
 ```ts
 // before
@@ -117,7 +98,7 @@ const stops: SnapPoint[] = ['auto', 480, 'full']
 const [active, setActive] = useState<SnapPoint>(0.5)
 ```
 
-### 4. Update `SNAP_POINT.FULL` users
+### 3. Update `SNAP_POINT.FULL` users
 
 `SNAP_POINT.FULL` used to equal `0.9`. In v2 it equals `'full'`.
 
@@ -143,7 +124,7 @@ in callbacks rather than `1`.
   No code change needed; this is a good time to remove redundant
   `sizing="auto"` props.
 - **Single-stop arrays.** `snapPoints={['full']}` reports `'full'` (the
-  string token) as the active raw value in `setActiveSnapPoint` and
+  string token) as the active raw value in `onSnapPointChange` and
   `getActiveSnapPoint()`. Under v1, `sizing={DRAWER_SIZING.FULL}` reported
   `1`. If you have code branching on the active raw value, accept both
   `'full'` and `1` during the upgrade.
@@ -160,7 +141,7 @@ After v2 the prop names line up with Vaul:
 | ------------------------- | --------------------------------- |
 | `snapPoints`              | `snapPoints` ✓                    |
 | `activeSnapPoint`         | `activeSnapPoint` ✓               |
-| `setActiveSnapPoint`      | `setActiveSnapPoint` (richer signature: also passes `index`) |
+| `setActiveSnapPoint`      | `onSnapPointChange` (also passes `index`) |
 | `dismissible`             | `dismissible` ✓                   |
 | `modal`                   | `modal` ✓                         |
 | `open` / `onOpenChange`   | `open` / `onOpenChange` ✓         |

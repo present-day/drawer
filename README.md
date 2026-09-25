@@ -184,7 +184,7 @@ Pressing **Escape** inside a **non-empty** `input`, `textarea`, or `contentedita
 | `snapPoints`          | `SnapPoint[]`                                     | `['auto']` | Snap stops; each entry is a fraction (`≤ 1`), pixel value (`> 1`), `'auto'`, or `'full'` |
 | `defaultSnapPoint`    | `SnapPoint`                                       | last stop  | Initial snap point                |
 | `activeSnapPoint`     | `SnapPoint`                                       | -          | Controlled active snap            |
-| `setActiveSnapPoint`  | `(point: SnapPoint, index: number) => void`       | -          | Called when the active snap changes (drag, ref controls, programmatic). Name matches Vaul / shadcn drawer; the `index` is provided as a convenience |
+| `onSnapPointChange`   | `(point: SnapPoint, index: number) => void`       | -          | Called when the active snap changes (drag, ref controls, programmatic); the `index` is provided as a convenience |
 | `dismissible`         | `boolean`                                         | `true`     | Allow dismissing by dragging down; Escape closes when true |
 | `modal`               | `boolean`                                         | `true`     | Show overlay and lock body scroll |
 | `focusTrap`           | `boolean`                                         | `true`     | When `modal`, trap keyboard focus in the panel; set `false` to opt out |
@@ -215,7 +215,6 @@ Quick summary:
 - `sizing="auto"` → omit (now the default) or pass `snapPoints={['auto']}`
 - `sizing="full"` → `snapPoints={['full']}`
 - `sizing={[…]}` → `snapPoints={[…]}`
-- `onSnapPointChange` → `setActiveSnapPoint` (matches Vaul’s controlled-setter convention)
 - `SnapPointValue` type → `SnapPoint`
 - `DrawerSizing` / `DrawerSizingPreset` types removed
 - `SNAP_POINT.FULL` (was `0.9`) → either `SNAP_POINT.NEAR_FULL` (the same `0.9` value) or `SNAP_POINT.MAX` (`1`, full height). The new `SNAP_POINT.FULL` token resolves to `'full'`.
