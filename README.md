@@ -173,6 +173,25 @@ By default the panel is padded with **`env(safe-area-inset-bottom, 0px)`** so co
 
 Pressing **Escape** inside a **non-empty** `input`, `textarea`, or `contenteditable` does **not** dismiss the drawer — the field clears first (the browser's native `type="search"` behavior), and a **second** Escape on the now-empty field dismisses. The drawer also ignores Escape events whose default was prevented, so apps can claim Escape for their own shortcuts.
 
+### Scrollbar in `Drawer.Scrollable`
+
+`Drawer.Scrollable` is a plain `overflow-y-auto` container: it **reserves no scrollbar gutter** and does **not** hide the scrollbar. There is intentionally no prop for either; style the scrollbar through the part's `className` (merged with **tailwind-merge** when installed) or `style`. On **classic, space-taking scrollbars** (Windows, Linux, or macOS set to always show scrollbars), content width **shrinks** once the list overflows. **Overlay-scrollbar platforms** (default macOS, iOS, Android) are unaffected.
+
+```tsx
+<Drawer.Scrollable
+  // Reserve the gutter so content width stays constant
+  className="[scrollbar-gutter:stable]"
+  // Or hide the scrollbar but keep scrolling
+  // className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+  // Without Tailwind
+  // style={{ scrollbarGutter: 'stable' }}
+>
+  {/* long content */}
+</Drawer.Scrollable>
+```
+
+Hiding the scrollbar removes a visible scroll affordance for mouse users, so prefer the gutter unless the design signals scrollability another way.
+
 ## API Reference
 
 ### Drawer Props
