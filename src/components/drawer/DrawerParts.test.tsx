@@ -78,28 +78,25 @@ describe('Drawer parts & slots', () => {
     const scrollCb = vi.fn()
     const contentCb = vi.fn()
     const handleCb = vi.fn()
-    function ScrollWrapper() {
-      return (
-        <Drawer open onOpenChange={vi.fn()} snapPoints={['full']}>
-          <Drawer.Content
-            className="c2"
-            ref={(el) => {
-              contentCb(!!el)
-            }}
+    render(
+      <Drawer open onOpenChange={vi.fn()} snapPoints={['full']}>
+        <Drawer.Content
+          className="c2"
+          ref={(el) => {
+            contentCb(!!el)
+          }}
+        >
+          <Drawer.Scrollable
+            className="scroll-extra"
+            externalRef={ext}
+            ref={scrollCb}
           >
-            <Drawer.Scrollable
-              className="scroll-extra"
-              externalRef={ext}
-              ref={scrollCb}
-            >
-              inner
-            </Drawer.Scrollable>
-            <Drawer.Handle ref={handleCb} />
-          </Drawer.Content>
-        </Drawer>
-      )
-    }
-    render(<ScrollWrapper />)
+            inner
+          </Drawer.Scrollable>
+          <Drawer.Handle ref={handleCb} />
+        </Drawer.Content>
+      </Drawer>,
+    )
     const scroll = (await waitFor(() =>
       document.querySelector('[data-drawer-scroll]'),
     )) as HTMLDivElement
