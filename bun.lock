@@ -367,7 +367,7 @@
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.67.3", "", { "os": "win32", "cpu": "x64" }, "sha512-tlynfm3LIQtOCjFdT7kjyMnGrl0PbhyldgCfj7b1VxafD6uYiJFjd2ATzmYb+YnzNIzNezpK7XzFzDtPu37IeA=="],
 
-    "@storybook/addon-a11y": ["@storybook/addon-a11y@10.6.5", "", { "dependencies": { "@storybook/global": "^5.0.0", "axe-core": "^4.2.0" }, "peerDependencies": { "storybook": "^10.6.5" } }, "sha512-7dEH3OHKdE+0zakqEy50KtfhPORIm1xnhWeehyROO1Ct7Rx9s7cYcx6edUZvh0tCuX5VhDnDmkvQV+dbrPDmCA=="],
+    "@storybook/addon-a11y": ["@storybook/addon-a11y@10.6.7", "", { "dependencies": { "@storybook/global": "^5.0.0", "axe-core": "^4.2.0" }, "peerDependencies": { "storybook": "^10.6.7" } }, "sha512-ARd+bjfOYoICe00+svRgFsCVqV7RbN+wgi8yfRhk31kESR7NnTMBGiZD8vWv/r3xqul/Ddr1uR6mUK4lpH7sqw=="],
 
     "@storybook/builder-vite": ["@storybook/builder-vite@10.6.5", "", { "dependencies": { "ts-dedent": "^2.0.0" }, "peerDependencies": { "storybook": "^10.6.5", "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0" } }, "sha512-udrGjg3yt38pz4FxplypXxw1creIGS7N6QS8xfvTFM8MQNtPyojT/gZdd4fhX0dFrQx5MMuJEYJA5gUBiPsLtg=="],
 
