@@ -241,8 +241,16 @@ function ScrollDrawerRoot({
     closingRef.current = false
     lastIndexRef.current = null
     el.scrollTop = 0
-    const backdrop = supportsScrollTimeline() ? null : backdropRef.current
-    if (backdrop) writeBackdropOpacity(el, backdrop)
+    const backdropEl = backdropRef.current
+    const backdropMin = backdropEl
+      ? Number.parseFloat(
+          getComputedStyle(backdropEl).getPropertyValue(
+            '--scroll-drawer-backdrop-min',
+          ),
+        ) || 0
+      : 0
+    const backdrop = supportsScrollTimeline() ? null : backdropEl
+    if (backdrop) writeBackdropOpacity(el, backdrop, backdropMin)
 
     // Translating the track instead would grow the scroll area and move the
     // snap areas, and WebKit snaps the sheet fully open for the duration.
@@ -253,6 +261,15 @@ function ScrollDrawerRoot({
         ? el.animate([{ translate: '0 100%' }, { translate: '0 0' }], {
             duration: 300,
             easing: 'cubic-bezier(0.32, 0.72, 0, 1)',
+          })
+        : null
+    const entryFade =
+      entry && backdropEl
+        ? // No end keyframe: it eases into whatever the scroll timeline says,
+          // which hasn't resolved yet before first layout.
+          backdropEl.animate([{ opacity: 0, offset: 0 }], {
+            duration: 300,
+            easing: 'ease-out',
           })
         : null
 
@@ -268,7 +285,7 @@ function ScrollDrawerRoot({
     let timer: ReturnType<typeof setTimeout> | undefined
     const hasScrollEnd = 'onscrollend' in window
     const onScroll = () => {
-      if (backdrop) writeBackdropOpacity(el, backdrop)
+      if (backdrop) writeBackdropOpacity(el, backdrop, backdropMin)
       if (!hasScrollEnd) {
         clearTimeout(timer)
         timer = setTimeout(settle, SETTLE_FALLBACK_MS)
@@ -279,6 +296,7 @@ function ScrollDrawerRoot({
     return () => {
       cancelAnimationFrame(frame)
       entry?.cancel()
+      entryFade?.cancel()
       clearTimeout(timer)
       el.removeEventListener('scroll', onScroll)
       el.removeEventListener('scrollend', settle)
@@ -384,7 +402,10 @@ function ScrollDrawerRoot({
 
   return createPortal(
     <ScrollDrawerContext.Provider value={{ startMouseDrag }}>
-      <div data-scroll-drawer-root="">
+      <div
+        data-scroll-drawer-root=""
+        data-scroll-drawer-pinned={dismissible ? undefined : ''}
+      >
         {/* Outside the scroller so the scroller's exit and entry translates never move it. */}
         {modal ? (
           <div ref={backdropRef} data-scroll-drawer-backdrop="" aria-hidden />

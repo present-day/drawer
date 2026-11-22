@@ -64,15 +64,17 @@ export function nearestIndex(
 /**
  * Fallback for browsers without scroll-driven animations: writes the backdrop's
  * opacity straight to it, so neither React nor the sheet's subtree restyles.
+ * Opacity runs from `min` at `scrollTop` 0 to 1 fully open.
  */
 export function writeBackdropOpacity(
   scroller: HTMLElement,
   backdrop: HTMLElement,
+  min = 0,
 ): void {
   const max = scroller.scrollHeight - scroller.clientHeight
   const progress =
     max > 0 ? Math.min(1, Math.max(0, scroller.scrollTop / max)) : 1
-  backdrop.style.opacity = progress.toFixed(4)
+  backdrop.style.opacity = (min + (1 - min) * progress).toFixed(4)
 }
 
 export function supportsScrollTimeline(): boolean {

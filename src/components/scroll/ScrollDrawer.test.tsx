@@ -90,6 +90,9 @@ describe('scroll drawer geometry', () => {
     el.scrollTop = 150
     writeBackdropOpacity(el, backdrop)
     expect(Number(backdrop.style.opacity)).toBe(0.25)
+    el.scrollTop = 0
+    writeBackdropOpacity(el, backdrop, 0.4)
+    expect(Number(backdrop.style.opacity)).toBe(0.4)
   })
 })
 

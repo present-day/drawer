@@ -4,7 +4,7 @@ const STYLE_ID = 'present-day-scroll-drawer'
 // works in any bundler without CSS handling. Part defaults use `:where()` so a
 // consumer's single class always wins.
 export const SCROLL_DRAWER_CSS = `
-@keyframes scroll-drawer-backdrop { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scroll-drawer-backdrop { from { opacity: var(--scroll-drawer-backdrop-min, 0); } to { opacity: 1; } }
 [data-scroll-drawer] {
   position: fixed; inset: 0; height: 100dvh; z-index: 50;
   overflow-x: hidden; overflow-y: auto; scrollbar-width: none;
@@ -17,9 +17,11 @@ export const SCROLL_DRAWER_CSS = `
 [data-scroll-drawer-modeless] [data-scroll-drawer-sheet] { pointer-events: auto; }
 [data-scroll-drawer] { scroll-timeline: --scroll-drawer y; }
 [data-scroll-drawer-root] { timeline-scope: --scroll-drawer; }
+/* A pinned sheet's lowest stop is scroll progress 0, which would leave a modal with no dim at all. */
+:where([data-scroll-drawer-root][data-scroll-drawer-pinned]) { --scroll-drawer-backdrop-min: 0.4; }
 [data-scroll-drawer-backdrop] {
   position: fixed; inset: 0; z-index: 50; pointer-events: none;
-  background: rgb(0 0 0 / 0.5); opacity: 0;
+  background: rgb(0 0 0 / 0.5); opacity: var(--scroll-drawer-backdrop-min, 0);
 }
 @supports (animation-timeline: scroll()) and (timeline-scope: --a) {
   [data-scroll-drawer-backdrop] { animation: scroll-drawer-backdrop linear both; animation-timeline: --scroll-drawer; }
