@@ -1,0 +1,9 @@
+# `bun build demo/scroll-drawer-demo.tsx` would otherwise emit the drawer's
+# `.module.pcss` imports as separate asset files; inlining them as text keeps
+# the demo a single self-contained bundle.
+[loader]
+".pcss" = "text"
+
+# Production React, so the demo's frame comparison isn't skewed by dev-only checks.
+[define]
+"process.env.NODE_ENV" = "'production'"

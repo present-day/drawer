@@ -14,6 +14,13 @@ export {
 } from './components/drawer/DrawerHandle'
 export { DrawerOverlay } from './components/drawer/DrawerOverlay'
 export { DrawerScrollable } from './components/drawer/DrawerScrollable'
+// Experimental: native scroll-snap drawer
+export {
+  ScrollDrawer,
+  ScrollDrawerContent,
+  ScrollDrawerHandle,
+  type ScrollDrawerProps,
+} from './components/scroll/ScrollDrawer'
 // Constants (for customization)
 export {
   DRAWER_TOP_INSET_PX,
@@ -47,6 +54,5 @@ export type {
   SnapPoint,
   ViewportInfo,
 } from './types'
-
 // Utilities
 export { cn, forceUnlock, getLockCount, lockBody, unlockBody } from './utils'
