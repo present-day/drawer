@@ -12,6 +12,9 @@ export const SCROLL_DRAWER_CSS = `
   -webkit-tap-highlight-color: transparent;
 }
 [data-scroll-drawer]::-webkit-scrollbar { display: none; }
+/* Hit-testing skips the scroller, but a wheel or pan on the sheet still chains up to it. */
+[data-scroll-drawer-modeless] { pointer-events: none; }
+[data-scroll-drawer-modeless] [data-scroll-drawer-sheet] { pointer-events: auto; }
 [data-scroll-drawer] { scroll-timeline: --scroll-drawer y; }
 [data-scroll-drawer-root] { timeline-scope: --scroll-drawer; }
 [data-scroll-drawer-backdrop] {

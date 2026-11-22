@@ -49,6 +49,12 @@ export interface ScrollDrawerProps {
    * chrome, or when the content's scroll chains at its top.
    */
   contentScroll?: 'full' | 'always'
+  /**
+   * When false the page behind stays usable: no backdrop, scroll lock or focus
+   * trap, and the area above the sheet passes pointer and wheel events
+   * through, so a map underneath can still pan and zoom. Default true.
+   */
+  modal?: boolean
   /** Applied to the sheet. */
   className?: string
   'aria-label'?: string
@@ -141,6 +147,7 @@ function ScrollDrawerRoot({
   dismissible = true,
   onSnapChange,
   contentScroll = 'full',
+  modal = true,
   className,
   children,
   ...aria
@@ -306,14 +313,14 @@ function ScrollDrawerRoot({
   }, [open, mounted, scrollToOpen])
 
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || !modal) return
     lockBody()
     return unlockBody
-  }, [mounted])
+  }, [mounted, modal])
 
   useEffect(() => {
     const sheet = sheetRef.current
-    if (!mounted || !sheet) return
+    if (!mounted || !modal || !sheet) return
     const trap = createFocusTrap(sheet, {
       returnFocusOnDeactivate: true,
       fallbackFocus: sheet,
@@ -332,7 +339,7 @@ function ScrollDrawerRoot({
     return () => {
       trap.deactivate()
     }
-  }, [mounted])
+  }, [mounted, modal])
 
   const requestClose = () => {
     if (latest.current.dismissible && !closingRef.current) onOpenChange(false)
@@ -379,11 +386,14 @@ function ScrollDrawerRoot({
     <ScrollDrawerContext.Provider value={{ startMouseDrag }}>
       <div data-scroll-drawer-root="">
         {/* Outside the scroller so the scroller's exit and entry translates never move it. */}
-        <div ref={backdropRef} data-scroll-drawer-backdrop="" aria-hidden />
+        {modal ? (
+          <div ref={backdropRef} data-scroll-drawer-backdrop="" aria-hidden />
+        ) : null}
         <div
           ref={scrollerRef}
           data-scroll-drawer=""
           data-scroll-drawer-dismissible={dismissible ? '' : undefined}
+          data-scroll-drawer-modeless={modal ? undefined : ''}
           data-scroll-drawer-content-scroll={contentScroll}
         >
           <div data-scroll-drawer-track="">
@@ -398,7 +408,7 @@ function ScrollDrawerRoot({
             <div
               ref={sheetRef}
               role="dialog"
-              aria-modal
+              aria-modal={modal}
               tabIndex={-1}
               data-scroll-drawer-sheet=""
               className={className}

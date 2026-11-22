@@ -125,6 +125,22 @@ describe('ScrollDrawer', () => {
     expect(getLockCount()).toBe(1)
   })
 
+  it('leaves the page usable when not modal', () => {
+    const outside = document.createElement('button')
+    document.body.appendChild(outside)
+    outside.focus()
+    renderDrawer({ snapPoints: [200], modal: false })
+    expect(screen.getByRole('dialog', { name: 'Sheet' })).toHaveAttribute(
+      'aria-modal',
+      'false',
+    )
+    expect(scroller()).toHaveAttribute('data-scroll-drawer-modeless')
+    expect(document.querySelector('[data-scroll-drawer-backdrop]')).toBeNull()
+    expect(getLockCount()).toBe(0)
+    expect(document.activeElement).toBe(outside)
+    outside.remove()
+  })
+
   it('scrolls to the first snap point after mount', async () => {
     vi.useRealTimers()
     renderDrawer({ snapPoints: [200, 420] })
