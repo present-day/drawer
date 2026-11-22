@@ -86,16 +86,15 @@ const EXIT_TIMING: KeyframeAnimationOptions = {
 
 /**
  * A non-dismissible sheet has no closed scroll position to scroll to, so it
- * exits by translating the scroller. A transformed scroller turns the fixed
- * backdrop into one positioned in its scrolled content, so the backdrop is
- * shifted back by scrollTop and counter-translated to stay put while it fades.
- * Returns a cancel.
+ * exits by translating the scroller while the backdrop, a sibling outside it,
+ * only fades. Returns a cancel.
  */
-function slideOut(el: HTMLElement, done: () => void): () => void {
+function slideOut(
+  el: HTMLElement,
+  backdrop: HTMLElement | null,
+  done: () => void,
+): () => void {
   const sheet = el.querySelector<HTMLElement>('[data-scroll-drawer-sheet]')
-  const backdrop = el.querySelector<HTMLElement>(
-    '[data-scroll-drawer-backdrop]',
-  )
   if (!sheet || typeof el.animate !== 'function') {
     done()
     return () => {}
@@ -109,13 +108,7 @@ function slideOut(el: HTMLElement, done: () => void): () => void {
     EXIT_TIMING,
   )
   const fade = backdrop?.animate(
-    [
-      {
-        translate: `0 ${el.scrollTop}px`,
-        opacity: getComputedStyle(backdrop).opacity,
-      },
-      { translate: `0 ${el.scrollTop - distance}px`, opacity: 0 },
-    ],
+    [{ opacity: getComputedStyle(backdrop).opacity }, { opacity: 0 }],
     EXIT_TIMING,
   )
   let finished = false
@@ -147,6 +140,7 @@ function ScrollDrawerRoot({
   const [mounted, setMounted] = useState(open)
   const scrollerRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
   const closingRef = useRef(false)
   const lastIndexRef = useRef<number | null>(null)
   const dragRef = useRef<{ id: number; y: number; top: number } | null>(null)
@@ -232,9 +226,7 @@ function ScrollDrawerRoot({
     closingRef.current = false
     lastIndexRef.current = null
     el.scrollTop = 0
-    const backdrop = supportsScrollTimeline()
-      ? null
-      : el.querySelector<HTMLElement>('[data-scroll-drawer-backdrop]')
+    const backdrop = supportsScrollTimeline() ? null : backdropRef.current
     if (backdrop) writeBackdropOpacity(el, backdrop)
 
     // Translating the track instead would grow the scroll area and move the
@@ -293,7 +285,7 @@ function ScrollDrawerRoot({
       return
     }
     if (!latest.current.dismissible) {
-      return slideOut(el, () => setMounted(false))
+      return slideOut(el, backdropRef.current, () => setMounted(false))
     }
     if (el.scrollTop <= EDGE_PX) {
       setMounted(false)
@@ -377,46 +369,49 @@ function ScrollDrawerRoot({
 
   return createPortal(
     <ScrollDrawerContext.Provider value={{ startMouseDrag }}>
-      <div
-        ref={scrollerRef}
-        data-scroll-drawer=""
-        data-scroll-drawer-dismissible={dismissible ? '' : undefined}
-        data-scroll-drawer-content-scroll={contentScroll}
-      >
-        <div data-scroll-drawer-backdrop="" aria-hidden />
-        <div data-scroll-drawer-track="">
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-hidden
-            data-scroll-drawer-spacer=""
-            style={{ height: spacerHeight(offset) }}
-            onClick={requestClose}
-          />
-          <div
-            ref={sheetRef}
-            role="dialog"
-            aria-modal
-            tabIndex={-1}
-            data-scroll-drawer-sheet=""
-            className={className}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                e.stopPropagation()
-                requestClose()
-              }
-            }}
-            {...aria}
-          >
-            {snapPoints.map((p) => (
-              <div
-                key={p}
-                data-scroll-drawer-marker={p}
-                aria-hidden
-                style={{ ['--scroll-drawer-snap' as string]: `${p}px` }}
-              />
-            ))}
-            {children}
+      <div data-scroll-drawer-root="">
+        {/* Outside the scroller so the scroller's exit and entry translates never move it. */}
+        <div ref={backdropRef} data-scroll-drawer-backdrop="" aria-hidden />
+        <div
+          ref={scrollerRef}
+          data-scroll-drawer=""
+          data-scroll-drawer-dismissible={dismissible ? '' : undefined}
+          data-scroll-drawer-content-scroll={contentScroll}
+        >
+          <div data-scroll-drawer-track="">
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-hidden
+              data-scroll-drawer-spacer=""
+              style={{ height: spacerHeight(offset) }}
+              onClick={requestClose}
+            />
+            <div
+              ref={sheetRef}
+              role="dialog"
+              aria-modal
+              tabIndex={-1}
+              data-scroll-drawer-sheet=""
+              className={className}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.stopPropagation()
+                  requestClose()
+                }
+              }}
+              {...aria}
+            >
+              {snapPoints.map((p) => (
+                <div
+                  key={p}
+                  data-scroll-drawer-marker={p}
+                  aria-hidden
+                  style={{ ['--scroll-drawer-snap' as string]: `${p}px` }}
+                />
+              ))}
+              {children}
+            </div>
           </div>
         </div>
       </div>

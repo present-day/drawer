@@ -201,9 +201,10 @@ describe('ScrollDrawer', () => {
       scrollTop: 300,
     })
     fireEvent.scroll(el)
-    const backdrop = el.querySelector<HTMLElement>(
+    const backdrop = document.querySelector<HTMLElement>(
       '[data-scroll-drawer-backdrop]',
     )
+    expect(el.contains(backdrop)).toBe(false)
     expect(Number(backdrop?.style.opacity)).toBe(0.5)
     expect(el.style.getPropertyValue('--drawer-progress')).toBe('')
     vi.unstubAllGlobals()

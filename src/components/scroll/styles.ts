@@ -13,11 +13,12 @@ export const SCROLL_DRAWER_CSS = `
 }
 [data-scroll-drawer]::-webkit-scrollbar { display: none; }
 [data-scroll-drawer] { scroll-timeline: --scroll-drawer y; }
+[data-scroll-drawer-root] { timeline-scope: --scroll-drawer; }
 [data-scroll-drawer-backdrop] {
-  position: fixed; inset: 0; pointer-events: none;
+  position: fixed; inset: 0; z-index: 50; pointer-events: none;
   background: rgb(0 0 0 / 0.5); opacity: 0;
 }
-@supports (animation-timeline: scroll()) {
+@supports (animation-timeline: scroll()) and (timeline-scope: --a) {
   [data-scroll-drawer-backdrop] { animation: scroll-drawer-backdrop linear both; animation-timeline: --scroll-drawer; }
 }
 [data-scroll-drawer-track] {

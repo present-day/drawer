@@ -79,6 +79,7 @@ export function supportsScrollTimeline(): boolean {
   return (
     typeof CSS !== 'undefined' &&
     typeof CSS.supports === 'function' &&
-    CSS.supports('animation-timeline: scroll()')
+    CSS.supports('animation-timeline: scroll()') &&
+    CSS.supports('timeline-scope: --a')
   )
 }
