@@ -70,6 +70,61 @@ function scrollToTop(el: HTMLElement, top: number, instant = false) {
   else el.scrollTop = top
 }
 
+const EXIT_TIMING: KeyframeAnimationOptions = {
+  duration: 240,
+  easing: 'cubic-bezier(0.32, 0, 0.67, 0)',
+  fill: 'forwards',
+}
+
+/**
+ * A non-dismissible sheet has no closed scroll position to scroll to, so it
+ * exits by translating the scroller. A transformed scroller turns the fixed
+ * backdrop into one positioned in its scrolled content, so the backdrop is
+ * shifted back by scrollTop and counter-translated to stay put while it fades.
+ * Returns a cancel.
+ */
+function slideOut(el: HTMLElement, done: () => void): () => void {
+  const sheet = el.querySelector<HTMLElement>('[data-scroll-drawer-sheet]')
+  const backdrop = el.querySelector<HTMLElement>(
+    '[data-scroll-drawer-backdrop]',
+  )
+  if (!sheet || typeof el.animate !== 'function') {
+    done()
+    return () => {}
+  }
+  const distance = Math.max(
+    0,
+    el.clientHeight - sheet.getBoundingClientRect().top,
+  )
+  const exit = el.animate(
+    [{ translate: '0 0' }, { translate: `0 ${distance}px` }],
+    EXIT_TIMING,
+  )
+  const fade = backdrop?.animate(
+    [
+      {
+        translate: `0 ${el.scrollTop}px`,
+        opacity: getComputedStyle(backdrop).opacity,
+      },
+      { translate: `0 ${el.scrollTop - distance}px`, opacity: 0 },
+    ],
+    EXIT_TIMING,
+  )
+  let finished = false
+  exit.finished.then(
+    () => {
+      finished = true
+      done()
+    },
+    () => {},
+  )
+  return () => {
+    if (finished) return
+    exit.cancel()
+    fade?.cancel()
+  }
+}
+
 function ScrollDrawerRoot({
   open,
   onOpenChange,
@@ -211,12 +266,14 @@ function ScrollDrawerRoot({
       }
       return
     }
-    if (
-      !el ||
-      !latest.current.dismissible ||
-      el.scrollTop <= EDGE_PX ||
-      prefersReducedMotion()
-    ) {
+    if (!el || prefersReducedMotion()) {
+      setMounted(false)
+      return
+    }
+    if (!latest.current.dismissible) {
+      return slideOut(el, () => setMounted(false))
+    }
+    if (el.scrollTop <= EDGE_PX) {
       setMounted(false)
       return
     }
