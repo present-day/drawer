@@ -133,12 +133,16 @@ const SEARCH = (
 const CHEVRON = <path d="m9 18 6-6-6-6" />
 const X = <path d="M18 6 6 18M6 6l12 12" />
 
+type Layout = 'full' | 'centered'
+
 function SearchSheet({
   open,
   onClose,
+  layout,
 }: {
   open: boolean
   onClose: () => void
+  layout: Layout
 }) {
   const [query, setQuery] = useState('')
   const results = useMemo(() => {
@@ -158,7 +162,10 @@ function SearchSheet({
       onOpenChange={(next) => !next && onClose()}
       snapPoints={[300, 520]}
       dismissible={false}
-      className="cq-sheet"
+      contentScroll="always"
+      className={
+        layout === 'centered' ? 'cq-sheet cq-sheet-centered' : 'cq-sheet'
+      }
       aria-labelledby="cq-search-title"
     >
       <ScrollDrawer.Handle />
@@ -238,21 +245,48 @@ function SearchSheet({
 
 function App() {
   const [open, setOpen] = useState(true)
+  const [layout, setLayout] = useState<Layout>('centered')
   return (
-    <main className="cq-map" aria-label="Map">
-      <span className="cq-pin" style={{ left: '22%', top: '18%' }} />
-      <span className="cq-pin" style={{ left: '64%', top: '12%' }} />
-      <span className="cq-pin" style={{ left: '48%', top: '31%' }} />
-      <span className="cq-pin" style={{ left: '78%', top: '38%' }} />
-      <span className="cq-pin" style={{ left: '30%', top: '44%' }} />
-      {open ? null : (
-        <button type="button" className="cq-open" onClick={() => setOpen(true)}>
-          <Icon d={SEARCH} />
-          Search
-        </button>
-      )}
-      <SearchSheet open={open} onClose={() => setOpen(false)} />
-    </main>
+    <>
+      <fieldset className="cq-layout">
+        <legend className="sr-only">Drawer layout</legend>
+        {(['full', 'centered'] as const).map((value) => (
+          <label key={value}>
+            <input
+              type="radio"
+              name="layout"
+              id={`layout-${value}`}
+              value={value}
+              checked={layout === value}
+              onChange={() => setLayout(value)}
+            />
+            {value === 'full' ? 'Full width' : 'Centered'}
+          </label>
+        ))}
+      </fieldset>
+      <main className="cq-map" aria-label="Map">
+        <span className="cq-pin" style={{ left: '22%', top: '18%' }} />
+        <span className="cq-pin" style={{ left: '64%', top: '12%' }} />
+        <span className="cq-pin" style={{ left: '48%', top: '31%' }} />
+        <span className="cq-pin" style={{ left: '78%', top: '38%' }} />
+        <span className="cq-pin" style={{ left: '30%', top: '44%' }} />
+        {open ? null : (
+          <button
+            type="button"
+            className="cq-open"
+            onClick={() => setOpen(true)}
+          >
+            <Icon d={SEARCH} />
+            Search
+          </button>
+        )}
+        <SearchSheet
+          open={open}
+          onClose={() => setOpen(false)}
+          layout={layout}
+        />
+      </main>
+    </>
   )
 }
 

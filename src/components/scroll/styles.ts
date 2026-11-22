@@ -45,6 +45,10 @@ export const SCROLL_DRAWER_CSS = `
   padding-bottom: calc(100dvh - var(--visual-viewport-height, 100dvh));
 }
 :where([data-scroll-drawer-full] [data-scroll-drawer-content]) { overflow-y: auto; }
+:where([data-scroll-drawer-content-scroll="always"] [data-scroll-drawer-content]) {
+  overflow-y: auto;
+  padding-bottom: calc(var(--scroll-drawer-hidden, 0px) + 100dvh - var(--visual-viewport-height, 100dvh));
+}
 :where([data-scroll-drawer-handle]) {
   flex: none; display: flex; justify-content: center; padding: 12px 0 8px;
   cursor: grab; touch-action: pan-y;

@@ -41,6 +41,14 @@ export interface ScrollDrawerProps {
    * `[...snapPoints, fullyOpen]`, so `snapPoints.length` means fully open.
    */
   onSnapChange?: (index: number) => void
+  /**
+   * `'full'` (default): `ScrollDrawer.Content` scrolls only once the sheet is
+   * fully open, and below that a swipe on it moves the sheet. `'always'`: it
+   * scrolls at every stop, padded by the part of the sheet below the screen so
+   * its last rows are reachable; the sheet then moves from the handle and other
+   * chrome, or when the content's scroll chains at its top.
+   */
+  contentScroll?: 'full' | 'always'
   /** Applied to the sheet. */
   className?: string
   'aria-label'?: string
@@ -131,6 +139,7 @@ function ScrollDrawerRoot({
   snapPoints = [],
   dismissible = true,
   onSnapChange,
+  contentScroll = 'full',
   className,
   children,
   ...aria
@@ -198,6 +207,17 @@ function ScrollDrawerRoot({
     const index = nearestIndex(el.scrollTop, pos)
     const isFull = el.scrollTop >= (pos[pos.length - 1] ?? 0) - EDGE_PX
     el.toggleAttribute('data-scroll-drawer-full', isFull)
+    const sheet = sheetRef.current
+    if (sheet) {
+      // Layout offsets, not getBoundingClientRect: the non-dismissible entry
+      // translate may still be running and would inflate the hidden height.
+      const hidden =
+        sheet.offsetTop + sheet.offsetHeight - el.scrollTop - el.clientHeight
+      el.style.setProperty(
+        '--scroll-drawer-hidden',
+        `${Math.max(0, Math.round(hidden))}px`,
+      )
+    }
     if (index !== lastIndexRef.current) {
       lastIndexRef.current = index
       latest.current.onSnapChange?.(index)
@@ -361,6 +381,7 @@ function ScrollDrawerRoot({
         ref={scrollerRef}
         data-scroll-drawer=""
         data-scroll-drawer-dismissible={dismissible ? '' : undefined}
+        data-scroll-drawer-content-scroll={contentScroll}
       >
         <div data-scroll-drawer-backdrop="" aria-hidden />
         <div data-scroll-drawer-track="">
