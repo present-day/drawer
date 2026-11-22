@@ -84,6 +84,14 @@ const EXIT_TIMING: KeyframeAnimationOptions = {
   fill: 'forwards',
 }
 
+// Ease-out and a little longer than the slide: an ease-in fade holds the dim,
+// then drops it all at once as the sheet leaves.
+const FADE_TIMING: KeyframeAnimationOptions = {
+  duration: 320,
+  easing: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+  fill: 'forwards',
+}
+
 /**
  * A non-dismissible sheet has no closed scroll position to scroll to, so it
  * exits by translating the scroller while the backdrop, a sibling outside it,
@@ -109,10 +117,10 @@ function slideOut(
   )
   const fade = backdrop?.animate(
     [{ opacity: getComputedStyle(backdrop).opacity }, { opacity: 0 }],
-    EXIT_TIMING,
+    FADE_TIMING,
   )
   let finished = false
-  exit.finished.then(
+  Promise.all([exit.finished, fade?.finished]).then(
     () => {
       finished = true
       done()
