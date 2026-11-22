@@ -160,6 +160,18 @@ function ScrollDrawerRoot({
     const fallbackProgress = !supportsScrollTimeline()
     if (fallbackProgress) writeProgress(el)
 
+    // Translating the track instead would grow the scroll area and move the
+    // snap areas, and WebKit snaps the sheet fully open for the duration.
+    const entry =
+      !latest.current.dismissible &&
+      !prefersReducedMotion() &&
+      typeof el.animate === 'function'
+        ? el.animate([{ translate: '0 100%' }, { translate: '0 0' }], {
+            duration: 300,
+            easing: 'cubic-bezier(0.32, 0.72, 0, 1)',
+          })
+        : null
+
     const frame = requestAnimationFrame(() => {
       const target = scrollToOpen(el)
       // Already there (e.g. pinned open): no scroll, so no scrollend to settle on.
@@ -182,6 +194,7 @@ function ScrollDrawerRoot({
     if (hasScrollEnd) el.addEventListener('scrollend', settle)
     return () => {
       cancelAnimationFrame(frame)
+      entry?.cancel()
       clearTimeout(timer)
       el.removeEventListener('scroll', onScroll)
       el.removeEventListener('scrollend', settle)
@@ -288,22 +301,10 @@ function ScrollDrawerRoot({
       <div
         ref={scrollerRef}
         data-scroll-drawer=""
-        data-scroll-drawer-entering={dismissible ? undefined : ''}
         data-scroll-drawer-dismissible={dismissible ? '' : undefined}
       >
         <div data-scroll-drawer-backdrop="" aria-hidden />
-        <div
-          data-scroll-drawer-track=""
-          onAnimationEnd={(e) => {
-            // WebKit re-snaps to the sheet's end once the entry translate
-            // finishes, so restore the opening snap.
-            const el = scrollerRef.current
-            if (e.target !== e.currentTarget || !el || closingRef.current)
-              return
-            scrollToOpen(el, true)
-            settle()
-          }}
-        >
+        <div data-scroll-drawer-track="">
           <button
             type="button"
             tabIndex={-1}

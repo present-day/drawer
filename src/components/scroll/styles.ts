@@ -6,7 +6,6 @@ const STYLE_ID = 'present-day-scroll-drawer'
 export const SCROLL_DRAWER_CSS = `
 @property --drawer-progress { syntax: '<number>'; inherits: true; initial-value: 0; }
 @keyframes scroll-drawer-progress { from { --drawer-progress: 0; } to { --drawer-progress: 1; } }
-@keyframes scroll-drawer-enter { from { translate: 0 100%; } }
 [data-scroll-drawer] {
   position: fixed; inset: 0; height: 100dvh; z-index: 50;
   overflow-x: hidden; overflow-y: auto; scrollbar-width: none;
@@ -25,7 +24,6 @@ export const SCROLL_DRAWER_CSS = `
   position: relative; display: flex; flex-direction: column;
   justify-content: flex-end; min-height: 100dvh;
 }
-[data-scroll-drawer-entering] [data-scroll-drawer-track] { animation: scroll-drawer-enter 300ms cubic-bezier(0.32, 0.72, 0, 1); }
 [data-scroll-drawer-spacer] {
   flex: none; display: block; width: 100%; padding: 0; border: 0; margin: 0;
   background: transparent; appearance: none; cursor: default;
@@ -54,9 +52,6 @@ export const SCROLL_DRAWER_CSS = `
 :where([data-scroll-drawer-handle])::before {
   content: ''; width: 40px; height: 4px; border-radius: 9999px;
   background: rgb(156 163 175 / 0.6);
-}
-@media (prefers-reduced-motion: reduce) {
-  [data-scroll-drawer-entering] [data-scroll-drawer-track] { animation: none; }
 }
 `
 
