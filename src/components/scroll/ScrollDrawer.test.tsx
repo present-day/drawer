@@ -7,7 +7,7 @@ import {
   snapScrollTop,
   spacerHeight,
   stageOffset,
-  writeProgress,
+  writeBackdropOpacity,
 } from './geometry'
 import { ScrollDrawer, type ScrollDrawerProps } from './ScrollDrawer'
 
@@ -83,12 +83,13 @@ describe('scroll drawer geometry', () => {
     expect(nearestIndex(9999, [200, 420, 600])).toBe(2)
   })
 
-  it('writes progress as a CSS variable without React', () => {
+  it('writes backdrop opacity from scroll progress without React', () => {
     const el = document.createElement('div')
+    const backdrop = document.createElement('div')
     setScrollMetrics(el, { scrollHeight: 1500, clientHeight: 900 })
     el.scrollTop = 150
-    writeProgress(el)
-    expect(el.style.getPropertyValue('--drawer-progress')).toBe('0.2500')
+    writeBackdropOpacity(el, backdrop)
+    expect(Number(backdrop.style.opacity)).toBe(0.25)
   })
 })
 
@@ -190,7 +191,7 @@ describe('ScrollDrawer', () => {
     expect(el).toHaveAttribute('data-scroll-drawer-full')
   })
 
-  it('writes --drawer-progress on scroll when scroll timelines are unsupported', () => {
+  it('writes backdrop opacity on scroll when scroll timelines are unsupported', () => {
     vi.stubGlobal('CSS', { supports: () => false })
     renderDrawer()
     const el = scroller()
@@ -200,7 +201,11 @@ describe('ScrollDrawer', () => {
       scrollTop: 300,
     })
     fireEvent.scroll(el)
-    expect(el.style.getPropertyValue('--drawer-progress')).toBe('0.5000')
+    const backdrop = el.querySelector<HTMLElement>(
+      '[data-scroll-drawer-backdrop]',
+    )
+    expect(Number(backdrop?.style.opacity)).toBe(0.5)
+    expect(el.style.getPropertyValue('--drawer-progress')).toBe('')
     vi.unstubAllGlobals()
   })
 

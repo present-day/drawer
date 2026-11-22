@@ -4,8 +4,7 @@ const STYLE_ID = 'present-day-scroll-drawer'
 // works in any bundler without CSS handling. Part defaults use `:where()` so a
 // consumer's single class always wins.
 export const SCROLL_DRAWER_CSS = `
-@property --drawer-progress { syntax: '<number>'; inherits: true; initial-value: 0; }
-@keyframes scroll-drawer-progress { from { --drawer-progress: 0; } to { --drawer-progress: 1; } }
+@keyframes scroll-drawer-backdrop { from { opacity: 0; } to { opacity: 1; } }
 [data-scroll-drawer] {
   position: fixed; inset: 0; height: 100dvh; z-index: 50;
   overflow-x: hidden; overflow-y: auto; scrollbar-width: none;
@@ -13,12 +12,13 @@ export const SCROLL_DRAWER_CSS = `
   -webkit-tap-highlight-color: transparent;
 }
 [data-scroll-drawer]::-webkit-scrollbar { display: none; }
-@supports (animation-timeline: scroll()) {
-  [data-scroll-drawer] { animation: scroll-drawer-progress linear both; animation-timeline: scroll(self); }
-}
+[data-scroll-drawer] { scroll-timeline: --scroll-drawer y; }
 [data-scroll-drawer-backdrop] {
   position: fixed; inset: 0; pointer-events: none;
-  background: rgb(0 0 0 / 0.5); opacity: var(--drawer-progress, 0);
+  background: rgb(0 0 0 / 0.5); opacity: 0;
+}
+@supports (animation-timeline: scroll()) {
+  [data-scroll-drawer-backdrop] { animation: scroll-drawer-backdrop linear both; animation-timeline: --scroll-drawer; }
 }
 [data-scroll-drawer-track] {
   position: relative; display: flex; flex-direction: column;

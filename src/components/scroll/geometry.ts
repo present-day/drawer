@@ -62,13 +62,17 @@ export function nearestIndex(
 }
 
 /**
- * Fallback for browsers without scroll-driven animations: writes the 0–1
- * progress straight to the element so nothing re-renders.
+ * Fallback for browsers without scroll-driven animations: writes the backdrop's
+ * opacity straight to it, so neither React nor the sheet's subtree restyles.
  */
-export function writeProgress(el: HTMLElement): void {
-  const max = el.scrollHeight - el.clientHeight
-  const progress = max > 0 ? Math.min(1, Math.max(0, el.scrollTop / max)) : 1
-  el.style.setProperty('--drawer-progress', progress.toFixed(4))
+export function writeBackdropOpacity(
+  scroller: HTMLElement,
+  backdrop: HTMLElement,
+): void {
+  const max = scroller.scrollHeight - scroller.clientHeight
+  const progress =
+    max > 0 ? Math.min(1, Math.max(0, scroller.scrollTop / max)) : 1
+  backdrop.style.opacity = progress.toFixed(4)
 }
 
 export function supportsScrollTimeline(): boolean {

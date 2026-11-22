@@ -21,7 +21,7 @@ import {
   spacerHeight,
   stageOffset,
   supportsScrollTimeline,
-  writeProgress,
+  writeBackdropOpacity,
 } from './geometry'
 import { injectScrollDrawerStyles } from './styles'
 
@@ -212,8 +212,10 @@ function ScrollDrawerRoot({
     closingRef.current = false
     lastIndexRef.current = null
     el.scrollTop = 0
-    const fallbackProgress = !supportsScrollTimeline()
-    if (fallbackProgress) writeProgress(el)
+    const backdrop = supportsScrollTimeline()
+      ? null
+      : el.querySelector<HTMLElement>('[data-scroll-drawer-backdrop]')
+    if (backdrop) writeBackdropOpacity(el, backdrop)
 
     // Translating the track instead would grow the scroll area and move the
     // snap areas, and WebKit snaps the sheet fully open for the duration.
@@ -239,7 +241,7 @@ function ScrollDrawerRoot({
     let timer: ReturnType<typeof setTimeout> | undefined
     const hasScrollEnd = 'onscrollend' in window
     const onScroll = () => {
-      if (fallbackProgress) writeProgress(el)
+      if (backdrop) writeBackdropOpacity(el, backdrop)
       if (!hasScrollEnd) {
         clearTimeout(timer)
         timer = setTimeout(settle, SETTLE_FALLBACK_MS)
