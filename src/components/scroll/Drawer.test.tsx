@@ -699,6 +699,79 @@ describe('Drawer (scroll engine)', () => {
       }
     })
 
+    describe('when the keyboard comes up while the sheet is entering', () => {
+      const sheetMax = () =>
+        scroller().style.getPropertyValue('--scroll-drawer-keyboard-sheet-max')
+      /** Furthest the scroller can scroll, from the track it lays out. */
+      const maxScroll = (sheetHeight: number) =>
+        VIEWPORT +
+        Math.min(sheetHeight, Number.parseFloat(sheetMax())) -
+        (VIEWPORT - KEYBOARD)
+
+      it('defers the lift to the entry, so its stop survives', async () => {
+        vi.useRealTimers()
+        const ref = createRef<DrawerRef>()
+        renderDrawer({ snapPoints: [300, 700] }, ref)
+        const el = scroller()
+        expect(el.scrollTop).toBe(0)
+        keyboard(KEYBOARD)
+        expect(el.scrollTop).toBe(0)
+        // iOS reveals the focused field by scrolling the entering sheet.
+        el.scrollTop = 250
+        fireEvent.scroll(el)
+        await waitFor(() =>
+          expect(scrollTo).toHaveBeenLastCalledWith(
+            expect.objectContaining({ top: VIEWPORT - TOP_INSET }),
+          ),
+        )
+        expect(ref.current?.getActiveSnapPoint()).toBe(700)
+        expect(ref.current?.getHeight()).toBe(700)
+        expect(maxScroll(700)).toBeLessThanOrEqual(VIEWPORT - TOP_INSET)
+        keyboard(0)
+        expect(el.scrollTop).toBe(700)
+        expect(sheetMax()).toBe('')
+      })
+
+      it('lifts once the entry settles, wherever a focus scroll left it', async () => {
+        vi.useRealTimers()
+        const scrollIntoView = vi.fn()
+        HTMLElement.prototype.scrollIntoView = scrollIntoView
+        try {
+          scrollTo.mockImplementationOnce(() => {})
+          const ref = createRef<DrawerRef>()
+          renderDrawer({ snapPoints: [300, 700] }, ref)
+          const el = scroller()
+          await waitFor(() => expect(scrollTo).toHaveBeenCalled())
+          act(() => screen.getByRole('textbox', { name: 'Search' }).focus())
+          keyboard(KEYBOARD)
+          expect(el.scrollTop).toBe(0)
+          expect(scrollIntoView).not.toHaveBeenCalled()
+          expect(sheetMax()).toBe(`${VIEWPORT - KEYBOARD - TOP_INSET}px`)
+
+          el.scrollTop = 760
+          fireEvent.scroll(el)
+          fireEvent(el, new Event('scrollend'))
+          expect(scrollTo).toHaveBeenLastCalledWith(
+            expect.objectContaining({ top: VIEWPORT - TOP_INSET }),
+          )
+          fireEvent(el, new Event('scrollend'))
+          expect(ref.current?.getActiveSnapPoint()).toBe(700)
+          keyboard(0)
+          expect(el.scrollTop).toBe(700)
+        } finally {
+          // @ts-expect-error jsdom has no scrollIntoView
+          delete HTMLElement.prototype.scrollIntoView
+        }
+      })
+
+      it('lets the sheet reach the top of the screen when a stop is the whole screen', () => {
+        renderDrawer({ snapPoints: [300, 'screen'] })
+        settleAt(VIEWPORT)
+        keyboard(KEYBOARD)
+        expect(sheetMax()).toBe(`${VIEWPORT - KEYBOARD}px`)
+      })
+    })
+
     it('works with useDrawerKeyboardSnapMobile', () => {
       function Sheet() {
         const ref = useRef<DrawerRef>(null)

@@ -296,8 +296,16 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     /** Set while a JS-driven drag (mouse, or touch on a modeless sheet) writes scrollTop. */
     const draggingRef = useRef(false)
     const sessionRef = useRef<DragSession | null>(null)
-    /** Set while the software keyboard is up; `lift` is the scrollTop added. */
-    const keyboardRef = useRef<{ inset: number; lift: number } | null>(null)
+    /**
+     * Set while the software keyboard is up; `lift` is the scrollTop added.
+     * `pending`: it came up while the sheet was still entering, so the lift
+     * waits for the entry to settle.
+     */
+    const keyboardRef = useRef<{
+      inset: number
+      lift: number
+      pending: boolean
+    } | null>(null)
     const stopsRef = useRef<Stops | null>(null)
     stopsRef.current = stops
     const titleId = useId()
@@ -427,17 +435,24 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
      * stays visible, but never past the top inset: the scroller has shrunk to
      * the visual viewport and a taller sheet is laid out shorter instead.
      */
-    const liftAt = useCallback((top: number): number => {
-      const kb = keyboardRef.current
-      const s = stopsRef.current
-      if (!kb || !s) return 0
+    /** The highest the sheet's top may go while the keyboard is up. */
+    const keyboardMinTop = useCallback((): number => {
       const p = latest.current
-      const minTop = (p.snapPoints ?? DEFAULT_SNAP_POINTS).includes('screen')
+      return (p.snapPoints ?? DEFAULT_SNAP_POINTS).includes('screen')
         ? 0
         : (p.topInsetPx ?? DRAWER_TOP_INSET_PX)
-      const room = s.viewport - s.offset - top - minTop
-      return Math.max(0, Math.min(kb.inset, room))
     }, [])
+
+    const liftAt = useCallback(
+      (top: number): number => {
+        const kb = keyboardRef.current
+        const s = stopsRef.current
+        if (!kb || !s) return 0
+        const room = s.viewport - s.offset - top - keyboardMinTop()
+        return Math.max(0, Math.min(kb.inset, room))
+      },
+      [keyboardMinTop],
+    )
 
     const physicalTop = useCallback(
       (top: number): number => {
@@ -530,6 +545,15 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
       const pos = positionsOf(s)
       const index = nearestIndex(restingTop(el), pos)
+      const kb = keyboardRef.current
+      if (kb?.pending) {
+        kb.pending = false
+        const lifted = physicalTop(pos[index] ?? 0)
+        if (Math.abs(el.scrollTop - lifted) > EDGE_PX) {
+          scrollToTop(el, lifted)
+          return
+        }
+      }
       const from = p.contentScrollFrom
       const unlockAt = from === undefined ? pos.length - 1 : indexOfPoint(from)
       el.toggleAttribute(
@@ -560,6 +584,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       dragInfo,
       indexOfPoint,
       layoutHidden,
+      physicalTop,
       restingTop,
       setOpen,
       visibleHeight,
@@ -606,12 +631,28 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           el.removeAttribute('data-scroll-drawer-keyboard')
           el.style.removeProperty('--scroll-drawer-keyboard-top')
           el.style.removeProperty('--scroll-drawer-keyboard-height')
+          el.style.removeProperty('--scroll-drawer-keyboard-sheet-max')
           layoutHidden(el)
           return
         }
         const top = restingTop(el)
-        keyboardRef.current = { inset, lift: kb?.lift ?? 0 }
+        // An instant scrollTop write here would cut the entry scroll short,
+        // and a lift measured at the entry's start would be stale by its end.
+        const entering = lastIndexRef.current === null
+        keyboardRef.current = {
+          inset,
+          lift: kb?.lift ?? 0,
+          pending: kb ? kb.pending : entering,
+        }
         el.setAttribute('data-scroll-drawer-keyboard', '')
+        // The scroller is shorter by the keyboard, which would add as much
+        // scroll range above the cap; iOS uses it to reveal a focused field
+        // and pushes the sheet's top off screen. A sheet no taller than the
+        // room below the cap leaves no range past it, on any scroll path.
+        el.style.setProperty(
+          '--scroll-drawer-keyboard-sheet-max',
+          `${Math.max(0, vp.height - keyboardMinTop())}px`,
+        )
         el.style.setProperty(
           '--scroll-drawer-keyboard-top',
           `${vp.offsetTop}px`,
@@ -620,12 +661,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           '--scroll-drawer-keyboard-height',
           `${vp.height}px`,
         )
-        el.scrollTop = physicalTop(top)
+        if (!keyboardRef.current.pending) el.scrollTop = physicalTop(top)
         layoutHidden(el)
         const fill = keyboardFillRef.current
         if (fill) fill.style.top = `${vp.offsetTop + vp.height}px`
         if (kb) return
         if (fill) paintKeyboardFill(fill)
+        if (entering) return
         // Focus scrolled the field into view against the full-height layout;
         // the lower part of the sheet may since have moved behind the keyboard.
         const active = document.activeElement
@@ -638,7 +680,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           active.scrollIntoView({ block: 'nearest' })
         }
       },
-      [layoutHidden, paintKeyboardFill, physicalTop, restingTop],
+      [
+        keyboardMinTop,
+        layoutHidden,
+        paintKeyboardFill,
+        physicalTop,
+        restingTop,
+      ],
     )
 
     useVisualViewport({
@@ -752,8 +800,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           return
         }
         latest.current.onAnimationStart?.(0, stops.heights[targetIndex()] ?? 0)
-        scrollToTop(el, target)
-        if (Math.abs(el.scrollTop - target) <= EDGE_PX && target > EDGE_PX) {
+        const lifted = physicalTop(target)
+        if (keyboardRef.current) keyboardRef.current.pending = false
+        scrollToTop(el, lifted)
+        if (Math.abs(el.scrollTop - lifted) <= EDGE_PX && lifted > EDGE_PX) {
           settle()
         }
       })
