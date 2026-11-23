@@ -144,6 +144,16 @@ describe('Drawer (scroll engine)', () => {
     )
   })
 
+  it('unlocks the list from contentScrollFrom instead of the top stop', () => {
+    renderDrawer({ snapPoints: [200, 420, 'screen'], contentScrollFrom: 420 })
+    settleAt(200)
+    expect(scroller()).not.toHaveAttribute('data-scroll-drawer-full')
+    settleAt(420)
+    expect(scroller()).toHaveAttribute('data-scroll-drawer-full')
+    settleAt(VIEWPORT)
+    expect(scroller()).toHaveAttribute('data-scroll-drawer-full')
+  })
+
   it('lays content out for the stop it opens at', () => {
     const { unmount } = renderDrawer()
     expect(scroller().style.getPropertyValue('--scroll-drawer-hidden')).toBe(

@@ -369,7 +369,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
       const pos = positionsOf(s)
       const index = nearestIndex(el.scrollTop, pos)
-      el.toggleAttribute('data-scroll-drawer-full', index === pos.length - 1)
+      const from = p.contentScrollFrom
+      const unlockAt = from === undefined ? pos.length - 1 : indexOfPoint(from)
+      el.toggleAttribute(
+        'data-scroll-drawer-full',
+        unlockAt !== -1 && index >= unlockAt,
+      )
       const sheet = sheetRef.current
       if (sheet) {
         // Layout offsets, not getBoundingClientRect: the pinned entry translate
@@ -397,7 +402,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
       p.onAnimationComplete?.(raw)
       p.onHeightChange?.(visibleHeight())
-    }, [dragInfo, setOpen, visibleHeight])
+    }, [dragInfo, indexOfPoint, setOpen, visibleHeight])
 
     useImperativeHandle(
       ref,

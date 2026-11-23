@@ -203,6 +203,13 @@ export interface DrawerProps {
    */
   contentScroll?: 'full' | 'always'
   /**
+   * Scroll engine only, with `contentScroll="full"`: the lowest stop at which
+   * `Drawer.Scrollable` scrolls; below it a swipe on the list moves the sheet.
+   * Defaults to the top stop. Set it when the top stop is one users don't rest
+   * at, such as a full-screen stop added for the software keyboard.
+   */
+  contentScrollFrom?: SnapPoint
+  /**
    * Scroll engine only. Visible sheet height in px, at most once per frame
    * while it moves. Read from `scrollTop`, so it costs no layout. Use it to
    * keep page chrome clear of the sheet; a `ResizeObserver` on the sheet
