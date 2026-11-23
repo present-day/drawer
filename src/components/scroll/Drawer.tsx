@@ -39,6 +39,7 @@ import {
   supportsScrollTimeline,
   writeBackdropOpacity,
 } from './geometry'
+import { type Layer, openLayer } from './layers'
 import { joinStack } from './stack'
 import { injectScrollDrawerStyles } from './styles'
 
@@ -898,11 +899,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       return unlockBody
     }, [mounted, modal])
 
+    // Declared before the layer effect so the trap lets go of focus before
+    // that effect's cleanup hands it back.
     useEffect(() => {
       const sheet = sheetRef.current
-      if (!mounted || !modal || !focusTrap || !sheet) return
+      if (!open || !mounted || !modal || !focusTrap || !sheet) return
       const trap = createFocusTrap(sheet, {
-        returnFocusOnDeactivate: true,
+        returnFocusOnDeactivate: false,
         fallbackFocus: sheet,
         initialFocus: sheet,
         escapeDeactivates: false,
@@ -919,7 +922,48 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       return () => {
         trap.deactivate()
       }
-    }, [mounted, modal, focusTrap])
+    }, [open, mounted, modal, focusTrap])
+
+    useEffect(() => {
+      const sheet = sheetRef.current
+      if (!open || !mounted || !sheet) return
+      const opener = document.activeElement
+      const layer: Layer = {
+        sheet,
+        modal: latest.current.modal ?? true,
+        onEscape: (e) => {
+          if (editableTargetHasContent(e.target)) return
+          if (!(latest.current.dismissible ?? true)) return
+          e.preventDefault()
+          if (!closingRef.current) setOpen(false)
+        },
+      }
+      const { leave } = openLayer(layer)
+      if (layer.modal && !sheet.contains(document.activeElement)) {
+        // Focusing a snap area makes Chrome snap to it, skipping the open snap.
+        sheet.focus({ preventScroll: true })
+      }
+      return () => {
+        const below = leave()
+        const active = document.activeElement
+        // Focus the user has since moved elsewhere stays where it is.
+        if (active && active !== document.body && !sheet.contains(active)) {
+          return
+        }
+        if (
+          opener instanceof HTMLElement &&
+          opener !== document.body &&
+          opener.isConnected &&
+          !sheet.contains(opener)
+        ) {
+          opener.focus({ preventScroll: true })
+        } else if (below) {
+          below.sheet.focus({ preventScroll: true })
+        } else if (active instanceof HTMLElement) {
+          active.blur()
+        }
+      }
+    }, [open, mounted, setOpen])
 
     const requestClose = () => {
       if ((latest.current.dismissible ?? true) && !closingRef.current) {
@@ -1126,12 +1170,6 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
                   paddingBottom: safeAreaPadding,
                 }}
                 onPointerDown={onSheetPointerDown}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Escape' || e.defaultPrevented) return
-                  if (editableTargetHasContent(e.target)) return
-                  e.stopPropagation()
-                  requestClose()
-                }}
               >
                 <div
                   data-scroll-drawer-markers=""

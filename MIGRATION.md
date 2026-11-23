@@ -14,6 +14,12 @@ still exported as `LegacyDrawer`.
   engine's spring or its internals can move to `LegacyDrawer` (below).
 - **`nested` is ignored.** A drawer's gestures are scoped by its own scroll
   container, so nesting needs no flag.
+- **Escape closes the topmost open modal drawer**, wherever focus is, and
+  nothing if that drawer isn't dismissible. In v2 it closed the drawer whose
+  panel had focus. A modeless drawer still hears Escape only from inside it.
+- **Focus moves without the trap.** With `focusTrap={false}`, a modal sheet
+  still takes focus when it opens and, on close, hands it back to the element
+  that had it, else to the drawer below, else the body. v2 left focus alone.
 - **Snap points resolve to px when the drawer opens, and again when the
   scroller resizes** (rotation, browser chrome). The soft keyboard doesn't
   re-resolve them: while it is up, the scroller shrinks to the visual viewport

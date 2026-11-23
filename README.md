@@ -88,8 +88,8 @@ The panel is exposed as a **`role="dialog"`** with **`aria-modal="true"`** when 
 
 **Focus**
 
-- For **`modal` + `open`**, a **focus trap** keeps keyboard focus in the panel by default, with focus returned to the previously focused element on close. Set **`focusTrap={false}`** if you need to manage focus yourself (e.g. portaled sub-trees) or for non-modal behavior.
-- Clicks on the **backdrop** still work: outside clicks that dismiss are allowed; Escape closes the drawer when **`dismissible`** is true. Inside a **non-empty** text field, Escape clears the field first and only a second press dismisses (see *Escape behavior in editable fields*).
+- For **`modal` + `open`**, a **focus trap** keeps keyboard focus in the panel by default, with focus returned to the previously focused element on close. Set **`focusTrap={false}`** if you need to manage focus yourself (e.g. portaled sub-trees) or for non-modal behavior. Without the trap, the v3 `Drawer` still moves focus into a modal sheet when it opens and, on close, returns it to the element that had it (if still in the page), else to the drawer below, else the body. Focus the user has moved elsewhere is left alone.
+- Clicks on the **backdrop** still work: outside clicks that dismiss are allowed; Escape closes the drawer when **`dismissible`** is true. On the v3 `Drawer`, Escape goes to the topmost open modal drawer wherever focus is, and does nothing if that drawer isn't dismissible; a modeless drawer hears Escape only from inside it. Inside a **non-empty** text field, Escape clears the field first and only a second press dismisses (see *Escape behavior in editable fields*).
 
 **Example: hidden title and description (visual UI unchanged)**
 

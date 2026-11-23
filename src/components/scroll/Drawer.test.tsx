@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { createRef, useRef } from 'react'
+import { createRef, useRef, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useDrawerKeyboardSnapMobile } from '../../hooks/useDrawerKeyboardSnapMobile'
 import type { DrawerProps, DrawerRef } from '../../types'
@@ -266,13 +266,147 @@ describe('Drawer (scroll engine)', () => {
     outside.remove()
   })
 
-  it('leaves focus alone when focusTrap is off', () => {
+  it('moves focus into a modal sheet without trapping it when focusTrap is off', () => {
     const outside = document.createElement('button')
     document.body.appendChild(outside)
     outside.focus()
-    renderDrawer({ focusTrap: false })
+    const { unmount } = renderDrawer({ focusTrap: false })
+    expect(document.activeElement).toBe(screen.getByRole('dialog'))
+    outside.focus()
+    expect(document.activeElement).toBe(outside)
+    unmount()
+    renderDrawer({ modal: false })
     expect(document.activeElement).toBe(outside)
     outside.remove()
+  })
+
+  it('closes a modeless drawer on Escape only from inside it', () => {
+    const { onOpenChange } = renderDrawer({ modal: false })
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(onOpenChange).not.toHaveBeenCalled()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  describe('a drawer opened from another, without a focus trap', () => {
+    function Pair({
+      childDismissible = true,
+      keepOpener = true,
+    }: {
+      childDismissible?: boolean
+      keepOpener?: boolean
+    }) {
+      const [parent, setParent] = useState(true)
+      const [child, setChild] = useState(false)
+      return (
+        <>
+          <button type="button">Page</button>
+          <Drawer
+            open={parent}
+            onOpenChange={setParent}
+            ariaLabel="Parent"
+            focusTrap={false}
+            snapPoints={[200, 420]}
+          >
+            <Drawer.Content>
+              {keepOpener || !child ? (
+                <button type="button" onClick={() => setChild(true)}>
+                  Change
+                </button>
+              ) : null}
+              <Drawer
+                open={child}
+                onOpenChange={setChild}
+                ariaLabel="Child"
+                focusTrap={false}
+                dismissible={childDismissible}
+                snapPoints={[200, 420]}
+              >
+                <Drawer.Content>
+                  <input aria-label="City" />
+                  <button type="button" onClick={() => setChild(false)}>
+                    Close
+                  </button>
+                </Drawer.Content>
+              </Drawer>
+            </Drawer.Content>
+          </Drawer>
+        </>
+      )
+    }
+    const dialog = (name: string) => screen.queryByRole('dialog', { name })
+    const openChild = () => {
+      const change = screen.getByRole('button', { name: 'Change' })
+      act(() => change.focus())
+      fireEvent.click(change)
+      return change
+    }
+    const finishClosing = () => act(() => vi.advanceTimersByTime(1000))
+
+    it('focuses the new sheet, then returns focus to its opener', () => {
+      render(<Pair />)
+      const change = openChild()
+      expect(document.activeElement).toBe(dialog('Child'))
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+      expect(document.activeElement).toBe(change)
+      finishClosing()
+      expect(document.activeElement).toBe(change)
+    })
+
+    it('falls back to the sheet below when the opener is gone, then the body', () => {
+      render(<Pair keepOpener={false} />)
+      openChild()
+      expect(screen.queryByRole('button', { name: 'Change' })).toBeNull()
+      fireEvent.keyDown(document.activeElement ?? document, { key: 'Escape' })
+      expect(document.activeElement).toBe(dialog('Parent'))
+      fireEvent.keyDown(document.activeElement ?? document, { key: 'Escape' })
+      expect(document.activeElement).toBe(document.body)
+    })
+
+    it('leaves focus the user moved elsewhere', () => {
+      render(<Pair />)
+      openChild()
+      const page = screen.getByRole('button', { name: 'Page' })
+      act(() => page.focus())
+      fireEvent.keyDown(page, { key: 'Escape' })
+      expect(dialog('Child')).toBeNull()
+      expect(document.activeElement).toBe(page)
+    })
+
+    it('sends Escape to the top drawer wherever focus is', () => {
+      render(<Pair />)
+      const change = openChild()
+      act(() => change.focus())
+      fireEvent.keyDown(change, { key: 'Escape' })
+      finishClosing()
+      expect(dialog('Child')).toBeNull()
+      expect(dialog('Parent')).not.toBeNull()
+    })
+
+    it('ignores Escape when the top drawer is not dismissible, or a field still has text', () => {
+      const { unmount } = render(<Pair childDismissible={false} />)
+      openChild()
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      finishClosing()
+      expect(dialog('Child')).not.toBeNull()
+      expect(dialog('Parent')).not.toBeNull()
+      unmount()
+
+      render(<Pair />)
+      openChild()
+      const city = screen.getByRole('textbox', { name: 'City' })
+      fireEvent.change(city, { target: { value: 'Lisbon' } })
+      fireEvent.keyDown(city, { key: 'Escape' })
+      expect(dialog('Child')).not.toBeNull()
+      const claimed = new KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      })
+      claimed.preventDefault()
+      document.body.dispatchEvent(claimed)
+      expect(dialog('Child')).not.toBeNull()
+    })
   })
 
   it('closes on Escape and the area above the sheet, but Escape clears a filled field first', () => {

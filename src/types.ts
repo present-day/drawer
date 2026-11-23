@@ -84,7 +84,8 @@ export interface DrawerProps {
   /**
    * When `modal` is true, keep keyboard focus within the panel (default true).
    * Set to false if you need to interact with the rest of the page while open
-   * or manage focus yourself.
+   * or manage focus yourself. The scroll engine still moves focus into a
+   * modal sheet on open and hands it back on close without the trap.
    */
   focusTrap?: boolean
   /**
