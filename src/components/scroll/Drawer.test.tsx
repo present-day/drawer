@@ -145,10 +145,13 @@ describe('Drawer (scroll engine)', () => {
   })
 
   it('pins a non-dismissible sheet at its lowest stop and ignores Escape', () => {
+    const onHeightChange = vi.fn()
     const { onOpenChange } = renderDrawer({
       dismissible: false,
       defaultSnapPoint: 200,
+      onHeightChange,
     })
+    expect(onHeightChange).toHaveBeenCalledWith(200)
     expect(
       document.querySelector<HTMLElement>('[data-scroll-drawer-spacer]')?.style
         .height,

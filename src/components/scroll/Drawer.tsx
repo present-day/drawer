@@ -464,6 +464,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const pinned = !(latest.current.dismissible ?? true)
       const target = positionsOf(stops)[targetIndex()] ?? 0
       el.scrollTop = pinned ? target : 0
+      // Synchronously, so chrome positioned against the sheet is right on
+      // first paint rather than one frame late.
+      latest.current.onHeightChange?.(visibleHeight())
       const backdropEl = backdropRef.current
 
       // Translating the track instead would grow the scroll area and move the
@@ -502,7 +505,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         entry?.cancel()
         entryFade?.cancel()
       }
-    }, [stops, settle, targetIndex])
+    }, [stops, settle, targetIndex, visibleHeight])
 
     useEffect(() => {
       const el = scrollerRef.current
