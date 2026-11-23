@@ -702,12 +702,22 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (list && list.scrollTop > 0) return
 
         const id = e.pointerId
+        const downX = e.clientX
         const downY = e.clientY
         let anchor: { y: number; top: number } | null = null
         const move = (ev: PointerEvent) => {
           if (ev.pointerId !== id) return
           if (!anchor) {
-            if (Math.abs(ev.clientY - downY) < DRAWER_DRAG_SLOP_PX) return
+            const dx = Math.abs(ev.clientX - downX)
+            const dy = Math.abs(ev.clientY - downY)
+            if (Math.max(dx, dy) < DRAWER_DRAG_SLOP_PX) return
+            // Mostly sideways: leave it to whatever scrolls horizontally here.
+            if (dx > dy) {
+              window.removeEventListener('pointermove', move)
+              window.removeEventListener('pointerup', end)
+              window.removeEventListener('pointercancel', end)
+              return
+            }
             anchor = { y: ev.clientY, top: el.scrollTop }
             mouseDragRef.current = { id, y: ev.clientY, top: el.scrollTop }
             sessionRef.current = { event: ev, started: false, ended: false }

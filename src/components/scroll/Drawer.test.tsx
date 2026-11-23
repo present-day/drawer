@@ -323,10 +323,18 @@ describe('Drawer (scroll engine)', () => {
     const el = scroller()
     el.scrollTop = 200
     const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
-    const drag = (from: Element, dy: number) => {
-      fireEvent.pointerDown(from, { ...mouse, clientY: 600 })
-      fireEvent.pointerMove(window, { ...mouse, clientY: 600 - dy / 2 })
-      fireEvent.pointerMove(window, { ...mouse, clientY: 600 - dy })
+    const drag = (from: Element, dy: number, dx = 0) => {
+      fireEvent.pointerDown(from, { ...mouse, clientX: 100, clientY: 600 })
+      fireEvent.pointerMove(window, {
+        ...mouse,
+        clientX: 100 + dx / 2,
+        clientY: 600 - dy / 2,
+      })
+      fireEvent.pointerMove(window, {
+        ...mouse,
+        clientX: 100 + dx,
+        clientY: 600 - dy,
+      })
       fireEvent.pointerUp(window, { ...mouse, clientY: 600 - dy })
     }
 
@@ -334,6 +342,9 @@ describe('Drawer (scroll engine)', () => {
     expect(el.scrollTop).toBe(200)
 
     drag(screen.getByText('Local Vibe'), 2)
+    expect(el.scrollTop).toBe(200)
+
+    drag(screen.getByText('Local Vibe'), 40, 200)
     expect(el.scrollTop).toBe(200)
 
     drag(screen.getByText('Local Vibe'), 300)
