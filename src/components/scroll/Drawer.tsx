@@ -43,6 +43,7 @@ const CONTROL_SELECTOR = 'button, a'
 const NEVER_DRAG_SELECTOR =
   'input, textarea, select, [contenteditable="true"], [data-drawer-no-drag]'
 const EDGE_PX = 1
+const VELOCITY_WINDOW_MS = 100
 
 /**
  * Snap points resolved to pixel heights for the viewport the drawer opened
@@ -62,6 +63,44 @@ type DragSession = {
   event: MouseEvent | TouchEvent | PointerEvent
   started: boolean
   ended: boolean
+  samples: { t: number; top: number }[]
+  /** Frozen at release, so `onDragEnd` reports the flick, not the settle. */
+  releaseVelocity?: number
+}
+
+function startSession(event: DragSession['event'], top: number): DragSession {
+  return {
+    event,
+    started: false,
+    ended: false,
+    samples: [{ t: performance.now(), top }],
+  }
+}
+
+function recordSample(session: DragSession, top: number) {
+  const t = performance.now()
+  const { samples } = session
+  samples.push({ t, top })
+  while (samples.length > 2 && t - (samples[0]?.t ?? t) > VELOCITY_WINDOW_MS) {
+    samples.shift()
+  }
+}
+
+/**
+ * Px/s over the last {@link VELOCITY_WINDOW_MS}, positive while the sheet
+ * moves down, matching v2's pointer velocity. A pause before release reads 0.
+ */
+function sessionVelocity(session: DragSession, now: number): number {
+  const recent = session.samples.filter((s) => now - s.t <= VELOCITY_WINDOW_MS)
+  const first = recent[0]
+  const last = recent[recent.length - 1]
+  if (!first || !last || last.t <= first.t) return 0
+  return ((first.top - last.top) / (last.t - first.t)) * 1000
+}
+
+function endSession(session: DragSession, event: DragSession['event']) {
+  session.event = event
+  session.releaseVelocity = sessionVelocity(session, performance.now())
 }
 
 type Ctx = { registerContent: (el: HTMLElement | null) => void }
@@ -361,17 +400,24 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       return Math.max(0, Math.min(max, el.scrollTop + s.offset))
     }, [])
 
-    const dragInfo = useCallback((): DragInfo => {
-      const el = scrollerRef.current
-      const s = stopsRef.current
-      const pos = s ? positionsOf(s) : []
-      const max = pos[pos.length - 1] ?? 0
-      return {
-        y: visibleHeight(),
-        velocity: 0,
-        progress: el && max > 0 ? Math.min(1, el.scrollTop / max) : 1,
-      }
-    }, [visibleHeight])
+    const dragInfo = useCallback(
+      (session: DragSession | null): DragInfo => {
+        const el = scrollerRef.current
+        const s = stopsRef.current
+        const pos = s ? positionsOf(s) : []
+        const max = pos[pos.length - 1] ?? 0
+        const velocity = !session
+          ? 0
+          : (session.releaseVelocity ??
+            sessionVelocity(session, performance.now()))
+        return {
+          y: visibleHeight(),
+          velocity,
+          progress: el && max > 0 ? Math.min(1, el.scrollTop / max) : 1,
+        }
+      },
+      [visibleHeight],
+    )
 
     const scrollToIndex = useCallback(
       (index: number, instant = false) => {
@@ -437,7 +483,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       if (session?.ended) {
         sessionRef.current = null
         if (session.started) {
-          p.onDragEnd?.(session.event, { ...dragInfo(), targetSnapPoint: raw })
+          p.onDragEnd?.(session.event, {
+            ...dragInfo(session),
+            targetSnapPoint: raw,
+          })
         }
       }
       if (index !== lastIndexRef.current) {
@@ -594,16 +643,22 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         frame = 0
         const session = sessionRef.current
         const p = latest.current
-        if (session?.started && p.onDrag) p.onDrag(session.event, dragInfo())
+        if (session?.started && p.onDrag)
+          p.onDrag(session.event, dragInfo(session))
         p.onHeightChange?.(visibleHeight())
       }
       const onScroll = () => {
         if (el.scrollTop > EDGE_PX) armedRef.current = true
         if (backdrop) writeBackdropOpacity(el, backdrop, range())
         const session = sessionRef.current
+        // A mouse drag samples where it writes scrollTop; this event lands a
+        // frame later and would skew the timing.
+        if (session && !session.ended && !mouseDragRef.current) {
+          recordSample(session, el.scrollTop)
+        }
         if (session && !session.started) {
           session.started = true
-          latest.current.onDragStart?.(session.event, dragInfo())
+          latest.current.onDragStart?.(session.event, dragInfo(session))
         }
         if (
           !frame &&
@@ -617,7 +672,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         }
       }
       const onTouchStart = (e: TouchEvent) => {
-        sessionRef.current = { event: e, started: false, ended: false }
+        sessionRef.current = startSession(e, el.scrollTop)
       }
       const onTouchMove = (e: TouchEvent) => {
         if (sessionRef.current) sessionRef.current.event = e
@@ -625,7 +680,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const onTouchEnd = (e: TouchEvent) => {
         const session = sessionRef.current
         if (!session) return
-        session.event = e
+        endSession(session, e)
         if (session.started) session.ended = true
         else sessionRef.current = null
       }
@@ -792,7 +847,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             }
             anchor = { y: ev.clientY, top: el.scrollTop }
             mouseDragRef.current = { id, y: ev.clientY, top: el.scrollTop }
-            sessionRef.current = { event: ev, started: false, ended: false }
+            sessionRef.current = startSession(ev, el.scrollTop)
             el.style.scrollSnapType = 'none'
             el.setAttribute('data-scroll-drawer-dragging', '')
             document.getSelection()?.removeAllRanges()
@@ -800,6 +855,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           ev.preventDefault()
           if (sessionRef.current) sessionRef.current.event = ev
           el.scrollTop = anchor.top - (ev.clientY - anchor.y)
+          if (sessionRef.current) recordSample(sessionRef.current, el.scrollTop)
         }
         const end = (ev: PointerEvent) => {
           if (ev.pointerId !== id) return
@@ -821,7 +877,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           setTimeout(() => window.removeEventListener('click', swallow, true))
           const session = sessionRef.current
           if (session) {
-            session.event = ev
+            endSession(session, ev)
             if (session.started) session.ended = true
             else sessionRef.current = null
           }

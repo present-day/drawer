@@ -337,6 +337,83 @@ describe('Drawer (scroll engine)', () => {
     expect(onHeightChange).toHaveBeenLastCalledWith(420)
   })
 
+  it('reports drag velocity in px/s, positive downward, frozen at release', () => {
+    const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+    const onDrag = vi.fn()
+    const onDragEnd = vi.fn()
+    renderDrawer({ onDrag, onDragEnd })
+    const el = scroller()
+    el.scrollTop = 420
+    const swipe = (path: [number, number][], releaseAt: number) => {
+      now.mockReturnValue(1000)
+      fireEvent.touchStart(el, { touches: [{ clientY: 500 }] })
+      for (const [t, top] of path) {
+        now.mockReturnValue(t)
+        el.scrollTop = top
+        fireEvent.scroll(el)
+      }
+      now.mockReturnValue(releaseAt)
+      fireEvent.touchEnd(el)
+    }
+
+    swipe(
+      [
+        [1050, 370],
+        [1080, 340],
+      ],
+      1080,
+    )
+    now.mockReturnValue(1400)
+    settleAt(200)
+    expect(onDragEnd).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ velocity: 1000, targetSnapPoint: 200 }),
+    )
+
+    swipe(
+      [
+        [1040, 260],
+        [1060, 300],
+      ],
+      1060,
+    )
+    settleAt(420)
+    expect(onDragEnd.mock.lastCall?.[1].velocity).toBeCloseTo(
+      (-100 / 60) * 1000,
+    )
+
+    swipe([[1020, 400]], 1300)
+    settleAt(420)
+    expect(onDragEnd.mock.lastCall?.[1].velocity).toBe(0)
+    now.mockRestore()
+  })
+
+  it('measures mouse drag velocity where it writes scrollTop', () => {
+    const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+    const onDragEnd = vi.fn()
+    renderDrawer({ onDragEnd, defaultSnapPoint: 200 })
+    const el = scroller()
+    el.scrollTop = 200
+    const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+    fireEvent.pointerDown(screen.getByRole('dialog'), {
+      ...mouse,
+      clientX: 100,
+      clientY: 600,
+    })
+    fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 580 })
+    now.mockReturnValue(1050)
+    fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 480 })
+    fireEvent.scroll(el)
+    fireEvent.pointerUp(window, { ...mouse, clientY: 480 })
+    settleAt(420)
+    expect(onDragEnd).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ velocity: -2000 }),
+    )
+    vi.advanceTimersByTime(1)
+    now.mockRestore()
+  })
+
   it('drags with a mouse from anywhere on the sheet except controls, past the slop', () => {
     const ref = createRef<DrawerRef>()
     render(
