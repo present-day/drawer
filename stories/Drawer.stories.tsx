@@ -715,3 +715,154 @@ export const ControlledActiveSnap: Story = {
   name: 'Controlled active snap',
   render: () => <ControlledSnapDemo />,
 }
+
+function StackDemo() {
+  const { lines, push } = useEventLog()
+  const [depth, setDepth] = useState(1)
+  const set = (n: number) => (open: boolean) => {
+    setDepth(open ? n : n - 1)
+    push(`drawer ${n} ${open ? 'open' : 'closed'}`)
+  }
+  const next = (n: number, label: string) => (
+    <button
+      type="button"
+      onClick={() => setDepth(n)}
+      className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg"
+    >
+      {label}
+    </button>
+  )
+  return (
+    <DemoPage
+      title="Stack"
+      description="Each drawer sets stack. The ones behind recede as the top one rises; the top one is pinned with dismissible=false."
+      onOpen={() => setDepth(1)}
+      log={lines}
+    >
+      <Drawer stack open={depth >= 1} onOpenChange={set(1)} snapPoints={[0.6]}>
+        <BaseContent heading="Drawer 1">
+          <BodyText>Open the next drawer on top of this one.</BodyText>
+          {next(2, 'Open drawer 2')}
+        </BaseContent>
+      </Drawer>
+      <Drawer stack open={depth >= 2} onOpenChange={set(2)} snapPoints={[0.45]}>
+        <BaseContent heading="Drawer 2">
+          <BodyText>Its backdrop is lighter than the first one's.</BodyText>
+          {next(3, 'Open drawer 3')}
+        </BaseContent>
+      </Drawer>
+      <Drawer
+        stack
+        dismissible={false}
+        open={depth >= 3}
+        onOpenChange={set(3)}
+        snapPoints={[0.3]}
+      >
+        <BaseContent heading="Drawer 3 (pinned)">
+          <BodyText>Not draggable closed; use the button.</BodyText>
+          <button
+            type="button"
+            onClick={() => setDepth(2)}
+            className="rounded-lg border border-line px-3 py-1.5 text-sm"
+          >
+            Close drawer 3
+          </button>
+        </BaseContent>
+      </Drawer>
+    </DemoPage>
+  )
+}
+
+export const Stack: Story = {
+  name: 'Stack',
+  render: () => <StackDemo />,
+}
+
+function ContentScrollDemo({
+  contentScroll,
+  contentScrollFrom,
+}: {
+  contentScroll: 'full' | 'always'
+  contentScrollFrom?: SnapPoint
+}) {
+  const { lines, push } = useEventLog()
+  const { open, setOpen, onOpenChange } = useDemoOpen(push)
+  return (
+    <DemoPage
+      title={`contentScroll="${contentScroll}"${contentScrollFrom === undefined ? '' : `, contentScrollFrom=${contentScrollFrom}`}`}
+      description={
+        contentScroll === 'always'
+          ? 'The list scrolls at every stop; drag the sheet by the handle.'
+          : 'The list scrolls only from the unlock stop up; below it a swipe on the list moves the sheet.'
+      }
+      onOpen={() => setOpen(true)}
+      log={lines}
+    >
+      <Drawer
+        open={open}
+        onOpenChange={onOpenChange}
+        snapPoints={[0.35, 0.65, 'full']}
+        defaultSnapPoint={0.35}
+        contentScroll={contentScroll}
+        contentScrollFrom={contentScrollFrom}
+        onSnapPointChange={(p, i) => push(`onSnapPointChange: ${p} (${i})`)}
+      >
+        <LongScrollableContent />
+      </Drawer>
+    </DemoPage>
+  )
+}
+
+export const ContentScrollFull: Story = {
+  name: 'contentScroll full',
+  render: () => <ContentScrollDemo contentScroll="full" />,
+}
+
+export const ContentScrollFrom: Story = {
+  name: 'contentScroll full, contentScrollFrom 0.65',
+  render: () => (
+    <ContentScrollDemo contentScroll="full" contentScrollFrom={0.65} />
+  ),
+}
+
+export const ContentScrollAlways: Story = {
+  name: 'contentScroll always',
+  render: () => <ContentScrollDemo contentScroll="always" />,
+}
+
+function HeightDemo() {
+  const { lines, push } = useEventLog()
+  const { open, setOpen, onOpenChange } = useDemoOpen(push)
+  const [height, setHeight] = useState(0)
+  return (
+    <DemoPage
+      title="onHeightChange"
+      description="Visible sheet height, reported while it moves."
+      onOpen={() => setOpen(true)}
+      log={lines}
+    >
+      <div
+        style={{ bottom: height + 8 }}
+        className="fixed right-3 z-[60] rounded-lg bg-accent px-3 py-1.5 font-mono text-sm text-accent-fg"
+      >
+        {Math.round(height)}px
+      </div>
+      <Drawer
+        modal={false}
+        open={open}
+        onOpenChange={onOpenChange}
+        snapPoints={[0.3, 0.6, 'full']}
+        onHeightChange={setHeight}
+      >
+        <BaseContent heading="Drag me">
+          <BodyText>The badge above the sheet follows its height.</BodyText>
+        </BaseContent>
+      </Drawer>
+    </DemoPage>
+  )
+}
+
+export const HeightChange: Story = {
+  name: 'onHeightChange',
+  render: () => <HeightDemo />,
+}
