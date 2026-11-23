@@ -144,6 +144,18 @@ describe('Drawer (scroll engine)', () => {
     )
   })
 
+  it('lays content out for the stop it opens at', () => {
+    const { unmount } = renderDrawer()
+    expect(scroller().style.getPropertyValue('--scroll-drawer-hidden')).toBe(
+      '0px',
+    )
+    unmount()
+    renderDrawer({ defaultSnapPoint: 200 })
+    expect(scroller().style.getPropertyValue('--scroll-drawer-hidden')).toBe(
+      '220px',
+    )
+  })
+
   it('pins a non-dismissible sheet at its lowest stop and ignores Escape', () => {
     const onHeightChange = vi.fn()
     const { onOpenChange } = renderDrawer({

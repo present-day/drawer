@@ -55,9 +55,15 @@ export const SCROLL_DRAWER_CSS = `
   padding-bottom: calc(100dvh - var(--visual-viewport-height, 100dvh));
 }
 :where([data-scroll-drawer-full] [data-scroll-drawer-content]) { overflow-y: auto; }
-:where([data-scroll-drawer-content-scroll="always"] [data-scroll-drawer-content]) {
-  overflow-y: auto;
-  padding-bottom: calc(var(--scroll-drawer-hidden, 0px) + 100dvh - var(--visual-viewport-height, 100dvh));
+:where([data-scroll-drawer-content-scroll="always"] [data-scroll-drawer-content]) { overflow-y: auto; }
+/* Content is laid out for the stop the sheet rests at, so footers and the end
+   of an inner list sit at the screen's bottom edge, as in v2. Set on settle,
+   never per frame; the part of the sheet below the screen is painted in the
+   content's own background so a drag never shows the page through it. */
+[data-scroll-drawer-sheet] > [data-drawer-content] { position: relative; margin-bottom: var(--scroll-drawer-hidden, 0px); }
+[data-scroll-drawer-sheet] > [data-drawer-content]::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 100%;
+  height: var(--scroll-drawer-hidden, 0px); background: inherit; pointer-events: none;
 }
 `
 

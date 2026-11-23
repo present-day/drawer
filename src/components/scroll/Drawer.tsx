@@ -464,6 +464,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const pinned = !(latest.current.dismissible ?? true)
       const target = positionsOf(stops)[targetIndex()] ?? 0
       el.scrollTop = pinned ? target : 0
+      const sheetH = stops.heights[stops.heights.length - 1] ?? 0
+      const targetH = stops.heights[targetIndex()] ?? 0
+      el.style.setProperty(
+        '--scroll-drawer-hidden',
+        `${Math.max(0, sheetH - targetH)}px`,
+      )
       // Synchronously, so chrome positioned against the sheet is right on
       // first paint rather than one frame late.
       latest.current.onHeightChange?.(visibleHeight())

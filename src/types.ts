@@ -197,9 +197,9 @@ export interface DrawerProps {
   /**
    * Scroll engine only. `'full'` (default): `Drawer.Scrollable` scrolls once
    * the sheet is at its top stop, and below that a swipe on it moves the
-   * sheet. `'always'`: it scrolls at every stop, padded by the part of the
-   * sheet below the screen; the sheet then moves from the handle and other
-   * chrome, or when the list's scroll chains at its top.
+   * sheet. `'always'`: it scrolls at every stop; the sheet then moves from
+   * the handle and other chrome, or when the list's scroll chains at its top.
+   * Either way `Drawer.Content` is laid out for the stop the sheet rests at.
    */
   contentScroll?: 'full' | 'always'
   /**
