@@ -155,10 +155,15 @@ function positionsOf(stops: Stops): number[] {
 function backdropRange(stops: Stops, fadeFromIndex?: number): BackdropRange {
   const pos = positionsOf(stops)
   if (fadeFromIndex === undefined) {
-    return { start: 0, end: pos[0] ?? 0, min: 0 }
+    return { start: 0, end: pos[0] ?? 0, min: 0, max: 1 }
   }
   const i = Math.max(0, Math.min(fadeFromIndex, pos.length - 1))
-  return { start: i > 0 ? (pos[i - 1] ?? 0) : 0, end: pos[i] ?? 0, min: 0 }
+  return {
+    start: i > 0 ? (pos[i - 1] ?? 0) : 0,
+    end: pos[i] ?? 0,
+    min: 0,
+    max: 1,
+  }
 }
 
 const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
@@ -214,6 +219,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const titleId = useId()
     const stackName = `--scroll-drawer-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
     const stackRef = useRef<ReturnType<typeof joinStack> | null>(null)
+    const [stacked, setStacked] = useState(false)
 
     useEffect(() => {
       const el = scrollerRef.current
@@ -222,11 +228,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         name: stackName,
         scroller: el,
         range: { start: 0, end: 0 },
+        onDepth: (depth) => setStacked(depth > 0),
       })
       stackRef.current = handle
       return () => {
         stackRef.current = null
         handle.leave()
+        setStacked(false)
       }
     }, [mounted, stack, stackName])
 
@@ -553,15 +561,18 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const s = stopsRef.current
         const r = s
           ? backdropRange(s, latest.current.fadeFromIndex)
-          : { start: 0, end: 0, min: 0 }
-        const min = backdrop
-          ? Number.parseFloat(
-              getComputedStyle(backdrop).getPropertyValue(
-                '--scroll-drawer-backdrop-min',
-              ),
-            ) || 0
-          : 0
-        return { ...r, min }
+          : { start: 0, end: 0, min: 0, max: 1 }
+        if (!backdrop) return r
+        const css = getComputedStyle(backdrop)
+        const read = (name: string, fallback: number) => {
+          const v = Number.parseFloat(css.getPropertyValue(name))
+          return Number.isNaN(v) ? fallback : v
+        }
+        return {
+          ...r,
+          min: read('--scroll-drawer-backdrop-min', 0),
+          max: read('--scroll-drawer-backdrop-max', 1),
+        }
       }
       if (backdrop) writeBackdropOpacity(el, backdrop, range())
 
@@ -833,6 +844,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         <div
           data-scroll-drawer-root=""
           data-scroll-drawer-pinned={pinned ? '' : undefined}
+          data-scroll-drawer-stacked={stacked ? '' : undefined}
         >
           {/* Outside the scroller so the scroller's exit and entry translates never move it. */}
           {modal ? (

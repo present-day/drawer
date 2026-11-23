@@ -16,6 +16,8 @@ export type StackEntry = {
    * which has no closed scroll position, so the ones behind recede on a timer.
    */
   range: { start: number; end: number }
+  /** Called with this drawer's position, 0 at the back, whenever the stack changes. */
+  onDepth?: (depth: number) => void
 }
 
 const entries: StackEntry[] = []
@@ -93,6 +95,7 @@ function sync() {
     scopeBefore = null
   }
   entries.forEach((e, i) => {
+    e.onDepth?.(i)
     applyBehind(e, entries.slice(i + 1))
   })
 }

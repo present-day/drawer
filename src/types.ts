@@ -214,7 +214,10 @@ export interface DrawerProps {
    * open on top of this one, this one recedes, driven by the top drawer's
    * swipe, and once more per further drawer stacked above. Tune it with
    * `--scroll-drawer-stack-scale` (default 0.92) and
-   * `--scroll-drawer-stack-shift` (default -8px) on the drawer behind.
+   * `--scroll-drawer-stack-shift` (default -8px) on the drawer behind. A
+   * drawer stacked above another dims the page less, to
+   * `--scroll-drawer-backdrop-max` (default 0.3), so backdrops don't compound
+   * to black.
    */
   stack?: boolean
   /**

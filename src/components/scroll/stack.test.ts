@@ -63,6 +63,19 @@ describe('drawer stack', () => {
     ja.leave()
   })
 
+  it('reports each drawer its depth so drawers above the first can dim less', () => {
+    vi.stubGlobal('CSS', { supports: () => true })
+    const depths: Record<string, number> = {}
+    const a = { ...entry('--a'), onDepth: (d: number) => (depths.a = d) }
+    const b = { ...entry('--b'), onDepth: (d: number) => (depths.b = d) }
+    const ja = joinStack(a)
+    const jb = joinStack(b)
+    expect(depths).toEqual({ a: 0, b: 1 })
+    ja.leave()
+    expect(depths.b).toBe(0)
+    jb.leave()
+  })
+
   it('follows a front drawer whose stops change', () => {
     vi.stubGlobal('CSS', { supports: () => true })
     const a = entry('--a')

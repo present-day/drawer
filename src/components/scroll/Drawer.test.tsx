@@ -65,12 +65,21 @@ describe('scroll engine geometry', () => {
     const el = document.createElement('div')
     const backdrop = document.createElement('div')
     el.scrollTop = 100
-    writeBackdropOpacity(el, backdrop, { start: 0, end: 200, min: 0 })
+    writeBackdropOpacity(el, backdrop, { start: 0, end: 200, min: 0, max: 1 })
     expect(Number(backdrop.style.opacity)).toBe(0.5)
+    writeBackdropOpacity(el, backdrop, { start: 0, end: 200, min: 0, max: 0.3 })
+    expect(Number(backdrop.style.opacity)).toBe(0.15)
     el.scrollTop = 0
-    writeBackdropOpacity(el, backdrop, { start: 0, end: 200, min: 0.4 })
+    writeBackdropOpacity(el, backdrop, { start: 0, end: 200, min: 0.4, max: 1 })
     expect(Number(backdrop.style.opacity)).toBe(0.4)
-    writeBackdropOpacity(el, backdrop, { start: 0, end: 0, min: 0 })
+    writeBackdropOpacity(el, backdrop, {
+      start: 0,
+      end: 200,
+      min: 0.4,
+      max: 0.3,
+    })
+    expect(Number(backdrop.style.opacity)).toBe(0.3)
+    writeBackdropOpacity(el, backdrop, { start: 0, end: 0, min: 0, max: 1 })
     expect(Number(backdrop.style.opacity)).toBe(1)
   })
 })

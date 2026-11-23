@@ -8,7 +8,10 @@ export const SCROLL_DRAWER_CSS = `
   from { transform: translateY(0px) scale(1); }
   to { transform: translateY(var(--scroll-drawer-stack-shift, -8px)) scale(var(--scroll-drawer-stack-scale, 0.92)); }
 }
-@keyframes scroll-drawer-backdrop { from { opacity: var(--scroll-drawer-backdrop-min, 0); } to { opacity: 1; } }
+@keyframes scroll-drawer-backdrop {
+  from { opacity: min(var(--scroll-drawer-backdrop-min, 0), var(--scroll-drawer-backdrop-max, 1)); }
+  to { opacity: var(--scroll-drawer-backdrop-max, 1); }
+}
 [data-scroll-drawer] {
   position: fixed; inset: 0; z-index: 50;
   overflow-x: hidden; overflow-y: auto; scrollbar-width: none;
@@ -25,8 +28,10 @@ export const SCROLL_DRAWER_CSS = `
 /* A pinned sheet's lowest stop is scroll progress 0, which would leave a modal with no dim at all. */
 :where([data-scroll-drawer-root][data-scroll-drawer-pinned]) { --scroll-drawer-backdrop-min: 0.4; }
 [data-scroll-drawer-backdrop] { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
-:where([data-scroll-drawer-backdrop]) { background: rgb(0 0 0 / 0.5); opacity: var(--scroll-drawer-backdrop-min, 0); }
-[data-scroll-drawer-backdrop][data-scroll-drawer-backdrop-static] { opacity: 1; }
+:where([data-scroll-drawer-backdrop]) { background: rgb(0 0 0 / 0.5); opacity: min(var(--scroll-drawer-backdrop-min, 0), var(--scroll-drawer-backdrop-max, 1)); }
+[data-scroll-drawer-backdrop][data-scroll-drawer-backdrop-static] { opacity: var(--scroll-drawer-backdrop-max, 1); }
+/* Backdrops compound, so each sheet stacked above the first dims only lightly. */
+:where([data-scroll-drawer-root][data-scroll-drawer-stacked]) { --scroll-drawer-backdrop-max: 0.3; }
 @supports (animation-timeline: scroll()) and (timeline-scope: --a) {
   [data-scroll-drawer-backdrop]:not([data-scroll-drawer-backdrop-static]) {
     animation: scroll-drawer-backdrop linear both; animation-timeline: --scroll-drawer;

@@ -23,24 +23,30 @@ export function nearestIndex(
 }
 
 /** Scroll range, in `scrollTop` px, over which the backdrop fades in. */
-export type BackdropRange = { start: number; end: number; min: number }
+export type BackdropRange = {
+  start: number
+  end: number
+  min: number
+  max: number
+}
 
 /**
  * Fallback for browsers without scroll-driven animations: writes the backdrop's
  * opacity straight to it, so neither React nor the sheet's subtree restyles.
- * Opacity is `min` at or below `start`, 1 at or above `end`, and constant 1
- * when the range is empty.
+ * Opacity is `min` at or below `start`, `max` at or above `end`, and constant
+ * `max` when the range is empty.
  */
 export function writeBackdropOpacity(
   scroller: HTMLElement,
   backdrop: HTMLElement,
-  { start, end, min }: BackdropRange,
+  { start, end, min, max }: BackdropRange,
 ): void {
   const progress =
     end > start
       ? Math.min(1, Math.max(0, (scroller.scrollTop - start) / (end - start)))
       : 1
-  backdrop.style.opacity = (min + (1 - min) * progress).toFixed(4)
+  const from = Math.min(min, max)
+  backdrop.style.opacity = (from + (max - from) * progress).toFixed(4)
 }
 
 export function supportsScrollTimeline(): boolean {
