@@ -604,6 +604,41 @@ describe('Drawer (scroll engine)', () => {
     })
   })
 
+  it('leaves an outer sheet alone when a drawer opened from it is dragged', () => {
+    render(
+      <Drawer open ariaLabel="Outer" snapPoints={[200, 420]}>
+        <Drawer.Content>
+          <p>Outer</p>
+          <Drawer open ariaLabel="Inner" snapPoints={[200, 420]}>
+            <Drawer.Content>
+              <p>Inner</p>
+            </Drawer.Content>
+          </Drawer>
+        </Drawer.Content>
+      </Drawer>,
+    )
+    const [outer, inner] = ['Outer', 'Inner'].map((name) =>
+      screen
+        .getByRole('dialog', { name })
+        .closest<HTMLElement>('[data-scroll-drawer]'),
+    )
+    if (!outer || !inner) throw new Error('drawers not rendered')
+    outer.scrollTop = 200
+    inner.scrollTop = 200
+    const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+    fireEvent.pointerDown(screen.getByText('Inner'), {
+      ...mouse,
+      clientX: 100,
+      clientY: 600,
+    })
+    fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 500 })
+    fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 450 })
+    expect(inner.scrollTop).toBe(250)
+    expect(outer.scrollTop).toBe(200)
+    fireEvent.pointerUp(window, { ...mouse, clientY: 450 })
+    vi.advanceTimersByTime(1)
+  })
+
   it('drags with a mouse from anywhere on the sheet except controls, past the slop', () => {
     const ref = createRef<DrawerRef>()
     render(

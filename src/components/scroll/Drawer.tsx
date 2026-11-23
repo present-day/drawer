@@ -929,6 +929,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const el = scrollerRef.current
         if (e.pointerType !== 'mouse' || e.button !== 0 || !el) return
         if (!(e.target instanceof Element)) return
+        // React bubbles through portals: a drawer opened from this one would
+        // otherwise drag both. v2 needed `nested` for this; here it's implied.
+        if (!e.currentTarget.contains(e.target)) return
         const target = e.target
         if (target.closest(NEVER_DRAG_SELECTOR)) return
         const control = target.closest(CONTROL_SELECTOR)
