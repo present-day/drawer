@@ -68,6 +68,8 @@ still exported as `LegacyDrawer`.
 
 **`modal={false}`** renders no backdrop, locks no scroll, and traps no focus;
 the page behind stays usable, while the sheet itself still drags and snaps.
+On touch it drags from anywhere, buttons included, except fields and
+`[data-drawer-no-drag]`; a flick goes to the next stop in its direction.
 
 **Stack CSS variables.** Each is read in one place, so set it where it is read
 (or on an ancestor, where a value inherits down to it):

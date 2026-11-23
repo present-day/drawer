@@ -241,7 +241,7 @@ Set `stack` on each drawer that should recede when another opens above it. The d
 
 ### Dragging with a mouse
 
-Touch pans the sheet natively. A mouse drags it from anywhere except buttons and links, unless they sit inside `[data-drawer-drag]`, and never from fields or `[data-drawer-no-drag]`. Mostly sideways drags are left to horizontal scrollers, and a plain click still clicks.
+Touch pans a modal sheet natively. On a modeless sheet (`modal={false}`) touch is driven in JavaScript, because iOS won't pan a scroller that lets taps through to the page: it drags from anywhere, buttons and links included, except fields and `[data-drawer-no-drag]`; sideways swipes and a list that can scroll that way stay native, and a tap still taps. A mouse drags it from anywhere except buttons and links, unless they sit inside `[data-drawer-drag]`, and never from fields or `[data-drawer-no-drag]`. Mostly sideways drags are left to horizontal scrollers, and a plain click still clicks.
 
 ### Components
 

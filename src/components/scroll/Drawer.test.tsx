@@ -739,6 +739,174 @@ describe('Drawer (scroll engine)', () => {
     })
   })
 
+  describe('touch on a modeless sheet', () => {
+    const touch = (x: number, y: number) => [
+      { identifier: 1, clientX: x, clientY: y },
+    ]
+    const start = (target: Element, x: number, y: number) =>
+      fireEvent.touchStart(target, {
+        touches: touch(x, y),
+        changedTouches: touch(x, y),
+      })
+    /** Returns false when the drawer took the gesture (preventDefault). */
+    const move = (target: Element, x: number, y: number) =>
+      fireEvent.touchMove(target, {
+        touches: touch(x, y),
+        changedTouches: touch(x, y),
+      })
+    const end = (target: Element, x: number, y: number, type = 'touchEnd') =>
+      fireEvent[type as 'touchEnd'](target, {
+        touches: [],
+        changedTouches: touch(x, y),
+      })
+
+    function renderModeless(props: Partial<DrawerProps> = {}) {
+      const onPill = vi.fn()
+      const utils = render(
+        <Drawer
+          open
+          modal={false}
+          ariaLabel="Explore"
+          snapPoints={[120, 420]}
+          defaultSnapPoint={120}
+          {...props}
+        >
+          <Drawer.Content>
+            <button type="button" onClick={onPill}>
+              Nearby
+            </button>
+            <div data-testid="chips">Chips</div>
+            <input aria-label="Where" />
+            <Drawer.Scrollable>
+              <p>Venue</p>
+            </Drawer.Scrollable>
+          </Drawer.Content>
+        </Drawer>,
+      )
+      const el = scroller()
+      el.scrollTop = 120
+      return { el, onPill, ...utils }
+    }
+
+    it('drags the sheet open from a button, and reports the drag', () => {
+      const onDragStart = vi.fn()
+      const onDragEnd = vi.fn()
+      const { el } = renderModeless({ onDragStart, onDragEnd })
+      const pill = screen.getByRole('button', { name: 'Nearby' })
+      start(pill, 100, 700)
+      expect(move(pill, 100, 696)).toBe(true)
+      expect(move(pill, 100, 690)).toBe(false)
+      expect(el.scrollTop).toBe(130)
+      expect(el).toHaveAttribute('data-scroll-drawer-dragging')
+      fireEvent.scroll(el)
+      expect(onDragStart).toHaveBeenCalledTimes(1)
+      expect(move(pill, 100, 500)).toBe(false)
+      expect(el.scrollTop).toBe(320)
+      end(pill, 100, 500)
+      expect(el).not.toHaveAttribute('data-scroll-drawer-dragging')
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ top: 420 }),
+      )
+      settleAt(420)
+      expect(onDragEnd).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({ targetSnapPoint: 420, y: -200 }),
+      )
+    })
+
+    it('sends a flick to the next stop in its direction, but not when canceled', () => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+      const { el } = renderModeless()
+      const pill = screen.getByRole('button', { name: 'Nearby' })
+      const flick = (fromTop: number, dy: number, type = 'touchEnd') => {
+        el.scrollTop = fromTop
+        now.mockReturnValue(1000)
+        start(pill, 100, 600)
+        move(pill, 100, 600 + Math.sign(dy) * 10)
+        now.mockReturnValue(1040)
+        move(pill, 100, 600 + dy)
+        end(pill, 100, 600 + dy, type)
+      }
+      flick(120, -60)
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ top: 420 }),
+      )
+      flick(420, 60)
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ top: 120 }),
+      )
+      flick(120, -60, 'touchCancel')
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ top: 120 }),
+      )
+      now.mockRestore()
+      vi.advanceTimersByTime(1)
+    })
+
+    it('lets a tap click', () => {
+      const { el, onPill } = renderModeless()
+      const pill = screen.getByRole('button', { name: 'Nearby' })
+      start(pill, 100, 700)
+      expect(move(pill, 103, 695)).toBe(true)
+      end(pill, 103, 695)
+      fireEvent.click(pill)
+      expect(onPill).toHaveBeenCalledTimes(1)
+      expect(el.scrollTop).toBe(120)
+      expect(scrollTo).not.toHaveBeenCalledWith(
+        expect.objectContaining({ top: 420 }),
+      )
+    })
+
+    it('leaves sideways swipes, fields, and a scrolled list to the browser', () => {
+      const { el } = renderModeless()
+      const chips = screen.getByTestId('chips')
+      start(chips, 100, 600)
+      expect(move(chips, 140, 595)).toBe(true)
+      expect(move(chips, 160, 540)).toBe(true)
+      end(chips, 160, 540)
+
+      const field = screen.getByRole('textbox', { name: 'Where' })
+      start(field, 100, 600)
+      expect(move(field, 100, 500)).toBe(true)
+      end(field, 100, 500)
+
+      const venue = screen.getByText('Venue')
+      const list = venue.closest<HTMLElement>('[data-drawer-scroll]')
+      if (!list) throw new Error('list missing')
+      list.scrollTop = 50
+      start(venue, 100, 500)
+      expect(move(venue, 100, 560)).toBe(true)
+      end(venue, 100, 560)
+      expect(el.scrollTop).toBe(120)
+
+      list.scrollTop = 0
+      start(venue, 100, 600)
+      expect(move(venue, 100, 500)).toBe(false)
+      end(venue, 100, 500)
+      vi.advanceTimersByTime(1)
+
+      settleAt(420)
+      expect(el).toHaveAttribute('data-scroll-drawer-full')
+      Object.defineProperty(list, 'scrollHeight', {
+        configurable: true,
+        value: 900,
+      })
+      start(venue, 100, 600)
+      expect(move(venue, 100, 500)).toBe(true)
+      end(venue, 100, 500)
+      expect(el.scrollTop).toBe(420)
+    })
+
+    it('leaves touch on a modal sheet to native scrolling', () => {
+      const { el } = renderModeless({ modal: true })
+      const pill = screen.getByRole('button', { name: 'Nearby' })
+      start(pill, 100, 700)
+      expect(move(pill, 100, 600)).toBe(true)
+      end(pill, 100, 600)
+      expect(el.scrollTop).toBe(120)
+    })
+  })
+
   it('leaves an outer sheet alone when a drawer opened from it is dragged', () => {
     render(
       <Drawer open ariaLabel="Outer" snapPoints={[200, 420]}>

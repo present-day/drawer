@@ -15,7 +15,11 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { DRAWER_DRAG_SLOP_PX, DRAWER_TOP_INSET_PX } from '../../constants'
+import {
+  DRAWER_DRAG_SLOP_PX,
+  DRAWER_TOP_INSET_PX,
+  VELOCITY_THRESHOLD,
+} from '../../constants'
 import { DrawerSlotsProvider, useDrawerSlots } from '../../drawerSlotsContext'
 import {
   measureIntrinsicAutoHeight,
@@ -50,6 +54,8 @@ const CONTROL_SELECTOR = 'button, a'
 const NEVER_DRAG_SELECTOR =
   'input, textarea, select, [contenteditable="true"], [data-drawer-no-drag]'
 const EDGE_PX = 1
+// A finger jitters more than a mouse; under this a touch is still a tap.
+const TOUCH_SLOP_PX = 8
 const VELOCITY_WINDOW_MS = 100
 
 /**
@@ -105,6 +111,18 @@ function sessionVelocity(session: DragSession, now: number): number {
   const last = recent[recent.length - 1]
   if (!first || !last || last.t <= first.t) return 0
   return ((first.top - last.top) / (last.t - first.t)) * 1000
+}
+
+/** A flick goes one stop in its direction; anything slower to the nearest. */
+function releaseTarget(top: number, velocity: number, pos: number[]): number {
+  if (Math.abs(velocity) >= VELOCITY_THRESHOLD) {
+    const ahead =
+      velocity < 0
+        ? pos.find((p) => p > top + EDGE_PX)
+        : pos.filter((p) => p < top - EDGE_PX).pop()
+    if (ahead !== undefined) return ahead
+  }
+  return pos[nearestIndex(top, pos)] ?? 0
 }
 
 function endSession(
@@ -274,9 +292,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     // starts; without this the sheet reads that as a swipe-to-dismiss.
     const armedRef = useRef(false)
     const lastIndexRef = useRef<number | null>(null)
-    const mouseDragRef = useRef<{ id: number; y: number; top: number } | null>(
-      null,
-    )
+    /** Set while a JS-driven drag (mouse, or touch on a modeless sheet) writes scrollTop. */
+    const draggingRef = useRef(false)
     const sessionRef = useRef<DragSession | null>(null)
     /** Set while the software keyboard is up; `lift` is the scrollTop added. */
     const keyboardRef = useRef<{ inset: number; lift: number } | null>(null)
@@ -498,7 +515,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const settle = useCallback(() => {
       const el = scrollerRef.current
       const s = stopsRef.current
-      if (!el || !s || mouseDragRef.current) return
+      if (!el || !s || draggingRef.current) return
       const p = latest.current
       if (closingRef.current) {
         if (el.scrollTop <= EDGE_PX) setMounted(false)
@@ -762,9 +779,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (el.scrollTop > EDGE_PX) armedRef.current = true
         if (backdrop) writeBackdropOpacity(el, backdrop, range())
         const session = sessionRef.current
-        // A mouse drag samples where it writes scrollTop; this event lands a
+        // A JS drag samples where it writes scrollTop; this event lands a
         // frame later and would skew the timing.
-        if (session && !session.ended && !mouseDragRef.current) {
+        if (session && !session.ended && !draggingRef.current) {
           recordSample(session, el.scrollTop)
         }
         if (session && !session.started) {
@@ -790,7 +807,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
       const onTouchEnd = (e: TouchEvent) => {
         const session = sessionRef.current
-        if (!session) return
+        // Already ended by a modeless touch drag on the sheet.
+        if (!session || session.ended) return
         endSession(session, e, el.scrollTop)
         if (session.started) session.ended = true
         else sessionRef.current = null
@@ -971,15 +989,70 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
     }
 
-    // A mouse can't pan a scroll container, so a mouse drag on the sheet is
-    // translated to scrollTop. Same rules as v2: not from controls or
-    // `[data-drawer-no-drag]`, not from a list that is scrolled, and only
-    // past the slop so a plain click still clicks. Touch never comes here:
-    // it pans the scroller natively, even through `pointer-events: none`.
+    /**
+     * Drives the scroller from a pointer the browser won't scroll it for: a
+     * mouse, which can't pan a scroll container, and touch on a modeless
+     * sheet, whose `pointer-events: none` scroller WebKit never latches a pan
+     * onto. `fromY` is where the sheet should track the pointer from.
+     */
+    const beginDrag = useCallback(
+      (event: DragSession['event'], fromY: number) => {
+        const el = scrollerRef.current
+        if (!el) return null
+        const anchor = { y: fromY, top: el.scrollTop }
+        draggingRef.current = true
+        const session = startSession(event, el.scrollTop)
+        sessionRef.current = session
+        el.style.scrollSnapType = 'none'
+        el.setAttribute('data-scroll-drawer-dragging', '')
+        document.getSelection()?.removeAllRanges()
+        return {
+          move: (ev: DragSession['event'], y: number) => {
+            session.event = ev
+            el.scrollTop = anchor.top - (y - anchor.y)
+            recordSample(session, el.scrollTop)
+          },
+          /** `flick` false (a canceled touch) ignores the release velocity. */
+          end: (ev: DragSession['event'], flick = true) => {
+            draggingRef.current = false
+            el.removeAttribute('data-scroll-drawer-dragging')
+            // The release would otherwise click whatever the drag ended on.
+            const swallow = (ce: MouseEvent) => {
+              ce.stopPropagation()
+              ce.preventDefault()
+            }
+            window.addEventListener('click', swallow, {
+              capture: true,
+              once: true,
+            })
+            setTimeout(() => window.removeEventListener('click', swallow, true))
+            endSession(session, ev, el.scrollTop)
+            if (sessionRef.current === session) {
+              if (session.started) session.ended = true
+              else sessionRef.current = null
+            }
+            const s = stopsRef.current
+            el.style.scrollSnapType = ''
+            if (!s) return
+            const pos =
+              (latest.current.dismissible ?? true)
+                ? [0, ...positionsOf(s)]
+                : positionsOf(s)
+            const velocity = flick ? (session.release?.velocity ?? 0) : 0
+            const top = releaseTarget(restingTop(el), velocity, pos)
+            if (Math.abs(restingTop(el) - top) <= EDGE_PX) settle()
+            else scrollToTop(el, physicalTop(top))
+          },
+        }
+      },
+      [physicalTop, restingTop, settle],
+    )
+
+    // Same rules as v2: not from controls or `[data-drawer-no-drag]`, not from
+    // a list that is scrolled, and only past the slop so a click still clicks.
     const onSheetPointerDown = useCallback(
       (e: React.PointerEvent<HTMLElement>) => {
-        const el = scrollerRef.current
-        if (e.pointerType !== 'mouse' || e.button !== 0 || !el) return
+        if (e.pointerType !== 'mouse' || e.button !== 0) return
         if (!(e.target instanceof Element)) return
         // React bubbles through portals: a drawer opened from this one would
         // otherwise drag both. v2 needed `nested` for this; here it's implied.
@@ -988,7 +1061,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (target.closest(NEVER_DRAG_SELECTOR)) return
         const control = target.closest(CONTROL_SELECTOR)
         // `data-drawer-drag` opts controls in: the slop keeps a tap a tap, and the
-        // click a drag ends on is swallowed below.
+        // click a drag ends on is swallowed.
         if (control && !control.closest('[data-drawer-drag]')) return
         if (
           latest.current.handleOnly &&
@@ -1002,73 +1075,139 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const id = e.pointerId
         const downX = e.clientX
         const downY = e.clientY
-        let anchor: { y: number; top: number } | null = null
+        let drag: ReturnType<typeof beginDrag> = null
+        const stop = () => {
+          window.removeEventListener('pointermove', move)
+          window.removeEventListener('pointerup', end)
+          window.removeEventListener('pointercancel', end)
+        }
         const move = (ev: PointerEvent) => {
           if (ev.pointerId !== id) return
-          if (!anchor) {
+          if (!drag) {
             const dx = Math.abs(ev.clientX - downX)
             const dy = Math.abs(ev.clientY - downY)
             if (Math.max(dx, dy) < DRAWER_DRAG_SLOP_PX) return
             // Mostly sideways: leave it to whatever scrolls horizontally here.
-            if (dx > dy) {
-              window.removeEventListener('pointermove', move)
-              window.removeEventListener('pointerup', end)
-              window.removeEventListener('pointercancel', end)
-              return
-            }
-            anchor = { y: ev.clientY, top: el.scrollTop }
-            mouseDragRef.current = { id, y: ev.clientY, top: el.scrollTop }
-            sessionRef.current = startSession(ev, el.scrollTop)
-            el.style.scrollSnapType = 'none'
-            el.setAttribute('data-scroll-drawer-dragging', '')
-            document.getSelection()?.removeAllRanges()
+            if (dx > dy) return stop()
+            drag = beginDrag(ev, ev.clientY)
+            if (!drag) return stop()
           }
           ev.preventDefault()
-          if (sessionRef.current) sessionRef.current.event = ev
-          el.scrollTop = anchor.top - (ev.clientY - anchor.y)
-          if (sessionRef.current) recordSample(sessionRef.current, el.scrollTop)
+          drag.move(ev, ev.clientY)
         }
         const end = (ev: PointerEvent) => {
           if (ev.pointerId !== id) return
-          window.removeEventListener('pointermove', move)
-          window.removeEventListener('pointerup', end)
-          window.removeEventListener('pointercancel', end)
-          if (!anchor) return
-          mouseDragRef.current = null
-          el.removeAttribute('data-scroll-drawer-dragging')
-          // The release would otherwise click whatever the drag ended on.
-          const swallow = (ce: MouseEvent) => {
-            ce.stopPropagation()
-            ce.preventDefault()
-          }
-          window.addEventListener('click', swallow, {
-            capture: true,
-            once: true,
-          })
-          setTimeout(() => window.removeEventListener('click', swallow, true))
-          const session = sessionRef.current
-          if (session) {
-            endSession(session, ev, el.scrollTop)
-            if (session.started) session.ended = true
-            else sessionRef.current = null
-          }
-          const s = stopsRef.current
-          if (!s) return
-          const pos =
-            (latest.current.dismissible ?? true)
-              ? [0, ...positionsOf(s)]
-              : positionsOf(s)
-          const top = pos[nearestIndex(el.scrollTop, pos)] ?? 0
-          el.style.scrollSnapType = ''
-          if (Math.abs(el.scrollTop - top) <= EDGE_PX) settle()
-          else scrollToTop(el, top)
+          stop()
+          drag?.end(ev)
         }
         window.addEventListener('pointermove', move)
         window.addEventListener('pointerup', end)
         window.addEventListener('pointercancel', end)
       },
-      [settle],
+      [beginDrag],
     )
+
+    // Unlike the mouse, a touch drags from buttons and links too: past the
+    // slop it was never a tap, and a pill-like control is often the only part
+    // of a collapsed modeless sheet there is to grab.
+    useEffect(() => {
+      const sheet = sheetRef.current
+      if (!mounted || modal || !sheet) return
+      let gesture: {
+        id: number
+        x: number
+        y: number
+        target: Element
+        drag: ReturnType<typeof beginDrag>
+      } | null = null
+
+      const touchOf = (e: TouchEvent) => {
+        if (!gesture) return null
+        for (const t of e.changedTouches) {
+          if (t.identifier === gesture.id) return t
+        }
+        return null
+      }
+      // Whether the list under the finger scrolls this way by itself.
+      const listScrolls = (target: Element, down: boolean) => {
+        const list = target.closest<HTMLElement>('[data-drawer-scroll]')
+        if (!list || !sheet.contains(list)) return false
+        const el = scrollerRef.current
+        const unlocked =
+          latest.current.contentScroll === 'always' ||
+          !!el?.hasAttribute('data-scroll-drawer-full')
+        if (!unlocked || down) return list.scrollTop > 0
+        return list.scrollTop + list.clientHeight < list.scrollHeight - EDGE_PX
+      }
+
+      const onStart = (e: TouchEvent) => {
+        if (gesture?.drag) return
+        gesture = null
+        const t = e.touches.length === 1 ? e.touches[0] : undefined
+        const target = e.target
+        if (!t || !(target instanceof Element) || !sheet.contains(target)) {
+          return
+        }
+        if (target.closest(NEVER_DRAG_SELECTOR)) return
+        if (
+          latest.current.handleOnly &&
+          !target.closest('[data-drawer-handle]')
+        ) {
+          return
+        }
+        gesture = {
+          id: t.identifier,
+          x: t.clientX,
+          y: t.clientY,
+          target,
+          drag: null,
+        }
+      }
+      const onMove = (e: TouchEvent) => {
+        const t = touchOf(e)
+        if (!gesture || !t) return
+        if (!gesture.drag) {
+          const dx = Math.abs(t.clientX - gesture.x)
+          const dy = t.clientY - gesture.y
+          if (Math.max(dx, Math.abs(dy)) < TOUCH_SLOP_PX) return
+          // Sideways, a list that scrolls this way, or a pan the browser
+          // already started (uncancelable): native.
+          if (
+            dx > Math.abs(dy) ||
+            !e.cancelable ||
+            listScrolls(gesture.target, dy > 0)
+          ) {
+            gesture = null
+            return
+          }
+          gesture.drag = beginDrag(e, gesture.y)
+          if (!gesture.drag) {
+            gesture = null
+            return
+          }
+        }
+        e.preventDefault()
+        gesture.drag.move(e, t.clientY)
+      }
+      const onEnd = (e: TouchEvent) => {
+        if (!touchOf(e)) return
+        const drag = gesture?.drag
+        gesture = null
+        drag?.end(e, e.type === 'touchend')
+      }
+
+      sheet.addEventListener('touchstart', onStart, { passive: true })
+      sheet.addEventListener('touchmove', onMove, { passive: false })
+      sheet.addEventListener('touchend', onEnd)
+      sheet.addEventListener('touchcancel', onEnd)
+      return () => {
+        sheet.removeEventListener('touchstart', onStart)
+        sheet.removeEventListener('touchmove', onMove)
+        sheet.removeEventListener('touchend', onEnd)
+        sheet.removeEventListener('touchcancel', onEnd)
+        if (gesture?.drag) draggingRef.current = false
+      }
+    }, [mounted, modal, beginDrag])
 
     const registerContent = useCallback((el: HTMLElement | null) => {
       contentRef.current = el
@@ -1283,9 +1422,10 @@ export const DrawerScrollable = forwardRef<
  * scroll-snap container, so a swipe runs on the compositor instead of a
  * JavaScript animation loop.
  *
- * Touch drags the sheet from anywhere. A mouse drags it from anywhere except
- * buttons and links, unless they sit inside `[data-drawer-drag]`, and never
- * from fields or `[data-drawer-no-drag]`.
+ * Touch drags the sheet from anywhere; on a modeless sheet, not from fields
+ * or `[data-drawer-no-drag]`.
+ * A mouse drags it from anywhere except buttons and links, unless they sit
+ * inside `[data-drawer-drag]`, and never from fields or `[data-drawer-no-drag]`.
  */
 export const Drawer = Object.assign(DrawerRoot, {
   Content: DrawerContent,
