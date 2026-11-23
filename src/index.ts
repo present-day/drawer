@@ -1,4 +1,6 @@
-// Main component: the v3 scroll engine
+import { useDrawerContext as _useDrawerContext } from './context'
+import { useDrawerDrag as _useDrawerDrag } from './hooks/useDrawerDrag'
+import { useDrawerSnap as _useDrawerSnap } from './hooks/useDrawerSnap'
 
 // v2 motion engine, kept for drawers that rely on behavior the scroll engine
 // can't match yet
@@ -23,16 +25,10 @@ export {
   SPRING_CONFIG,
 } from './constants'
 export type { DrawerContextValue } from './context'
-// v2 context and hooks
-export { useDrawerContext } from './context'
 export type { UseDrawerDragOptions } from './hooks/useDrawerDrag'
-export { useDrawerDrag } from './hooks/useDrawerDrag'
 export { useDrawerKeyboardSnapMobile } from './hooks/useDrawerKeyboardSnapMobile'
 export type { UseDrawerSnapArgs } from './hooks/useDrawerSnap'
-export {
-  measureIntrinsicAutoHeight,
-  useDrawerSnap,
-} from './hooks/useDrawerSnap'
+export { measureIntrinsicAutoHeight } from './hooks/useDrawerSnap'
 export type {
   UseVisualViewportOptions,
   UseVisualViewportResult,
@@ -52,3 +48,12 @@ export type {
 } from './types'
 // Utilities
 export { cn, forceUnlock, getLockCount, lockBody, unlockBody } from './utils'
+
+// Declared rather than re-exported: TypeScript drops `@deprecated` from
+// `export { } from`, and tagging the originals would flag LegacyDrawer itself.
+/** @deprecated `LegacyDrawer` only: the scroll engine provides no `DrawerContext`. */
+export const useDrawerContext = _useDrawerContext
+/** @deprecated `LegacyDrawer` only: the scroll engine drags natively. */
+export const useDrawerDrag = _useDrawerDrag
+/** @deprecated `LegacyDrawer` only: the scroll engine resolves its own stops. */
+export const useDrawerSnap = _useDrawerSnap

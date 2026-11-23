@@ -96,8 +96,9 @@ export interface DrawerProps {
   /**
    * Index into `snapPoints` at which the overlay becomes fully opaque (0-based,
    * evaluated against the px-sorted snap array). Below that snap the overlay
-   * fades in proportionally as the drawer rises. Omit for the default
-   * all-or-nothing overlay that fades over the open animation.
+   * fades in proportionally as the drawer rises. When omitted, the overlay
+   * fades in as the sheet rises to its lowest stop and stays full at every
+   * stop.
    *
    * @example
    *   // snapPoints={[‘auto’, ‘full’]} — no overlay at ‘auto’, full overlay at ‘full’
@@ -111,9 +112,10 @@ export interface DrawerProps {
    */
   snapToSequentialPoint?: boolean
   /**
-   * Set to `true` when this drawer is rendered inside another drawer. Stops
-   * pointer events from bubbling to the outer drawer’s drag handlers so the
-   * two drawers do not fight over the same gesture.
+   * `LegacyDrawer` only; the scroll engine ignores it. Set to `true` when
+   * this drawer is rendered inside another drawer. Stops pointer events from
+   * bubbling to the outer drawer’s drag handlers so the two drawers do not
+   * fight over the same gesture.
    */
   nested?: boolean
   /**
@@ -162,8 +164,8 @@ export interface DrawerProps {
    * panel with `env(safe-area-inset-bottom, 0px)` and grows `'auto'` snap
    * heights by the resolved inset so content still fits. Pass a number to
    * force an explicit pixel inset, or `false` to opt out (e.g. when the app
-   * already pads its drawer content). The active inset is exposed on the
-   * panel as `--drawer-safe-area-bottom`.
+   * already pads its drawer content). `LegacyDrawer` also exposes the active
+   * inset on the panel as `--drawer-safe-area-bottom`.
    */
   safeAreaBottom?: boolean | number
   children: React.ReactNode

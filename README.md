@@ -154,7 +154,7 @@ This package does not include app-specific chrome (e.g. big close buttons). Afte
 
 ### Mobile Safari, soft keyboard, and the visual viewport
 
-> This section describes `LegacyDrawer`. The v3 `Drawer` resolves snap points to px when it opens and when its scroller resizes, so the soft keyboard never moves the stops; it still reports `onViewportChange`.
+> This section describes `LegacyDrawer`. The v3 `Drawer` resolves snap points to px when it opens and when its scroller resizes, and the soft keyboard doesn't re-resolve them. While the keyboard is up, its scroller shrinks to the visual viewport and the sheet rides up by the keyboard height (never past `topInsetPx`), then returns to its stop when the keyboard hides. `'auto'` content doesn't shrink while the keyboard is up, there is no iOS glide, and `onViewportChange` is still reported. `useDrawerKeyboardSnapMobile` works with both engines.
 
 When the drawer is **open**, it listens to `window.visualViewport` (`resize` and `scroll`). Snap heights and `--drawer-available-height` use the **visual** viewport height. The panel is `position: fixed` with an extra **`bottom` offset** so its bottom edge follows the **visual** viewport, not only the **layout** viewport. That avoids the common iOS case where a fixed `bottom: 0` sheet stays behind the on-screen keyboard even though heights were already keyboard-aware. The offset is exposed as `layoutBottomInset` on the [`ViewportInfo`](./src/types.ts) object: `max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop)`.
 
@@ -254,7 +254,7 @@ Touch pans the sheet natively. A mouse drags it from anywhere except buttons and
 
 ### v2 → v3
 
-`Drawer` now runs on native scroll snapping with the v2 props, ref, and parts. Behavior differences (`nested` ignored, snap points resolved when the drawer opens, no `--drawer-*` variables) and the new props are listed in [`MIGRATION.md`](./MIGRATION.md). To keep the v2 engine, change one import:
+`Drawer` now runs on native scroll snapping with the v2 props, ref, and parts. Behavior differences (`nested` ignored, snap points resolved when the drawer opens, the keyboard ride-up, `onDragEnd` at settle, no `--drawer-*` variables, the v2 hooks being `LegacyDrawer` only) and the new props are listed in [`MIGRATION.md`](./MIGRATION.md). To keep the v2 engine, change one import:
 
 ```tsx
 import { LegacyDrawer as Drawer } from '@present-day/drawer'
@@ -278,7 +278,7 @@ Quick summary:
 The `BottomSheet` compatibility layer and `BOTTOM_SHEET_*` names were removed in v1. Use the `Drawer` API everywhere, and update any custom CSS or `data-*` hooks that targeted the old names.
 
 - **Components**: `BottomSheet` → `Drawer`, `BottomSheetContent` / `Handle` / `Overlay` / `Scrollable` → the corresponding `Drawer*` exports, composed as `Drawer.Content` and `Drawer`’s other static properties.
-- **Context / hooks**: `useBottomSheetContext` → `useDrawerContext`, `useBottomSheetDrag` → `useDrawerDrag`, `useBottomSheetSnap` → `useDrawerSnap`, `useBottomSheetKeyboardSnapMobile` → `useDrawerKeyboardSnapMobile`. (There is no separate `BottomSheetContext` export; the underlying context is `DrawerContext` if you need it in advanced code.)
+- **Context / hooks** (all but `useDrawerKeyboardSnapMobile` are `LegacyDrawer` only as of v3): `useBottomSheetContext` → `useDrawerContext`, `useBottomSheetDrag` → `useDrawerDrag`, `useBottomSheetSnap` → `useDrawerSnap`, `useBottomSheetKeyboardSnapMobile` → `useDrawerKeyboardSnapMobile`. (There is no separate `BottomSheetContext` export; the underlying context is `DrawerContext` if you need it in advanced code.)
 - **Types**: all `BottomSheet*` types → the matching `Drawer*` / `*Drawer*` names (e.g. `BottomSheetProps` → `DrawerProps`, `BottomSheetRef` → `DrawerRef`).
 - **Constants**: `BOTTOM_SHEET_TOP_INSET_PX` → `DRAWER_TOP_INSET_PX`, `BOTTOM_SHEET_CONTEXT_CONSUMER` → `DRAWER_CONTEXT_CONSUMER` (kept in source; not re-exported from the package `index` — use `Drawer` and its parts in normal use), `BOTTOM_SHEET_DRAG_SLOP_PX` → `DRAWER_DRAG_SLOP_PX` (internal tuning constant).
 - **Data attributes**: `data-bottom-sheet-scroll` → `data-drawer-scroll`, `data-bottom-sheet-no-drag` → `data-drawer-no-drag`.
