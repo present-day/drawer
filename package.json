@@ -14,7 +14,7 @@
     "storybook:build": "storybook build",
     "build": "tsup",
     "dev": "tsup --watch",
-    "demo:build": "bun build demo/scroll-drawer-demo.tsx demo/cuequest-search-demo.tsx --outdir demo/dist --loader .pcss:text --define 'process.env.NODE_ENV=\"production\"'",
+    "demo:build": "bun build demo/scroll-drawer-demo.tsx --outdir demo/dist --loader .pcss:text --define 'process.env.NODE_ENV=\"production\"'",
     "prepublishOnly": "bun run build",
     "lint": "biome check .",
     "format": "biome check --write .",
