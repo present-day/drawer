@@ -7,7 +7,7 @@ A flexible and performant React drawer component with smooth animations and cust
 ## Features
 
 - 🎯 **Flexible Snap Points** - Support for fractional heights, pixel values, and preset modes
-- 🎬 **Smooth Animations** - Built with Framer Motion for 60fps animations
+- 🎬 **Smooth Animations** - Native scroll snapping, so swipes run on the compositor; the v2 motion engine stays available as `LegacyDrawer`
 - 📱 **Mobile Optimized** - Touch-friendly drag gestures with proper momentum
 - ♿ **Accessible** - `role="dialog"`, `aria-modal`, name/description, focus trap, and Escape to dismiss
 - 🎨 **Customizable** - Tailwind CSS classes with full style control
@@ -117,6 +117,7 @@ The panel is exposed as a **`role="dialog"`** with **`aria-modal="true"`** when 
 | `data-drawer-handle-indicator`| Default handle bar (`span`)                  |
 | `data-drawer-scroll`          | `Drawer.Scrollable` root                     |
 | `data-drawer-no-drag`         | Opt out of panel drag (buttons, inputs, etc.) |
+| `data-drawer-drag`            | Opt a button or link into mouse drags (scroll engine) |
 
 **`Drawer.Handle`:** use `indicatorClassName` to style the default pill without `[&>span]:…`. Pass `children` to replace the default bar entirely.
 
@@ -153,6 +154,8 @@ This package does not include app-specific chrome (e.g. big close buttons). Afte
 
 ### Mobile Safari, soft keyboard, and the visual viewport
 
+> This section describes `LegacyDrawer`. The v3 `Drawer` resolves snap points to px when it opens and when its scroller resizes, so the soft keyboard never moves the stops; it still reports `onViewportChange`.
+
 When the drawer is **open**, it listens to `window.visualViewport` (`resize` and `scroll`). Snap heights and `--drawer-available-height` use the **visual** viewport height. The panel is `position: fixed` with an extra **`bottom` offset** so its bottom edge follows the **visual** viewport, not only the **layout** viewport. That avoids the common iOS case where a fixed `bottom: 0` sheet stays behind the on-screen keyboard even though heights were already keyboard-aware. The offset is exposed as `layoutBottomInset` on the [`ViewportInfo`](./src/types.ts) object: `max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop)`.
 
 The keyboard transition is kept stable by three behaviors (v2.2+):
@@ -166,6 +169,8 @@ The keyboard transition is kept stable by three behaviors (v2.2+):
 **CSS** on the motion panel: in addition to `--drawer-height`, `--drawer-progress`, and `--drawer-available-height`, the panel sets **`--drawer-layout-bottom-inset`** (same value as the animated `bottom` target used for anchoring) and **`--drawer-safe-area-bottom`** (see below).
 
 ### Safe-area insets
+
+> On the v3 `Drawer` the inset is applied the same way, but `--drawer-safe-area-bottom` is set only by `LegacyDrawer`.
 
 By default the panel is padded with **`env(safe-area-inset-bottom, 0px)`** so content clears the home indicator, and `'auto'` snap heights **grow by the resolved inset** so the padding doesn't squeeze measured content. Control it with the **`safeAreaBottom`** prop: pass a **number** for an explicit pixel inset, or **`false`** to opt out when your app already pads its drawer content. The active inset is exposed on the panel as **`--drawer-safe-area-bottom`**. The default **`topInsetPx`** (96px) keeps the sheet clear of the top notch/safe area.
 
@@ -215,15 +220,45 @@ Hiding the scrollbar removes a visible scroll affordance for mouse users, so pre
 | `topInsetPx`          | `number`                                          | map inset  | Pixels subtracted from visual height for snap math |
 | `safeAreaBottom`      | `boolean \| number`                               | `true`     | Bottom safe-area padding: `true` uses `env(safe-area-inset-bottom)`, a number forces pixels, `false` opts out |
 | `onViewportChange`    | `(viewport: ViewportInfo) => void`                | -          | Fired when the visual viewport updates while open; includes `layoutBottomInset`, `height`, `offsetTop`, `keyboardHeight`, `isKeyboardOpen` |
+| `contentScroll`       | `'full' \| 'always'`                              | `'full'`   | `'full'`: `Drawer.Scrollable` scrolls only at the top stop; below it a swipe moves the sheet. `'always'`: it scrolls at every stop |
+| `contentScrollFrom`   | `SnapPoint`                                       | top stop   | With `contentScroll="full"`, the lowest stop at which `Drawer.Scrollable` scrolls |
+| `onHeightChange`      | `(height: number) => void`                        | -          | Visible sheet height in px, at most once per frame while it moves; costs no layout |
+| `stack`               | `boolean`                                         | `false`    | While another `stack` drawer is open on top, this one recedes (see *Stacking*) |
+
+`modal={false}` renders no backdrop, scroll lock, or focus trap, and the page behind stays usable. `nested` is ignored by the v3 `Drawer`.
+
+### Stacking
+
+Set `stack` on each drawer that should recede when another opens above it. The drawer behind scales and shifts with the top drawer's swipe, and a drawer stacked above another dims the page less so backdrops don't compound to black. Tune it with CSS variables:
+
+| Variable                       | Default                                   | Effect                                         |
+| ------------------------------ | ----------------------------------------- | ---------------------------------------------- |
+| `--scroll-drawer-stack-scale`  | `0.92`                                    | Scale of a drawer behind another               |
+| `--scroll-drawer-stack-shift`  | `-8px`                                    | Vertical shift of a drawer behind another      |
+| `--scroll-drawer-backdrop-max` | `1` (`0.3` when stacked above another)    | Backdrop opacity at its most visible           |
+| `--scroll-drawer-backdrop-min` | `0` (`0.4` when `dismissible={false}`)    | Backdrop opacity at the lowest stop            |
+
+### Dragging with a mouse
+
+Touch pans the sheet natively. A mouse drags it from anywhere except buttons and links, unless they sit inside `[data-drawer-drag]`, and never from fields or `[data-drawer-no-drag]`. Mostly sideways drags are left to horizontal scrollers, and a plain click still clicks.
 
 ### Components
 
 - `Drawer.Content` - Main content container (`data-drawer-content`)
 - `Drawer.Handle` - Drag handle (optional); supports `indicatorClassName` and `children`
-- `Drawer.Scrollable` - Scrollable content area
+- `Drawer.Scrollable` - Scrollable content area; see `contentScroll`
 - `Drawer.Overlay` - Background overlay (auto-rendered when modal=true)
+- `LegacyDrawer` - The v2 motion engine, same props and parts as `Drawer` without the scroll-engine-only props
 
 ## Migration
+
+### v2 → v3
+
+`Drawer` now runs on native scroll snapping with the v2 props, ref, and parts. Behavior differences (`nested` ignored, snap points resolved when the drawer opens, no `--drawer-*` variables) and the new props are listed in [`MIGRATION.md`](./MIGRATION.md). To keep the v2 engine, change one import:
+
+```tsx
+import { LegacyDrawer as Drawer } from '@present-day/drawer'
+```
 
 ### v1 → v2
 
@@ -255,6 +290,7 @@ The `BottomSheet` compatibility layer and `BOTTOM_SHEET_*` names were removed in
 bun run storybook   # http://localhost:6006 (toolbar: Theme)
 bun run test
 bun run build
+bun run demo:build   # demo/dist, an on-device frame-rate comparison of Drawer and LegacyDrawer
 ```
 
 **Testing on a phone:** The drawer portals to `document.body` and positions itself with `position: fixed` against `window.visualViewport`, so the Storybook manager UI (which renders stories in an iframe inside its own chrome) does not reproduce real mobile behavior such as the soft keyboard. Instead, open a story's standalone URL, `iframe.html?id=<story-id>`, on the phone (for example, https://present-day.github.io/drawer/iframe.html?id=drawer--auto-search-keyboard). Stories open the drawer on load and render an in-page event log, and story IDs are shown in the Storybook URL as `?path=/story/<story-id>`.

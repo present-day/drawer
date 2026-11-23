@@ -1,5 +1,75 @@
 # Migration
 
+## v2 → v3
+
+v3 swaps the default `Drawer` to a native scroll-snap engine: the sheet is a
+scroll container, so a swipe runs on the compositor instead of a JavaScript
+animation loop. The props, ref, and parts (`Drawer.Content`, `Drawer.Handle`,
+`Drawer.Scrollable`, `Drawer.Overlay`) are the v2 ones. The v2 motion engine is
+still exported as `LegacyDrawer`.
+
+### Breaking
+
+- **`Drawer` is the scroll engine.** Anything that relied on the motion
+  engine's spring or its internals can move to `LegacyDrawer` (below).
+- **`nested` is ignored.** A drawer's gestures are scoped by its own scroll
+  container, so nesting needs no flag.
+- **Snap points resolve to px when the drawer opens, and again when the
+  scroller resizes** (rotation, browser chrome). They do not move when the soft
+  keyboard opens, so typing never shifts the stops.
+- **The `--drawer-*` CSS variables on the panel exist only on `LegacyDrawer`.**
+  The scroll engine does not set `--drawer-height`, `--drawer-progress`,
+  `--drawer-available-height`, `--drawer-layout-bottom-inset`, or
+  `--drawer-safe-area-bottom`. Use `onHeightChange` to follow the sheet.
+- **Mouse drags** work as in v2 (from anywhere on the sheet), except from
+  buttons and links unless they sit inside `[data-drawer-drag]`, and never from
+  fields or `[data-drawer-no-drag]`. A mostly sideways mouse drag is left to
+  whatever scrolls horizontally there.
+
+### New
+
+| Prop | What it does |
+| ---- | ------------ |
+| `contentScroll` | `'full'` (default): `Drawer.Scrollable` scrolls once the sheet is at its top stop; below that a swipe on it moves the sheet. `'always'`: it scrolls at every stop, and the sheet moves from the handle and other chrome or when the list's scroll chains at its top. |
+| `contentScrollFrom` | With `contentScroll="full"`, the lowest stop at which `Drawer.Scrollable` scrolls. Defaults to the top stop. Set it when the top stop is one users don't rest at, such as a full-screen stop added for the keyboard. |
+| `onHeightChange` | Visible sheet height in px, at most once per frame while it moves. Read from `scrollTop`, so it costs no layout. A `ResizeObserver` on the sheet never fires, because the sheet scrolls rather than resizes. |
+| `stack` | Opt-in stacking. While another `stack` drawer is open on top, this one recedes, and once more per further drawer above it. |
+
+```tsx
+<Drawer snapPoints={['auto', 'full']} contentScrollFrom="full" onHeightChange={setSheetHeight}>
+  <Drawer.Content>
+    <Drawer.Handle />
+    <Drawer.Scrollable>{/* long list */}</Drawer.Scrollable>
+  </Drawer.Content>
+</Drawer>
+```
+
+**`modal={false}`** renders no backdrop, locks no scroll, and traps no focus;
+the page behind stays usable, while the sheet itself still drags and snaps.
+
+**Stack CSS variables**, set on the drawer behind (or any ancestor):
+
+| Variable | Default | Effect |
+| -------- | ------- | ------ |
+| `--scroll-drawer-stack-scale` | `0.92` | Scale of a drawer at rest behind another. |
+| `--scroll-drawer-stack-shift` | `-8px` | Vertical shift of a receded drawer. |
+| `--scroll-drawer-backdrop-max` | `1` (`0.3` for a drawer stacked above another) | Opacity ceiling of the backdrop, so stacked backdrops don't compound to black. |
+| `--scroll-drawer-backdrop-min` | `0` (`0.4` for a non-dismissible drawer) | Backdrop opacity at the lowest stop. |
+
+**`data-drawer-drag`** on (or around) a button or link lets a mouse drag start
+there. A tap still clicks; the click a drag ends on is swallowed.
+
+### Staying on v2
+
+Swap the import; nothing else changes:
+
+```tsx
+import { LegacyDrawer as Drawer } from '@present-day/drawer'
+```
+
+`LegacyDrawer` keeps the v2 behavior and the `--drawer-*` variables. The
+scroll-engine-only props above are not available on it.
+
 ## v2.1 → v2.2
 
 No API removals. Two default behaviors changed:
