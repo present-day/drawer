@@ -1,0 +1,78 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { joinStack } from './stack'
+
+function entry(name: string, end = 300) {
+  return {
+    name,
+    scroller: document.createElement('div'),
+    range: { start: 0, end },
+  }
+}
+
+const anim = (el: HTMLElement, prop: string) =>
+  el.style.getPropertyValue(`animation-${prop}`)
+
+describe('drawer stack', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('recedes each drawer once per drawer in front, driven by their swipes', () => {
+    vi.stubGlobal('CSS', { supports: () => true })
+    const a = entry('--a')
+    const b = entry('--b')
+    const c = entry('--c')
+    const ja = joinStack(a)
+    expect(anim(a.scroller, 'name')).toBe('')
+    const jb = joinStack(b)
+    const jc = joinStack(c)
+
+    expect(
+      document.documentElement.style.getPropertyValue('timeline-scope'),
+    ).toBe('--a, --b, --c')
+    expect(anim(a.scroller, 'timeline')).toBe('--b, --c')
+    expect(anim(a.scroller, 'composition')).toBe('accumulate, accumulate')
+    expect(anim(a.scroller, 'range')).toBe('0px 300px, 0px 300px')
+    expect(anim(b.scroller, 'timeline')).toBe('--c')
+    expect(anim(c.scroller, 'name')).toBe('')
+
+    jc.leave()
+    expect(anim(a.scroller, 'timeline')).toBe('--b')
+    expect(anim(b.scroller, 'name')).toBe('')
+    jb.leave()
+    ja.leave()
+    expect(anim(a.scroller, 'name')).toBe('')
+    expect(
+      document.documentElement.style.getPropertyValue('timeline-scope'),
+    ).toBe('')
+  })
+
+  it('recedes on a timer behind a pinned drawer or without scroll timelines', () => {
+    vi.stubGlobal('CSS', { supports: () => true })
+    const a = entry('--a')
+    const ja = joinStack(a)
+    const jp = joinStack(entry('--pinned', 0))
+    expect(anim(a.scroller, 'timeline')).toBe('auto')
+    expect(anim(a.scroller, 'duration')).toBe('300ms')
+    jp.leave()
+
+    vi.stubGlobal('CSS', { supports: () => false })
+    const jb = joinStack(entry('--b'))
+    expect(anim(a.scroller, 'timeline')).toBe('auto')
+    jb.leave()
+    ja.leave()
+  })
+
+  it('follows a front drawer whose stops change', () => {
+    vi.stubGlobal('CSS', { supports: () => true })
+    const a = entry('--a')
+    const ja = joinStack(a)
+    const jb = joinStack(entry('--b', 0))
+    expect(anim(a.scroller, 'timeline')).toBe('auto')
+    jb.update({ start: 0, end: 420 })
+    expect(anim(a.scroller, 'timeline')).toBe('--b')
+    expect(anim(a.scroller, 'range')).toBe('0px 420px')
+    jb.leave()
+    ja.leave()
+  })
+})

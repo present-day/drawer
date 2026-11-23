@@ -33,6 +33,7 @@ import {
   supportsScrollTimeline,
   writeBackdropOpacity,
 } from './geometry'
+import { joinStack } from './stack'
 import { injectScrollDrawerStyles } from './styles'
 
 const DEFAULT_SNAP_POINTS: readonly SnapPoint[] = ['auto']
@@ -183,6 +184,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       overlayClassName,
       slots,
       contentScroll = 'full',
+      stack = false,
     } = props
 
     const isControlled = controlledOpen !== undefined
@@ -210,6 +212,31 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const stopsRef = useRef<Stops | null>(null)
     stopsRef.current = stops
     const titleId = useId()
+    const stackName = `--scroll-drawer-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+    const stackRef = useRef<ReturnType<typeof joinStack> | null>(null)
+
+    useEffect(() => {
+      const el = scrollerRef.current
+      if (!mounted || !stack || !el) return
+      const handle = joinStack({
+        name: stackName,
+        scroller: el,
+        range: { start: 0, end: 0 },
+      })
+      stackRef.current = handle
+      return () => {
+        stackRef.current = null
+        handle.leave()
+      }
+    }, [mounted, stack, stackName])
+
+    useEffect(() => {
+      if (!stops) return
+      // Covering the drawers behind runs from closed to the lowest stop. A
+      // pinned drawer has no closed position, so its range is empty.
+      const end = stops.offset > 0 ? 0 : (stops.heights[0] ?? 0)
+      stackRef.current?.update({ start: 0, end })
+    }, [stops])
     const descriptionId = useId()
 
     const latest = useRef(props)
@@ -841,6 +868,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
               {
                 height: `calc(100dvh - ${bottomInsetPx}px)`,
                 '--scroll-drawer-vh': stops ? `${stops.viewport}px` : undefined,
+                ...(stack
+                  ? {
+                      scrollTimelineName: `--scroll-drawer, ${stackName}`,
+                      scrollTimelineAxis: 'y, y',
+                      transformOrigin: '50% 0',
+                    }
+                  : null),
               } as React.CSSProperties
             }
           >

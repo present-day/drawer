@@ -210,6 +210,14 @@ export interface DrawerProps {
    */
   contentScrollFrom?: SnapPoint
   /**
+   * Scroll engine only. Stacking variant: while another `stack` drawer is
+   * open on top of this one, this one recedes, driven by the top drawer's
+   * swipe, and once more per further drawer stacked above. Tune it with
+   * `--scroll-drawer-stack-scale` (default 0.92) and
+   * `--scroll-drawer-stack-shift` (default -8px) on the drawer behind.
+   */
+  stack?: boolean
+  /**
    * Scroll engine only. Visible sheet height in px, at most once per frame
    * while it moves. Read from `scrollTop`, so it costs no layout. Use it to
    * keep page chrome clear of the sheet; a `ResizeObserver` on the sheet

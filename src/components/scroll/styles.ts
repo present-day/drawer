@@ -4,6 +4,10 @@ const STYLE_ID = 'present-day-scroll-drawer'
 // in any bundler without CSS handling. Anything a consumer may restyle sits in
 // `:where()`, so a single class wins over it.
 export const SCROLL_DRAWER_CSS = `
+@keyframes scroll-drawer-stack {
+  from { transform: translateY(0px) scale(1); }
+  to { transform: translateY(var(--scroll-drawer-stack-shift, -8px)) scale(var(--scroll-drawer-stack-scale, 0.92)); }
+}
 @keyframes scroll-drawer-backdrop { from { opacity: var(--scroll-drawer-backdrop-min, 0); } to { opacity: 1; } }
 [data-scroll-drawer] {
   position: fixed; inset: 0; z-index: 50;
