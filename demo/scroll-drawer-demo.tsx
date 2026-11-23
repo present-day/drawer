@@ -1,6 +1,6 @@
 import { type ReactNode, StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Drawer, ScrollDrawer, type ScrollDrawerProps } from '../src'
+import { Drawer, LegacyDrawer } from '../src'
 
 // The existing Drawer's panel and parts carry Tailwind utilities that this
 // Tailwind-free bundle never generates, so the few it relies on are restated.
@@ -150,69 +150,42 @@ function Body({
   )
 }
 
-function ScrollVariant({
+function EngineVariant({
   variant,
+  engine,
   open,
   setOpen,
 }: {
   variant: Variant
+  engine: 'scroll' | 'legacy'
   open: boolean
   setOpen: (open: boolean) => void
 }) {
-  const props: ScrollDrawerProps = {
-    open,
-    onOpenChange: setOpen,
-    snapPoints: variant.snapPoints,
-    dismissible: variant.dismissible,
-  }
-  return (
-    <ScrollDrawer {...props} aria-label={`${variant.label} (scroll)`}>
-      <ScrollDrawer.Handle />
-      <ScrollDrawer.Content>
-        <Body
-          kind={variant.body}
-          onClose={
-            variant.dismissible === false ? () => setOpen(false) : undefined
-          }
-        />
-      </ScrollDrawer.Content>
-    </ScrollDrawer>
-  )
-}
-
-function LegacyVariant({
-  variant,
-  open,
-  setOpen,
-}: {
-  variant: Variant
-  open: boolean
-  setOpen: (open: boolean) => void
-}) {
+  const Engine = engine === 'scroll' ? Drawer : LegacyDrawer
   const scrolls = variant.body === 'long'
   const onClose =
     variant.dismissible === false ? () => setOpen(false) : undefined
   return (
-    <Drawer
+    <Engine
       open={open}
       onOpenChange={setOpen}
       snapPoints={
         variant.snapPoints ? [...variant.snapPoints, 'full'] : undefined
       }
       dismissible={variant.dismissible}
-      ariaLabel={`${variant.label} (current)`}
+      ariaLabel={`${variant.label} (${engine === 'scroll' ? 'v3 scroll' : 'v2 motion'})`}
     >
-      <Drawer.Content className="legacy-surface">
-        <Drawer.Handle />
+      <Engine.Content className="legacy-surface">
+        <Engine.Handle />
         {scrolls ? (
-          <Drawer.Scrollable>
+          <Engine.Scrollable>
             <Body kind={variant.body} onClose={onClose} />
-          </Drawer.Scrollable>
+          </Engine.Scrollable>
         ) : (
           <Body kind={variant.body} onClose={onClose} />
         )}
-      </Drawer.Content>
-    </Drawer>
+      </Engine.Content>
+    </Engine>
   )
 }
 
@@ -243,15 +216,16 @@ function App() {
   return (
     <main className="demo">
       <FpsMeter />
-      <h1>ScrollDrawer vs Drawer</h1>
+      <h1>Drawer v3 vs v2</h1>
       <p>
-        Left column: scroll-snap engine (native, compositor-driven). Right
-        column: current motion-driven Drawer. The meter counts JS frames, so a
-        smooth native swipe can look smooth even while it reads 60.
+        Left column: v3 scroll-snap engine (native, compositor-driven). Right
+        column: v2 motion-driven Drawer. Both get identical props. The meter
+        counts JS frames, so a smooth native swipe can look smooth even while it
+        reads 60.
       </p>
       <div className="grid">
-        <h2>ScrollDrawer</h2>
-        <h2>Drawer (current)</h2>
+        <h2>v3 scroll engine</h2>
+        <h2>v2 motion engine</h2>
         {rows}
       </div>
       {FILLER.map((line) => (
@@ -265,8 +239,18 @@ function App() {
         }
         return (
           <div key={v.id}>
-            <ScrollVariant variant={v} open={isScroll} setOpen={close} />
-            <LegacyVariant variant={v} open={isLegacy} setOpen={close} />
+            <EngineVariant
+              variant={v}
+              engine="scroll"
+              open={isScroll}
+              setOpen={close}
+            />
+            <EngineVariant
+              variant={v}
+              engine="legacy"
+              open={isLegacy}
+              setOpen={close}
+            />
           </div>
         )
       })}

@@ -1,6 +1,7 @@
 import {
   type ReactNode,
   StrictMode,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -8,7 +9,8 @@ import {
   useState,
 } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ScrollDrawer } from '../src/components/scroll/ScrollDrawer'
+import { Drawer } from '../src/components/scroll/Drawer'
+import { SNAP_POINT } from '../src/constants'
 
 const PLACES = [
   {
@@ -216,11 +218,11 @@ const clampZoom = (k: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, k))
 // every wheel notch would compete with the drawer for the main thread.
 function CityMap({
   selected,
-  bottomInset,
+  getBottomInset,
   children,
 }: {
   selected: Place | null
-  bottomInset: number
+  getBottomInset: () => number
   children?: ReactNode
 }) {
   const mapRef = useRef<HTMLElement>(null)
@@ -332,21 +334,21 @@ function CityMap({
     const map = mapRef.current
     if (!selected || !map) return
     const k = Math.max(view.current.k, 2.5)
-    const visible = map.clientHeight - bottomInset
+    const visible = map.clientHeight - getBottomInset()
     view.current = {
       k,
       x: map.clientWidth / 2 - selected.x * k,
       y: Math.max(visible, 120) / 2 - selected.y * k,
     }
     apply(true)
-  }, [selected, bottomInset])
+  }, [selected, getBottomInset])
 
   const zoomCenter = (factor: number) => {
     const map = mapRef.current
     if (!map) return
     zoomAt(
       map.clientWidth / 2,
-      (map.clientHeight - bottomInset) / 2,
+      (map.clientHeight - getBottomInset()) / 2,
       factor,
       true,
     )
@@ -448,6 +450,7 @@ function SearchSheet({
   mode,
   selected,
   onSelect,
+  onHeightChange,
 }: {
   open: boolean
   onClose: () => void
@@ -455,6 +458,7 @@ function SearchSheet({
   mode: Mode
   selected: Place | null
   onSelect: (place: Place) => void
+  onHeightChange: (height: number) => void
 }) {
   const [query, setQuery] = useState('')
   const results = useMemo(() => {
@@ -469,95 +473,102 @@ function SearchSheet({
   }, [query])
 
   return (
-    <ScrollDrawer
+    <Drawer
       open={open}
       onOpenChange={(next) => !next && onClose()}
-      snapPoints={[PEEK, 520]}
+      snapPoints={[PEEK, SNAP_POINT.TWO_THIRDS, SNAP_POINT.FULL]}
+      defaultSnapPoint={PEEK}
+      topInsetPx={24}
       dismissible={false}
       contentScroll="always"
       modal={mode === 'modal'}
-      className={
-        layout === 'centered' ? 'cq-sheet cq-sheet-centered' : 'cq-sheet'
-      }
-      aria-labelledby="cq-search-title"
+      safeAreaBottom={false}
+      ariaLabel="Search"
+      onHeightChange={onHeightChange}
     >
-      <ScrollDrawer.Handle />
-      <header className="cq-header">
-        <h2 id="cq-search-title">Search</h2>
-        <label className="cq-input">
-          <Icon d={SEARCH} className="cq-input-icon" />
-          <span className="sr-only">Search places</span>
-          <input
-            name="search"
-            type="search"
-            autoComplete="off"
-            placeholder="Find places in Chicago"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {query ? (
-            <button
-              type="button"
-              className="cq-clear"
-              aria-label="Clear search"
-              onClick={() => setQuery('')}
-            >
-              <Icon d={X} />
-            </button>
-          ) : null}
-        </label>
-      </header>
-      <ScrollDrawer.Content className="cq-results">
-        {results.length ? (
-          <ul>
-            {results.map((p) => (
-              <li key={p.name}>
-                <button
-                  type="button"
-                  className="cq-row"
-                  aria-pressed={selected?.name === p.name}
-                  onClick={() => onSelect(p)}
-                >
-                  <span className="cq-row-icon">
-                    <Icon d={PIN} />
-                  </span>
-                  <span className="cq-row-text">
-                    <span className="cq-row-name">
-                      <Highlight text={p.name} query={query} />
+      <Drawer.Content
+        className={
+          layout === 'centered' ? 'cq-sheet cq-sheet-centered' : 'cq-sheet'
+        }
+      >
+        <Drawer.Handle />
+        <header className="cq-header">
+          <h2 id="cq-search-title">Search</h2>
+          <label className="cq-input">
+            <Icon d={SEARCH} className="cq-input-icon" />
+            <span className="sr-only">Search places</span>
+            <input
+              name="search"
+              type="search"
+              autoComplete="off"
+              placeholder="Find places in Chicago"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {query ? (
+              <button
+                type="button"
+                className="cq-clear"
+                aria-label="Clear search"
+                onClick={() => setQuery('')}
+              >
+                <Icon d={X} />
+              </button>
+            ) : null}
+          </label>
+        </header>
+        <Drawer.Scrollable className="cq-results">
+          {results.length ? (
+            <ul>
+              {results.map((p) => (
+                <li key={p.name}>
+                  <button
+                    type="button"
+                    className="cq-row"
+                    aria-pressed={selected?.name === p.name}
+                    onClick={() => onSelect(p)}
+                  >
+                    <span className="cq-row-icon">
+                      <Icon d={PIN} />
                     </span>
-                    <span className="cq-row-address">
-                      <Highlight text={p.address} query={query} />
+                    <span className="cq-row-text">
+                      <span className="cq-row-name">
+                        <Highlight text={p.name} query={query} />
+                      </span>
+                      <span className="cq-row-address">
+                        <Highlight text={p.address} query={query} />
+                      </span>
                     </span>
-                  </span>
-                  <span className="cq-row-tables">{p.tables} tables</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="cq-empty">No saved places match “{query.trim()}”.</p>
-        )}
-      </ScrollDrawer.Content>
-      <footer className="cq-footer">
-        <button type="button" className="cq-add">
-          <span className="cq-add-icon">
-            <Icon d={PIN} />
-          </span>
-          <span className="cq-add-text">
-            <span className="cq-add-title">Add a new place</span>
-            <span className="cq-add-sub">
-              {query.trim()
-                ? `Search Google Places for "${query.trim()}"`
-                : 'Search Google Places for a venue not on the map yet'}
+                    <span className="cq-row-tables">{p.tables} tables</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="cq-empty">No saved places match “{query.trim()}”.</p>
+          )}
+        </Drawer.Scrollable>
+        <footer className="cq-footer">
+          <button type="button" className="cq-add">
+            <span className="cq-add-icon">
+              <Icon d={PIN} />
             </span>
-          </span>
-          <Icon d={CHEVRON} className="cq-chevron" />
-        </button>
-        <button type="button" className="cq-close" onClick={onClose}>
-          Close
-        </button>
-      </footer>
-    </ScrollDrawer>
+            <span className="cq-add-text">
+              <span className="cq-add-title">Add a new place</span>
+              <span className="cq-add-sub">
+                {query.trim()
+                  ? `Search Google Places for "${query.trim()}"`
+                  : 'Search Google Places for a venue not on the map yet'}
+              </span>
+            </span>
+            <Icon d={CHEVRON} className="cq-chevron" />
+          </button>
+          <button type="button" className="cq-close" onClick={onClose}>
+            Close
+          </button>
+        </footer>
+      </Drawer.Content>
+    </Drawer>
   )
 }
 
@@ -601,6 +612,12 @@ function App() {
   const [layout, setLayout] = useState<Layout>('centered')
   const [mode, setMode] = useState<Mode>('modeless')
   const [selected, setSelected] = useState<Place | null>(null)
+  // A ref, not state: it changes every frame the sheet moves.
+  const sheetHeight = useRef(PEEK)
+  const getBottomInset = useCallback(
+    () => (open ? sheetHeight.current : 0),
+    [open],
+  )
   return (
     <>
       <div className="cq-controls">
@@ -625,7 +642,7 @@ function App() {
           ]}
         />
       </div>
-      <CityMap selected={selected} bottomInset={open ? PEEK : 0}>
+      <CityMap selected={selected} getBottomInset={getBottomInset}>
         {open ? null : (
           <button
             type="button"
@@ -644,6 +661,9 @@ function App() {
         mode={mode}
         selected={selected}
         onSelect={setSelected}
+        onHeightChange={(h) => {
+          sheetHeight.current = h
+        }}
       />
     </>
   )

@@ -1,26 +1,18 @@
-// Main component
+// Main component: the v3 scroll engine
 
-export type { DrawerProps, DrawerRef } from './components/Drawer'
-export { Drawer } from './components/Drawer'
-
-// Component parts (for advanced usage)
+// v2 motion engine, kept for drawers that rely on behavior the scroll engine
+// can't match yet
+export { Drawer as LegacyDrawer } from './components/Drawer'
+export type { DrawerHandleProps } from './components/drawer/DrawerHandle'
+export { DrawerOverlay } from './components/drawer/DrawerOverlay'
 export {
+  Drawer,
   DrawerContent,
   type DrawerContentProps,
-} from './components/drawer/DrawerContent'
-export {
-  DrawerHandle,
-  type DrawerHandleProps,
-} from './components/drawer/DrawerHandle'
-export { DrawerOverlay } from './components/drawer/DrawerOverlay'
-export { DrawerScrollable } from './components/drawer/DrawerScrollable'
-// Experimental: native scroll-snap drawer
-export {
-  ScrollDrawer,
-  ScrollDrawerContent,
-  ScrollDrawerHandle,
-  type ScrollDrawerProps,
-} from './components/scroll/ScrollDrawer'
+  DrawerHandleScroll as DrawerHandle,
+  DrawerScrollable,
+  type DrawerScrollableProps,
+} from './components/scroll/Drawer'
 // Constants (for customization)
 export {
   DRAWER_TOP_INSET_PX,
@@ -29,7 +21,7 @@ export {
   SPRING_CONFIG,
 } from './constants'
 export type { DrawerContextValue } from './context'
-// Context and hooks
+// v2 context and hooks
 export { useDrawerContext } from './context'
 export type { UseDrawerDragOptions } from './hooks/useDrawerDrag'
 export { useDrawerDrag } from './hooks/useDrawerDrag'
@@ -50,6 +42,8 @@ export type {
   // Common types
   DragInfo,
   DrawerDragEvent,
+  DrawerProps,
+  DrawerRef,
   DrawerSlots,
   SnapPoint,
   ViewportInfo,

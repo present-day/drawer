@@ -194,6 +194,21 @@ export interface DrawerProps {
   onAnimationStart?: (from: number, to: number) => void
   onAnimationComplete?: (snapPoint: SnapPoint) => void
   onViewportChange?: (viewport: ViewportInfo) => void
+  /**
+   * Scroll engine only. `'full'` (default): `Drawer.Scrollable` scrolls once
+   * the sheet is at its top stop, and below that a swipe on it moves the
+   * sheet. `'always'`: it scrolls at every stop, padded by the part of the
+   * sheet below the screen; the sheet then moves from the handle and other
+   * chrome, or when the list's scroll chains at its top.
+   */
+  contentScroll?: 'full' | 'always'
+  /**
+   * Scroll engine only. Visible sheet height in px, at most once per frame
+   * while it moves. Read from `scrollTop`, so it costs no layout. Use it to
+   * keep page chrome clear of the sheet; a `ResizeObserver` on the sheet
+   * never fires, because the sheet scrolls rather than resizes.
+   */
+  onHeightChange?: (height: number) => void
 }
 
 export interface DrawerRef {

@@ -1,50 +1,11 @@
 /**
- * Track layout: a spacer of `100dvh - stageOffset` sits above the sheet, so at
- * `scrollTop = t` exactly `t + stageOffset` px of the sheet's top edge are on
- * screen. `stageOffset` is 0 when dismissible (scrollTop 0 = closed), or the
- * smallest snap point when not, so the user cannot scroll below it.
- *
- * Returns `null` when there is nothing to offset to (non-dismissible with no
- * snap points): the sheet is then pinned fully open.
+ * Track layout: a spacer of `viewport - offset` px sits above the sheet, so at
+ * `scrollTop = t` exactly `t + offset` px of the sheet are on screen. The
+ * offset is 0 when dismissible (`scrollTop` 0 = closed), or the lowest stop's
+ * height when not, so the sheet can't be scrolled below it. A marker `h` px
+ * below the sheet top with `scroll-margin-top` equal to the viewport snaps at
+ * `scrollTop = h - offset`.
  */
-export function stageOffset(
-  snapPoints: readonly number[],
-  dismissible: boolean,
-): number | null {
-  if (dismissible) return 0
-  if (snapPoints.length === 0) return null
-  return Math.min(...snapPoints)
-}
-
-export function spacerHeight(offset: number | null): string {
-  if (offset === null) return '0px'
-  return `calc(100dvh - ${offset}px)`
-}
-
-/**
- * A marker `p` px below the sheet top with `scroll-margin-top: 100dvh` snaps at
- * `spacer + p - 100dvh = p - offset`, leaving exactly `p` px of sheet visible
- * whatever the offset, so markers are always placed at `top: p`.
- */
-export function snapScrollTop(visiblePx: number, offset: number): number {
-  return Math.max(0, visiblePx - offset)
-}
-
-/**
- * Scroll positions of each snap, in `[...snapPoints, fullyOpen]` order.
- * `maxScrollTop` is the fully open position.
- */
-export function snapPositions(
-  snapPoints: readonly number[],
-  offset: number,
-  maxScrollTop: number,
-): number[] {
-  return [
-    ...snapPoints.map((p) => Math.min(snapScrollTop(p, offset), maxScrollTop)),
-    maxScrollTop,
-  ]
-}
-
 export function nearestIndex(
   scrollTop: number,
   positions: readonly number[],
@@ -61,19 +22,24 @@ export function nearestIndex(
   return best
 }
 
+/** Scroll range, in `scrollTop` px, over which the backdrop fades in. */
+export type BackdropRange = { start: number; end: number; min: number }
+
 /**
  * Fallback for browsers without scroll-driven animations: writes the backdrop's
  * opacity straight to it, so neither React nor the sheet's subtree restyles.
- * Opacity runs from `min` at `scrollTop` 0 to 1 fully open.
+ * Opacity is `min` at or below `start`, 1 at or above `end`, and constant 1
+ * when the range is empty.
  */
 export function writeBackdropOpacity(
   scroller: HTMLElement,
   backdrop: HTMLElement,
-  min = 0,
+  { start, end, min }: BackdropRange,
 ): void {
-  const max = scroller.scrollHeight - scroller.clientHeight
   const progress =
-    max > 0 ? Math.min(1, Math.max(0, scroller.scrollTop / max)) : 1
+    end > start
+      ? Math.min(1, Math.max(0, (scroller.scrollTop - start) / (end - start)))
+      : 1
   backdrop.style.opacity = (min + (1 - min) * progress).toFixed(4)
 }
 
