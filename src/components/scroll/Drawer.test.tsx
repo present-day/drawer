@@ -313,6 +313,10 @@ describe('Drawer (scroll engine)', () => {
         <Drawer.Content>
           <p>Local Vibe</p>
           <button type="button">Open</button>
+          <div data-drawer-drag>
+            <button type="button">Filters</button>
+            <input aria-label="Search" />
+          </div>
         </Drawer.Content>
       </Drawer>,
     )
@@ -345,6 +349,16 @@ describe('Drawer (scroll engine)', () => {
     fireEvent.click(screen.getByText('Local Vibe'))
     expect(onClick).toHaveBeenCalledTimes(1)
     window.removeEventListener('click', onClick)
+
+    el.scrollTop = 200
+    drag(screen.getByRole('textbox', { name: 'Search' }), 300)
+    expect(el.scrollTop).toBe(200)
+    scrollTo.mockClear()
+    drag(screen.getByRole('button', { name: 'Filters' }), 300)
+    expect(scrollTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({ top: 420 }),
+    )
+    vi.advanceTimersByTime(1)
   })
 
   it('keeps the backdrop full at every stop unless fadeFromIndex says otherwise', () => {

@@ -38,8 +38,9 @@ import { injectScrollDrawerStyles } from './styles'
 const DEFAULT_SNAP_POINTS: readonly SnapPoint[] = ['auto']
 const SETTLE_FALLBACK_MS = 120
 const CLOSE_FALLBACK_MS = 700
-const NO_DRAG_SELECTOR =
-  'button, a, input, textarea, select, [contenteditable="true"], [data-drawer-no-drag]'
+const CONTROL_SELECTOR = 'button, a'
+const NEVER_DRAG_SELECTOR =
+  'input, textarea, select, [contenteditable="true"], [data-drawer-no-drag]'
 const EDGE_PX = 1
 
 /**
@@ -686,7 +687,11 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (e.pointerType !== 'mouse' || e.button !== 0 || !el) return
         if (!(e.target instanceof Element)) return
         const target = e.target
-        if (target.closest(NO_DRAG_SELECTOR)) return
+        if (target.closest(NEVER_DRAG_SELECTOR)) return
+        const control = target.closest(CONTROL_SELECTOR)
+        // `data-drawer-drag` opts controls in: the slop keeps a tap a tap, and the
+        // click a drag ends on is swallowed below.
+        if (control && !control.closest('[data-drawer-drag]')) return
         if (
           latest.current.handleOnly &&
           !target.closest('[data-drawer-handle]')
@@ -966,6 +971,10 @@ export const DrawerScrollable = forwardRef<
  * v3 drawer: the same API as the v2 `Drawer`, but the sheet is a native
  * scroll-snap container, so a swipe runs on the compositor instead of a
  * JavaScript animation loop.
+ *
+ * Touch drags the sheet from anywhere. A mouse drags it from anywhere except
+ * buttons and links, unless they sit inside `[data-drawer-drag]`, and never
+ * from fields or `[data-drawer-no-drag]`.
  */
 export const Drawer = Object.assign(DrawerRoot, {
   Content: DrawerContent,
