@@ -138,6 +138,15 @@ function slideOut(
   }
 }
 
+/**
+ * Scroll range over which a stack drawer covers the ones behind it: closed to
+ * its lowest stop. A pinned drawer has no closed position, so it's empty.
+ */
+function coverRange(stops: Stops | null): { start: number; end: number } {
+  if (!stops || stops.offset > 0) return { start: 0, end: 0 }
+  return { start: 0, end: stops.heights[0] ?? 0 }
+}
+
 function sameStops(a: Stops | null, b: Stops): boolean {
   return (
     !!a &&
@@ -219,31 +228,33 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const titleId = useId()
     const stackName = `--scroll-drawer-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
     const stackRef = useRef<ReturnType<typeof joinStack> | null>(null)
+    const joinStackRef = useRef<(() => void) | null>(null)
     const [stacked, setStacked] = useState(false)
 
     useEffect(() => {
       const el = scrollerRef.current
       if (!mounted || !stack || !el) return
-      const handle = joinStack({
-        name: stackName,
-        scroller: el,
-        range: { start: 0, end: 0 },
-        onDepth: (depth) => setStacked(depth > 0),
-      })
-      stackRef.current = handle
+      const join = () => {
+        stackRef.current = joinStack({
+          name: stackName,
+          scroller: el,
+          range: coverRange(stopsRef.current),
+          onDepth: (depth) => setStacked(depth > 0),
+        })
+      }
+      joinStackRef.current = join
+      join()
       return () => {
+        stackRef.current?.leave()
         stackRef.current = null
-        handle.leave()
+        joinStackRef.current = null
         setStacked(false)
       }
     }, [mounted, stack, stackName])
 
     useEffect(() => {
       if (!stops) return
-      // Covering the drawers behind runs from closed to the lowest stop. A
-      // pinned drawer has no closed position, so its range is empty.
-      const end = stops.offset > 0 ? 0 : (stops.heights[0] ?? 0)
-      stackRef.current?.update({ start: 0, end })
+      stackRef.current?.update(coverRange(stops))
     }, [stops])
     const descriptionId = useId()
 
@@ -668,7 +679,19 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         return
       }
       if (!(latest.current.dismissible ?? true)) {
-        return slideOut(el, backdropRef.current, () => setMounted(false))
+        // Nothing scrolls, so the drawers behind would hold their recede
+        // until unmount; leave the stack now so they grow back with the slide.
+        stackRef.current?.leave()
+        stackRef.current = null
+        let left = false
+        const cancel = slideOut(el, backdropRef.current, () => {
+          left = true
+          setMounted(false)
+        })
+        return () => {
+          cancel()
+          if (!left && !stackRef.current) joinStackRef.current?.()
+        }
       }
       if (el.scrollTop <= EDGE_PX) {
         setMounted(false)

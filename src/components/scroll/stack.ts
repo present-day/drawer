@@ -118,9 +118,26 @@ export function joinStack(entry: StackEntry): {
     leave: () => {
       const i = entries.indexOf(entry)
       if (i === -1) return
+      const behind = entries.slice(0, i)
+      const before = behind.map((e) => getComputedStyle(e.scroller).transform)
       entries.splice(i, 1)
       applyBehind(entry, [])
       sync()
+      // Dropping the recede animation would jump the drawers behind to their
+      // new size; ease from where they were instead.
+      behind.forEach((e, j) => {
+        const from = before[j]
+        if (
+          !from ||
+          from === 'none' ||
+          typeof e.scroller.animate !== 'function'
+        )
+          return
+        e.scroller.animate([{ transform: from, offset: 0 }], {
+          duration: Number.parseInt(STACK_TIMING.duration, 10),
+          easing: STACK_TIMING.easing,
+        })
+      })
     },
   }
 }

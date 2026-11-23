@@ -76,6 +76,24 @@ describe('drawer stack', () => {
     jb.leave()
   })
 
+  it('eases the drawers behind back when a drawer leaves', () => {
+    vi.stubGlobal('CSS', { supports: () => true })
+    const a = entry('--a')
+    const animate = vi.fn()
+    a.scroller.animate = animate
+    document.body.append(a.scroller)
+    const ja = joinStack(a)
+    const jp = joinStack(entry('--pinned', 0))
+    a.scroller.style.transform = 'matrix(0.92, 0, 0, 0.92, 0, -8)'
+    jp.leave()
+    expect(animate).toHaveBeenCalledWith(
+      [{ transform: 'matrix(0.92, 0, 0, 0.92, 0, -8)', offset: 0 }],
+      expect.objectContaining({ duration: 300 }),
+    )
+    ja.leave()
+    a.scroller.remove()
+  })
+
   it('follows a front drawer whose stops change', () => {
     vi.stubGlobal('CSS', { supports: () => true })
     const a = entry('--a')
