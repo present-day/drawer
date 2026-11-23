@@ -642,6 +642,63 @@ describe('Drawer (scroll engine)', () => {
       expect(markers()).toEqual(before)
     })
 
+    it('paints the sheet surface behind the keyboard, below the scroller', () => {
+      const surface = (style: React.CSSProperties) =>
+        render(
+          <Drawer open ariaLabel="City" snapPoints={[200, 420]}>
+            <Drawer.Content style={style}>
+              <input aria-label="City" />
+            </Drawer.Content>
+          </Drawer>,
+        )
+      const rect = vi
+        .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+        .mockReturnValue({ left: 16, width: 358 } as DOMRect)
+      try {
+        const { unmount } = surface({ backgroundColor: 'rgb(250, 250, 250)' })
+        const fill = () => {
+          const el = document.querySelector<HTMLElement>(
+            '[data-scroll-drawer-keyboard-fill]',
+          )
+          if (!el) throw new Error('fill missing')
+          return el
+        }
+        expect(fill().parentElement).toBe(scroller().parentElement)
+        expect(getComputedStyle(fill()).display).toBe('none')
+        settleAt(200)
+        rect.mockClear()
+
+        keyboard(KEYBOARD, 40)
+        expect(getComputedStyle(fill()).display).toBe('block')
+        expect(fill().style.top).toBe(`${40 + VIEWPORT - KEYBOARD}px`)
+        expect(fill().style.left).toBe('16px')
+        expect(fill().style.width).toBe('358px')
+        expect(fill().style.background).toContain('rgb(250, 250, 250)')
+        const sheetReads = () =>
+          rect.mock.contexts.filter((c) => c === screen.getByRole('dialog'))
+            .length
+        expect(sheetReads()).toBe(1)
+
+        keyboard(KEYBOARD + 20)
+        expect(fill().style.top).toBe(`${VIEWPORT - KEYBOARD - 20}px`)
+        expect(sheetReads()).toBe(1)
+
+        keyboard(0)
+        expect(getComputedStyle(fill()).display).toBe('none')
+        unmount()
+
+        surface({
+          backgroundColor: 'transparent',
+          ['--scroll-drawer-fill' as string]: 'rgb(1, 2, 3)',
+        })
+        settleAt(200)
+        keyboard(KEYBOARD)
+        expect(fill().style.background).toContain('rgb(1, 2, 3)')
+      } finally {
+        rect.mockRestore()
+      }
+    })
+
     it('works with useDrawerKeyboardSnapMobile', () => {
       function Sheet() {
         const ref = useRef<DrawerRef>(null)

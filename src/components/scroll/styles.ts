@@ -23,6 +23,9 @@ export const SCROLL_DRAWER_CSS = `
 [data-scroll-drawer]::-webkit-scrollbar { display: none; }
 /* The sheet is lifted off its stops while typing; snapping would pull it back down. */
 [data-scroll-drawer][data-scroll-drawer-keyboard] { scroll-snap-type: none; }
+/* Below the scroller, which ends at the keyboard: the sheet's surface behind the translucent keyboard. */
+[data-scroll-drawer-keyboard-fill] { display: none; position: fixed; bottom: 0; z-index: 50; pointer-events: none; }
+[data-scroll-drawer][data-scroll-drawer-keyboard] ~ [data-scroll-drawer-keyboard-fill] { display: block; }
 /* Hit-testing skips the scroller, but a wheel or pan on the sheet still chains up to it. */
 [data-scroll-drawer-modeless] { pointer-events: none; }
 /* Children, not the sheet: a sheet narrower than the screen leaves its sides to the page. */

@@ -285,6 +285,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const scrollerRef = useRef<HTMLDivElement>(null)
     const sheetRef = useRef<HTMLDivElement>(null)
     const backdropRef = useRef<HTMLDivElement>(null)
+    const keyboardFillRef = useRef<HTMLDivElement>(null)
     const contentRef = useRef<HTMLElement | null>(null)
     const closingRef = useRef(false)
     const openedRef = useRef(false)
@@ -564,6 +565,25 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       visibleHeight,
     ])
 
+    // iOS draws the keyboard and its accessory bar translucent; native sheets
+    // keep their surface behind them, so the page mustn't show through where
+    // the shortened scroller ends. Read once per keyboard, not per frame.
+    const paintKeyboardFill = useCallback((fill: HTMLElement) => {
+      const sheet = sheetRef.current
+      if (!sheet) return
+      const surface =
+        contentRef.current ??
+        sheet.querySelector<HTMLElement>('[data-drawer-content]') ??
+        sheet
+      const css = getComputedStyle(surface)
+      fill.style.background =
+        css.getPropertyValue('--scroll-drawer-fill').trim() ||
+        css.backgroundColor
+      const rect = sheet.getBoundingClientRect()
+      fill.style.left = `${rect.left}px`
+      fill.style.width = `${rect.width}px`
+    }, [])
+
     // Stops stay put while the keyboard is up (it isn't a new screen size);
     // instead the scroller shrinks to the visual viewport and the sheet rides
     // up with it, as v2's panel docks above the keyboard.
@@ -602,7 +622,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         )
         el.scrollTop = physicalTop(top)
         layoutHidden(el)
+        const fill = keyboardFillRef.current
+        if (fill) fill.style.top = `${vp.offsetTop + vp.height}px`
         if (kb) return
+        if (fill) paintKeyboardFill(fill)
         // Focus scrolled the field into view against the full-height layout;
         // the lower part of the sheet may since have moved behind the keyboard.
         const active = document.activeElement
@@ -615,7 +638,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           active.scrollIntoView({ block: 'nearest' })
         }
       },
-      [layoutHidden, physicalTop, restingTop],
+      [layoutHidden, paintKeyboardFill, physicalTop, restingTop],
     )
 
     useVisualViewport({
@@ -1343,6 +1366,11 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
               </div>
             </div>
           </div>
+          <div
+            ref={keyboardFillRef}
+            data-scroll-drawer-keyboard-fill=""
+            aria-hidden
+          />
         </div>
       </ScrollEngineContext.Provider>,
       document.body,

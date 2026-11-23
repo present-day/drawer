@@ -154,7 +154,7 @@ This package does not include app-specific chrome (e.g. big close buttons). Afte
 
 ### Mobile Safari, soft keyboard, and the visual viewport
 
-> This section describes `LegacyDrawer`. The v3 `Drawer` resolves snap points to px when it opens and when its scroller resizes, and the soft keyboard doesn't re-resolve them. While the keyboard is up, its scroller shrinks to the visual viewport and the sheet rides up by the keyboard height (never past `topInsetPx`), then returns to its stop when the keyboard hides. `'auto'` content doesn't shrink while the keyboard is up, there is no iOS glide, and `onViewportChange` is still reported. `useDrawerKeyboardSnapMobile` works with both engines.
+> This section describes `LegacyDrawer`. The v3 `Drawer` resolves snap points to px when it opens and when its scroller resizes, and the soft keyboard doesn't re-resolve them. While the keyboard is up, its scroller shrinks to the visual viewport and the sheet rides up by the keyboard height (never past `topInsetPx`), with its surface painted on behind the keyboard, then returns to its stop when the keyboard hides. `'auto'` content doesn't shrink while the keyboard is up, there is no iOS glide, and `onViewportChange` is still reported. `useDrawerKeyboardSnapMobile` works with both engines.
 
 When the drawer is **open**, it listens to `window.visualViewport` (`resize` and `scroll`). Snap heights and `--drawer-available-height` use the **visual** viewport height. The panel is `position: fixed` with an extra **`bottom` offset** so its bottom edge follows the **visual** viewport, not only the **layout** viewport. That avoids the common iOS case where a fixed `bottom: 0` sheet stays behind the on-screen keyboard even though heights were already keyboard-aware. The offset is exposed as `layoutBottomInset` on the [`ViewportInfo`](./src/types.ts) object: `max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop)`.
 
@@ -237,7 +237,7 @@ Set `stack` on each drawer that should recede when another opens above it. The d
 | `--scroll-drawer-stack-shift`  | `-8px`                                 | Same as above                                                           |
 | `--scroll-drawer-backdrop-max` | `1` (`0.3` when stacked above another) | The drawer's own backdrop; the `0.3` is set on the stacked drawer's root, so an ancestor value doesn't reach it. Override with `overlayClassName="[--scroll-drawer-backdrop-max:0.2]"` |
 | `--scroll-drawer-backdrop-min` | `0` (`0.4` when `dismissible={false}`) | The drawer's own backdrop, overridden the same way                       |
-| `--scroll-drawer-fill` | the content's background | Set on `Drawer.Content` when its surface is painted by a child, so the strip below the resting layout isn't transparent mid-drag |
+| `--scroll-drawer-fill` | the content's background | Set on `Drawer.Content` when its surface is painted by a child, so the strip below the resting layout isn't transparent mid-drag, and the area behind the translucent iOS keyboard shows the sheet |
 
 ### Dragging with a mouse
 

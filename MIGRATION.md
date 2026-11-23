@@ -23,8 +23,8 @@ still exported as `LegacyDrawer`.
 - **Snap points resolve to px when the drawer opens, and again when the
   scroller resizes** (rotation, browser chrome). The soft keyboard doesn't
   re-resolve them: while it is up, the scroller shrinks to the visual viewport
-  and the sheet rides up by the keyboard height, never past `topInsetPx`, and
-  returns to its stop when the keyboard hides. `'auto'` content can grow
+  and the sheet rides up by the keyboard height, never past `topInsetPx`, its
+  surface painted on behind the translucent keyboard, and returns to its stop when the keyboard hides. `'auto'` content can grow
   while the keyboard is up but doesn't shrink until it hides.
 - **No keyboard glide on iOS.** `LegacyDrawer` eases the sheet up when iOS
   reports the keyboard in one late jump; the scroll engine moves it in one
