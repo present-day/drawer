@@ -237,6 +237,7 @@ Set `stack` on each drawer that should recede when another opens above it. The d
 | `--scroll-drawer-stack-shift`  | `-8px`                                 | Same as above                                                           |
 | `--scroll-drawer-backdrop-max` | `1` (`0.3` when stacked above another) | The drawer's own backdrop; the `0.3` is set on the stacked drawer's root, so an ancestor value doesn't reach it. Override with `overlayClassName="[--scroll-drawer-backdrop-max:0.2]"` |
 | `--scroll-drawer-backdrop-min` | `0` (`0.4` when `dismissible={false}`) | The drawer's own backdrop, overridden the same way                       |
+| `--scroll-drawer-fill` | the content's background | Set on `Drawer.Content` when its surface is painted by a child, so the strip below the resting layout isn't transparent mid-drag |
 
 ### Dragging with a mouse
 

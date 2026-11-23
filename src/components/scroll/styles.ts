@@ -70,11 +70,12 @@ export const SCROLL_DRAWER_CSS = `
 /* Content is laid out for the stop the sheet rests at, so footers and the end
    of an inner list sit at the screen's bottom edge, as in v2. Set on settle,
    never per frame; the part of the sheet below the screen is painted in the
-   content's own background so a drag never shows the page through it. */
+   content's own background, or --scroll-drawer-fill when the content's
+   surface is a child, so a drag never shows the page through it. */
 [data-scroll-drawer-sheet] > [data-drawer-content] { position: relative; margin-bottom: var(--scroll-drawer-hidden, 0px); }
 [data-scroll-drawer-sheet] > [data-drawer-content]::after {
   content: ''; position: absolute; left: 0; right: 0; top: 100%;
-  height: var(--scroll-drawer-hidden, 0px); background: inherit; pointer-events: none;
+  height: var(--scroll-drawer-hidden, 0px); background: var(--scroll-drawer-fill, inherit); pointer-events: none;
 }
 `
 
