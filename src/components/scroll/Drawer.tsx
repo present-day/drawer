@@ -15,7 +15,7 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { DRAWER_TOP_INSET_PX } from '../../constants'
+import { DRAWER_DRAG_SLOP_PX, DRAWER_TOP_INSET_PX } from '../../constants'
 import { DrawerSlotsProvider, useDrawerSlots } from '../../drawerSlotsContext'
 import {
   measureIntrinsicAutoHeight,
@@ -25,7 +25,7 @@ import {
 import { useVisualViewport } from '../../hooks/useVisualViewport'
 import type { DragInfo, DrawerProps, DrawerRef, SnapPoint } from '../../types'
 import { cn, editableTargetHasContent, lockBody, unlockBody } from '../../utils'
-import { DrawerHandle, type DrawerHandleProps } from '../drawer/DrawerHandle'
+import { DrawerHandle } from '../drawer/DrawerHandle'
 import { DrawerOverlay } from '../drawer/DrawerOverlay'
 import {
   type BackdropRange,
@@ -38,6 +38,8 @@ import { injectScrollDrawerStyles } from './styles'
 const DEFAULT_SNAP_POINTS: readonly SnapPoint[] = ['auto']
 const SETTLE_FALLBACK_MS = 120
 const CLOSE_FALLBACK_MS = 700
+const NO_DRAG_SELECTOR =
+  'button, a, input, textarea, select, [contenteditable="true"], [data-drawer-no-drag]'
 const EDGE_PX = 1
 
 /**
@@ -60,10 +62,7 @@ type DragSession = {
   ended: boolean
 }
 
-type Ctx = {
-  startMouseDrag: (e: React.PointerEvent<HTMLElement>) => void
-  registerContent: (el: HTMLElement | null) => void
-}
+type Ctx = { registerContent: (el: HTMLElement | null) => void }
 const ScrollEngineContext = createContext<Ctx | null>(null)
 
 function prefersReducedMotion(): boolean {
@@ -676,36 +675,63 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
     }
 
-    const startMouseDrag = useCallback(
+    // A mouse can't pan a scroll container, so a mouse drag on the sheet is
+    // translated to scrollTop. Same rules as v2: not from controls or
+    // `[data-drawer-no-drag]`, not from a list that is scrolled, and only
+    // past the slop so a plain click still clicks. Touch never comes here:
+    // it pans the scroller natively, even through `pointer-events: none`.
+    const onSheetPointerDown = useCallback(
       (e: React.PointerEvent<HTMLElement>) => {
         const el = scrollerRef.current
         if (e.pointerType !== 'mouse' || e.button !== 0 || !el) return
-        e.preventDefault()
-        e.currentTarget.setPointerCapture(e.pointerId)
-        mouseDragRef.current = {
-          id: e.pointerId,
-          y: e.clientY,
-          top: el.scrollTop,
+        if (!(e.target instanceof Element)) return
+        const target = e.target
+        if (target.closest(NO_DRAG_SELECTOR)) return
+        if (
+          latest.current.handleOnly &&
+          !target.closest('[data-drawer-handle]')
+        ) {
+          return
         }
-        sessionRef.current = {
-          event: e.nativeEvent,
-          started: false,
-          ended: false,
-        }
-        el.style.scrollSnapType = 'none'
-        const target = e.currentTarget
+        const list = target.closest<HTMLElement>('[data-drawer-scroll]')
+        if (list && list.scrollTop > 0) return
+
+        const id = e.pointerId
+        const downY = e.clientY
+        let anchor: { y: number; top: number } | null = null
         const move = (ev: PointerEvent) => {
-          const d = mouseDragRef.current
-          if (!d || ev.pointerId !== d.id) return
+          if (ev.pointerId !== id) return
+          if (!anchor) {
+            if (Math.abs(ev.clientY - downY) < DRAWER_DRAG_SLOP_PX) return
+            anchor = { y: ev.clientY, top: el.scrollTop }
+            mouseDragRef.current = { id, y: ev.clientY, top: el.scrollTop }
+            sessionRef.current = { event: ev, started: false, ended: false }
+            el.style.scrollSnapType = 'none'
+            el.setAttribute('data-scroll-drawer-dragging', '')
+            document.getSelection()?.removeAllRanges()
+          }
+          ev.preventDefault()
           if (sessionRef.current) sessionRef.current.event = ev
-          el.scrollTop = d.top - (ev.clientY - d.y)
+          el.scrollTop = anchor.top - (ev.clientY - anchor.y)
         }
         const end = (ev: PointerEvent) => {
-          if (mouseDragRef.current?.id !== ev.pointerId) return
+          if (ev.pointerId !== id) return
+          window.removeEventListener('pointermove', move)
+          window.removeEventListener('pointerup', end)
+          window.removeEventListener('pointercancel', end)
+          if (!anchor) return
           mouseDragRef.current = null
-          target.removeEventListener('pointermove', move)
-          target.removeEventListener('pointerup', end)
-          target.removeEventListener('pointercancel', end)
+          el.removeAttribute('data-scroll-drawer-dragging')
+          // The release would otherwise click whatever the drag ended on.
+          const swallow = (ce: MouseEvent) => {
+            ce.stopPropagation()
+            ce.preventDefault()
+          }
+          window.addEventListener('click', swallow, {
+            capture: true,
+            once: true,
+          })
+          setTimeout(() => window.removeEventListener('click', swallow, true))
           const session = sessionRef.current
           if (session) {
             session.event = ev
@@ -723,9 +749,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           if (Math.abs(el.scrollTop - top) <= EDGE_PX) settle()
           else scrollToTop(el, top)
         }
-        target.addEventListener('pointermove', move)
-        target.addEventListener('pointerup', end)
-        target.addEventListener('pointercancel', end)
+        window.addEventListener('pointermove', move)
+        window.addEventListener('pointerup', end)
+        window.addEventListener('pointercancel', end)
       },
       [settle],
     )
@@ -750,7 +776,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           : 'env(safe-area-inset-bottom, 0px)'
 
     return createPortal(
-      <ScrollEngineContext.Provider value={{ startMouseDrag, registerContent }}>
+      <ScrollEngineContext.Provider value={{ registerContent }}>
         <div
           data-scroll-drawer-root=""
           data-scroll-drawer-pinned={pinned ? '' : undefined}
@@ -821,6 +847,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
                     sheetHeight === undefined ? undefined : `${sheetHeight}px`,
                   paddingBottom: safeAreaPadding,
                 }}
+                onPointerDown={onSheetPointerDown}
                 onKeyDown={(e) => {
                   if (e.key !== 'Escape' || e.defaultPrevented) return
                   if (editableTargetHasContent(e.target)) return
@@ -900,23 +927,6 @@ export const DrawerContent = forwardRef<HTMLDivElement, DrawerContentProps>(
   },
 )
 
-/** Grab handle. Touch drags scroll natively; a mouse drag is translated to `scrollTop`. */
-export const DrawerHandleScroll = forwardRef<HTMLDivElement, DrawerHandleProps>(
-  function DrawerHandleScroll({ onPointerDown, ...props }, ref) {
-    const ctx = useContext(ScrollEngineContext)
-    return (
-      <DrawerHandle
-        ref={ref}
-        {...props}
-        onPointerDown={(e) => {
-          onPointerDown?.(e)
-          if (!e.defaultPrevented) ctx?.startMouseDrag(e)
-        }}
-      />
-    )
-  },
-)
-
 export type DrawerScrollableProps = React.HTMLAttributes<HTMLDivElement> & {
   externalRef?: React.RefObject<HTMLElement | null>
 }
@@ -960,6 +970,6 @@ export const DrawerScrollable = forwardRef<
 export const Drawer = Object.assign(DrawerRoot, {
   Content: DrawerContent,
   Scrollable: DrawerScrollable,
-  Handle: DrawerHandleScroll,
+  Handle: DrawerHandle,
   Overlay: DrawerOverlay,
 })

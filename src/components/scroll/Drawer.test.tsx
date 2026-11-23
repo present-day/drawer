@@ -306,6 +306,47 @@ describe('Drawer (scroll engine)', () => {
     expect(onHeightChange).toHaveBeenLastCalledWith(420)
   })
 
+  it('drags with a mouse from anywhere on the sheet except controls, past the slop', () => {
+    const ref = createRef<DrawerRef>()
+    render(
+      <Drawer ref={ref} open snapPoints={[200, 420]} defaultSnapPoint={200}>
+        <Drawer.Content>
+          <p>Local Vibe</p>
+          <button type="button">Open</button>
+        </Drawer.Content>
+      </Drawer>,
+    )
+    const el = scroller()
+    el.scrollTop = 200
+    const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+    const drag = (from: Element, dy: number) => {
+      fireEvent.pointerDown(from, { ...mouse, clientY: 600 })
+      fireEvent.pointerMove(window, { ...mouse, clientY: 600 - dy / 2 })
+      fireEvent.pointerMove(window, { ...mouse, clientY: 600 - dy })
+      fireEvent.pointerUp(window, { ...mouse, clientY: 600 - dy })
+    }
+
+    drag(screen.getByRole('button', { name: 'Open' }), 150)
+    expect(el.scrollTop).toBe(200)
+
+    drag(screen.getByText('Local Vibe'), 2)
+    expect(el.scrollTop).toBe(200)
+
+    drag(screen.getByText('Local Vibe'), 300)
+    expect(scrollTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({ top: 420 }),
+    )
+
+    const onClick = vi.fn()
+    window.addEventListener('click', onClick)
+    fireEvent.click(screen.getByText('Local Vibe'))
+    expect(onClick).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    fireEvent.click(screen.getByText('Local Vibe'))
+    expect(onClick).toHaveBeenCalledTimes(1)
+    window.removeEventListener('click', onClick)
+  })
+
   it('keeps the backdrop full at every stop unless fadeFromIndex says otherwise', () => {
     const { unmount } = renderDrawer()
     const backdrop = () =>

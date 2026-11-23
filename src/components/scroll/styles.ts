@@ -48,6 +48,7 @@ export const SCROLL_DRAWER_CSS = `
   scroll-snap-align: start; scroll-margin-top: var(--scroll-drawer-vh, 100dvh);
 }
 [data-scroll-drawer-sequential] :is([data-scroll-drawer-marker], [data-scroll-drawer-sheet], [data-scroll-drawer-spacer]) { scroll-snap-stop: always; }
+[data-scroll-drawer-dragging] { cursor: grabbing; user-select: none; -webkit-user-select: none; }
 [data-scroll-drawer-handle-only] [data-drawer-content] > :not([data-drawer-handle]):not([data-drawer-scroll]) { touch-action: none; }
 :where([data-scroll-drawer-content]) {
   flex: 1 1 auto; min-height: 0; overflow: hidden; overscroll-behavior: auto;

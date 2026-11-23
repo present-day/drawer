@@ -3,13 +3,15 @@
 // v2 motion engine, kept for drawers that rely on behavior the scroll engine
 // can't match yet
 export { Drawer as LegacyDrawer } from './components/Drawer'
-export type { DrawerHandleProps } from './components/drawer/DrawerHandle'
+export {
+  DrawerHandle,
+  type DrawerHandleProps,
+} from './components/drawer/DrawerHandle'
 export { DrawerOverlay } from './components/drawer/DrawerOverlay'
 export {
   Drawer,
   DrawerContent,
   type DrawerContentProps,
-  DrawerHandleScroll as DrawerHandle,
   DrawerScrollable,
   type DrawerScrollableProps,
 } from './components/scroll/Drawer'
