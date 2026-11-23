@@ -148,6 +148,18 @@ function prefersReducedMotion(): boolean {
   )
 }
 
+/** env() isn't readable from script; a probe's computed padding resolves it. */
+function safeAreaTop(): number {
+  const probe = document.createElement('div')
+  probe.setAttribute('data-scroll-drawer-safe-area-probe', '')
+  probe.style.cssText =
+    'position:fixed;top:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top, 0px)'
+  document.body.appendChild(probe)
+  const px = Number.parseFloat(getComputedStyle(probe).paddingTop)
+  probe.remove()
+  return Number.isFinite(px) ? px : 0
+}
+
 function scrollToTop(el: HTMLElement, top: number, instant = false) {
   const behavior: ScrollBehavior =
     instant || prefersReducedMotion() ? 'instant' : 'smooth'
@@ -305,6 +317,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       inset: number
       lift: number
       pending: boolean
+      /** `env(safe-area-inset-top)` in px, read once per keyboard. */
+      safeTop: number | null
     } | null>(null)
     const stopsRef = useRef<Stops | null>(null)
     stopsRef.current = stops
@@ -431,17 +445,26 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     }, [])
 
     /**
-     * Raises a sheet at `top` by the keyboard height, so whatever was visible
-     * stays visible, but never past the top inset: the scroller has shrunk to
-     * the visual viewport and a taller sheet is laid out shorter instead.
+     * The highest the sheet's top may go while the keyboard is up. A 'screen'
+     * stop may reach the top, but not under the status bar: with the keyboard
+     * up the sheet holds a field and its header, not full-bleed content.
      */
-    /** The highest the sheet's top may go while the keyboard is up. */
     const keyboardMinTop = useCallback((): number => {
       const p = latest.current
-      return (p.snapPoints ?? DEFAULT_SNAP_POINTS).includes('screen')
-        ? 0
-        : (p.topInsetPx ?? DRAWER_TOP_INSET_PX)
+      if (!(p.snapPoints ?? DEFAULT_SNAP_POINTS).includes('screen')) {
+        return p.topInsetPx ?? DRAWER_TOP_INSET_PX
+      }
+      const kb = keyboardRef.current
+      if (!kb) return safeAreaTop()
+      if (kb.safeTop === null) kb.safeTop = safeAreaTop()
+      return kb.safeTop
     }, [])
+
+    /**
+     * Raises a sheet at `top` by the keyboard height, so whatever was visible
+     * stays visible, but never past `keyboardMinTop`: the scroller has shrunk
+     * to the visual viewport and a taller sheet is laid out shorter instead.
+     */
 
     const liftAt = useCallback(
       (top: number): number => {
@@ -643,6 +666,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           inset,
           lift: kb?.lift ?? 0,
           pending: kb ? kb.pending : entering,
+          safeTop: kb?.safeTop ?? null,
         }
         el.setAttribute('data-scroll-drawer-keyboard', '')
         // The scroller is shorter by the keyboard, which would add as much

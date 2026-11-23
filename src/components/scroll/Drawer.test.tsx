@@ -764,11 +764,43 @@ describe('Drawer (scroll engine)', () => {
         }
       })
 
-      it('lets the sheet reach the top of the screen when a stop is the whole screen', () => {
-        renderDrawer({ snapPoints: [300, 'screen'] })
-        settleAt(VIEWPORT)
-        keyboard(KEYBOARD)
-        expect(sheetMax()).toBe(`${VIEWPORT - KEYBOARD}px`)
+      it('lets a whole-screen stop reach the safe area, not under the status bar', () => {
+        const SAFE_TOP = 47
+        const computed = window.getComputedStyle
+        const probe = vi
+          .spyOn(window, 'getComputedStyle')
+          .mockImplementation((el, pseudo) => {
+            if (!el.hasAttribute('data-scroll-drawer-safe-area-probe')) {
+              return computed(el, pseudo)
+            }
+            return { paddingTop: `${SAFE_TOP}px` } as CSSStyleDeclaration
+          })
+        try {
+          const ref = createRef<DrawerRef>()
+          renderDrawer({ snapPoints: [300, 'screen'] }, ref)
+          settleAt(VIEWPORT)
+          probe.mockClear()
+          keyboard(KEYBOARD)
+          expect(sheetMax()).toBe(`${VIEWPORT - KEYBOARD - SAFE_TOP}px`)
+          // Laid out bottom-up in the shrunk scroller, so its top lands here.
+          expect(VIEWPORT - KEYBOARD - Number.parseFloat(sheetMax())).toBe(
+            SAFE_TOP,
+          )
+          keyboard(KEYBOARD + 20)
+          const probes = probe.mock.calls.filter(([el]) =>
+            el.hasAttribute('data-scroll-drawer-safe-area-probe'),
+          )
+          expect(probes).toHaveLength(1)
+          expect(
+            document.querySelector('[data-scroll-drawer-safe-area-probe]'),
+          ).toBeNull()
+          settleAt(scroller().scrollTop)
+          expect(ref.current?.getActiveSnapPoint()).toBe('screen')
+          keyboard(0)
+          expect(scroller().scrollTop).toBe(VIEWPORT)
+        } finally {
+          probe.mockRestore()
+        }
       })
     })
 
