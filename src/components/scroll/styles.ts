@@ -13,13 +13,16 @@ export const SCROLL_DRAWER_CSS = `
   to { opacity: var(--scroll-drawer-backdrop-max, 1); }
 }
 [data-scroll-drawer] {
-  position: fixed; inset: 0; z-index: 50;
+  position: fixed; inset: 0; top: var(--scroll-drawer-keyboard-top, 0px); z-index: 50;
+  height: var(--scroll-drawer-keyboard-height, calc(100dvh - var(--scroll-drawer-bottom-inset, 0px)));
   overflow-x: hidden; overflow-y: auto; scrollbar-width: none;
   scroll-snap-type: y mandatory; overscroll-behavior: contain;
   -webkit-tap-highlight-color: transparent;
   scroll-timeline: --scroll-drawer y;
 }
 [data-scroll-drawer]::-webkit-scrollbar { display: none; }
+/* The sheet is lifted off its stops while typing; snapping would pull it back down. */
+[data-scroll-drawer][data-scroll-drawer-keyboard] { scroll-snap-type: none; }
 /* Hit-testing skips the scroller, but a wheel or pan on the sheet still chains up to it. */
 [data-scroll-drawer-modeless] { pointer-events: none; }
 /* Children, not the sheet: a sheet narrower than the screen leaves its sides to the page. */
@@ -61,7 +64,6 @@ export const SCROLL_DRAWER_CSS = `
 [data-scroll-drawer-handle-only] [data-drawer-content] > :not([data-drawer-handle]):not([data-drawer-scroll]) { touch-action: none; }
 :where([data-scroll-drawer-content]) {
   flex: 1 1 auto; min-height: 0; overflow: hidden; overscroll-behavior: auto;
-  padding-bottom: calc(100dvh - var(--visual-viewport-height, 100dvh));
 }
 :where([data-scroll-drawer-full] [data-scroll-drawer-content]) { overflow-y: auto; }
 :where([data-scroll-drawer-content-scroll="always"] [data-scroll-drawer-content]) { overflow-y: auto; }

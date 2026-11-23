@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { createRef } from 'react'
+import { createRef, useRef } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useDrawerKeyboardSnapMobile } from '../../hooks/useDrawerKeyboardSnapMobile'
 import type { DrawerProps, DrawerRef } from '../../types'
 import { getLockCount } from '../../utils'
 import { Drawer } from './Drawer'
@@ -414,6 +415,195 @@ describe('Drawer (scroll engine)', () => {
     now.mockRestore()
   })
 
+  describe('software keyboard', () => {
+    const KEYBOARD = 300
+    let vv: EventTarget & { height: number; offsetTop: number }
+    let observers: (() => void)[]
+
+    const keyboard = (height: number, offsetTop = 0) => {
+      vv.height = VIEWPORT - height
+      vv.offsetTop = offsetTop
+      act(() => {
+        vv.dispatchEvent(new Event('resize'))
+      })
+    }
+    const resize = () =>
+      act(() => {
+        for (const cb of observers) cb()
+      })
+
+    beforeEach(() => {
+      vv = Object.assign(new EventTarget(), { height: VIEWPORT, offsetTop: 0 })
+      vi.stubGlobal('visualViewport', vv)
+      vi.stubGlobal('innerHeight', VIEWPORT)
+      observers = []
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(cb: () => void) {
+            observers.push(cb)
+          }
+          observe() {}
+          disconnect() {}
+        },
+      )
+      // The scroller tracks the visual viewport while the keyboard is up.
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+        configurable: true,
+        get(this: HTMLElement) {
+          if (!this.hasAttribute('data-scroll-drawer')) return 0
+          return this.hasAttribute('data-scroll-drawer-keyboard')
+            ? vv.height
+            : VIEWPORT
+        },
+      })
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('rides the sheet up with the keyboard without moving its stops', () => {
+      const ref = createRef<DrawerRef>()
+      const onSnapPointChange = vi.fn()
+      const onViewportChange = vi.fn()
+      renderDrawer({ onSnapPointChange, onViewportChange }, ref)
+      settleAt(200)
+      onSnapPointChange.mockClear()
+      const before = markers()
+      const el = scroller()
+
+      keyboard(KEYBOARD, 40)
+      expect(el).toHaveAttribute('data-scroll-drawer-keyboard')
+      expect(el.style.getPropertyValue('--scroll-drawer-keyboard-height')).toBe(
+        `${VIEWPORT - KEYBOARD}px`,
+      )
+      expect(el.style.getPropertyValue('--scroll-drawer-keyboard-top')).toBe(
+        '40px',
+      )
+      expect(el.scrollTop).toBe(200 + KEYBOARD)
+      expect(onViewportChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ isKeyboardOpen: true }),
+      )
+
+      resize()
+      settleAt(el.scrollTop)
+      expect(markers()).toEqual(before)
+      expect(onSnapPointChange).not.toHaveBeenCalled()
+      expect(ref.current?.getActiveSnapPoint()).toBe(200)
+      expect(ref.current?.getHeight()).toBe(200)
+
+      act(() => ref.current?.snapTo(420))
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ top: 420 + KEYBOARD }),
+      )
+      settleAt(420 + KEYBOARD)
+      expect(onSnapPointChange).toHaveBeenLastCalledWith(420, 1)
+
+      keyboard(0)
+      expect(el).not.toHaveAttribute('data-scroll-drawer-keyboard')
+      expect(el.scrollTop).toBe(420)
+      resize()
+      expect(markers()).toEqual(before)
+    })
+
+    it('works with useDrawerKeyboardSnapMobile', () => {
+      function Sheet() {
+        const ref = useRef<DrawerRef>(null)
+        const onViewportChange = useDrawerKeyboardSnapMobile({
+          open: true,
+          isMobile: true,
+          drawerRef: ref,
+        })
+        return (
+          <Drawer
+            ref={ref}
+            open
+            ariaLabel="Sheet"
+            snapPoints={[200, 'full']}
+            onViewportChange={onViewportChange}
+          >
+            <Drawer.Content>
+              <input aria-label="Search" />
+            </Drawer.Content>
+          </Drawer>
+        )
+      }
+      render(<Sheet />)
+      settleAt(200)
+      keyboard(KEYBOARD)
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ top: VIEWPORT - TOP_INSET }),
+      )
+      settleAt(VIEWPORT - TOP_INSET)
+      keyboard(0)
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ top: 200 }),
+      )
+    })
+
+    it('stops lifting at the top inset', () => {
+      const ref = createRef<DrawerRef>()
+      renderDrawer({ snapPoints: [200, 700] }, ref)
+      settleAt(700)
+      keyboard(KEYBOARD)
+      expect(scroller().scrollTop).toBe(VIEWPORT - TOP_INSET)
+      settleAt(scroller().scrollTop)
+      expect(ref.current?.getActiveSnapPoint()).toBe(700)
+      keyboard(0)
+      expect(scroller().scrollTop).toBe(700)
+    })
+
+    it('keeps the focused field in view and never shrinks content while typing', () => {
+      let listHeight = 500
+      const scrollHeight = Object.getOwnPropertyDescriptor(
+        Element.prototype,
+        'scrollHeight',
+      )
+      Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+        configurable: true,
+        get(this: HTMLElement) {
+          return this.hasAttribute('data-drawer-scroll') ? listHeight : 0
+        },
+      })
+      const scrollIntoView = vi.fn()
+      HTMLElement.prototype.scrollIntoView = scrollIntoView
+      try {
+        renderDrawer({ snapPoints: [200, 'auto'] })
+        const sheet = screen.getByRole('dialog')
+        expect(sheet.style.height).toBe('500px')
+        settleAt(200)
+        act(() => screen.getByRole('textbox', { name: 'Search' }).focus())
+
+        keyboard(KEYBOARD)
+        expect(scrollIntoView).toHaveBeenCalledTimes(1)
+        keyboard(KEYBOARD + 20)
+        expect(scrollIntoView).toHaveBeenCalledTimes(1)
+        expect(scroller().scrollTop).toBe(200 + KEYBOARD + 20)
+
+        listHeight = 300
+        resize()
+        expect(sheet.style.height).toBe('500px')
+        listHeight = 600
+        resize()
+        expect(sheet.style.height).toBe('600px')
+        expect(scroller().scrollTop).toBe(200 + KEYBOARD + 20)
+
+        listHeight = 300
+        keyboard(0)
+        resize()
+        expect(sheet.style.height).toBe('300px')
+      } finally {
+        // @ts-expect-error jsdom has no scrollIntoView
+        delete HTMLElement.prototype.scrollIntoView
+        delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight
+        if (scrollHeight) {
+          Object.defineProperty(Element.prototype, 'scrollHeight', scrollHeight)
+        }
+      }
+    })
+  })
+
   it('drags with a mouse from anywhere on the sheet except controls, past the slop', () => {
     const ref = createRef<DrawerRef>()
     render(
@@ -522,7 +712,9 @@ describe('Drawer (scroll engine)', () => {
     expect(el).toHaveAttribute('data-scroll-drawer-sequential')
     expect(el).toHaveAttribute('data-scroll-drawer-handle-only')
     expect(el).toHaveAttribute('data-scroll-drawer-content-scroll', 'always')
-    expect(el.style.height).toBe('calc(100dvh - 64px)')
+    expect(el.style.getPropertyValue('--scroll-drawer-bottom-inset')).toBe(
+      '64px',
+    )
   })
 
   it('applies slots and keeps the v2 part attributes', () => {

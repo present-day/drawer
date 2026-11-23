@@ -23,7 +23,13 @@ import {
   resolveSnapValueToPx,
 } from '../../hooks/useDrawerSnap'
 import { useVisualViewport } from '../../hooks/useVisualViewport'
-import type { DragInfo, DrawerProps, DrawerRef, SnapPoint } from '../../types'
+import type {
+  DragInfo,
+  DrawerProps,
+  DrawerRef,
+  SnapPoint,
+  ViewportInfo,
+} from '../../types'
 import { cn, editableTargetHasContent, lockBody, unlockBody } from '../../utils'
 import { DrawerHandle } from '../drawer/DrawerHandle'
 import { DrawerOverlay } from '../drawer/DrawerOverlay'
@@ -262,6 +268,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       null,
     )
     const sessionRef = useRef<DragSession | null>(null)
+    /** Set while the software keyboard is up; `lift` is the scrollTop added. */
+    const keyboardRef = useRef<{ inset: number; lift: number } | null>(null)
     const stopsRef = useRef<Stops | null>(null)
     stopsRef.current = stops
     const titleId = useId()
@@ -316,23 +324,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       wasOpenRef.current = open
     }, [open])
 
-    useVisualViewport({
-      enabled: mounted,
-      onViewportChange: (vp) => {
-        scrollerRef.current?.style.setProperty(
-          '--visual-viewport-height',
-          `${vp.height}px`,
-        )
-        latest.current.onViewportChange?.(vp)
-      },
-    })
-
-    const resolveStops = useCallback((): Stops | null => {
+    const resolveStops = useCallback((viewportPx?: number): Stops | null => {
       const el = scrollerRef.current
       if (!el) return null
       const p = latest.current
       const points = p.snapPoints ?? DEFAULT_SNAP_POINTS
-      const viewport = el.clientHeight
+      const viewport = viewportPx ?? el.clientHeight
       const available = Math.max(
         0,
         viewport - (p.topInsetPx ?? DRAWER_TOP_INSET_PX),
@@ -392,13 +389,58 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       return nearestIndex(px, s.heights)
     }, [])
 
+    /** scrollTop as if the keyboard were down: what stops are measured in. */
+    const restingTop = useCallback((el: HTMLElement): number => {
+      return el.scrollTop - (keyboardRef.current?.lift ?? 0)
+    }, [])
+
+    /**
+     * Raises a sheet at `top` by the keyboard height, so whatever was visible
+     * stays visible, but never past the top inset: the scroller has shrunk to
+     * the visual viewport and a taller sheet is laid out shorter instead.
+     */
+    const liftAt = useCallback((top: number): number => {
+      const kb = keyboardRef.current
+      const s = stopsRef.current
+      if (!kb || !s) return 0
+      const p = latest.current
+      const minTop = (p.snapPoints ?? DEFAULT_SNAP_POINTS).includes('screen')
+        ? 0
+        : (p.topInsetPx ?? DRAWER_TOP_INSET_PX)
+      const room = s.viewport - s.offset - top - minTop
+      return Math.max(0, Math.min(kb.inset, room))
+    }, [])
+
+    const physicalTop = useCallback(
+      (top: number): number => {
+        const kb = keyboardRef.current
+        if (!kb) return top
+        kb.lift = liftAt(top)
+        return top + kb.lift
+      },
+      [liftAt],
+    )
+
+    const layoutHidden = useCallback((el: HTMLElement) => {
+      const sheet = sheetRef.current
+      if (!sheet) return
+      // Layout offsets, not getBoundingClientRect: the pinned entry translate
+      // may still be running and would inflate the hidden height.
+      const hidden =
+        sheet.offsetTop + sheet.offsetHeight - el.scrollTop - el.clientHeight
+      el.style.setProperty(
+        '--scroll-drawer-hidden',
+        `${Math.max(0, Math.round(hidden))}px`,
+      )
+    }, [])
+
     const visibleHeight = useCallback((): number => {
       const el = scrollerRef.current
       const s = stopsRef.current
       if (!el || !s) return 0
       const max = s.heights[s.heights.length - 1] ?? 0
-      return Math.max(0, Math.min(max, el.scrollTop + s.offset))
-    }, [])
+      return Math.max(0, Math.min(max, restingTop(el) + s.offset))
+    }, [restingTop])
 
     const dragInfo = useCallback(
       (session: DragSession | null): DragInfo => {
@@ -413,10 +455,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         return {
           y: visibleHeight(),
           velocity,
-          progress: el && max > 0 ? Math.min(1, el.scrollTop / max) : 1,
+          progress: el && max > 0 ? Math.min(1, restingTop(el) / max) : 1,
         }
       },
-      [visibleHeight],
+      [restingTop, visibleHeight],
     )
 
     const scrollToIndex = useCallback(
@@ -430,9 +472,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           visibleHeight(),
           s.heights[index] ?? 0,
         )
-        scrollToTop(el, top, instant)
+        scrollToTop(el, physicalTop(top), instant)
       },
-      [visibleHeight],
+      [physicalTop, visibleHeight],
     )
 
     const targetIndex = useCallback((): number => {
@@ -460,24 +502,14 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         return
       }
       const pos = positionsOf(s)
-      const index = nearestIndex(el.scrollTop, pos)
+      const index = nearestIndex(restingTop(el), pos)
       const from = p.contentScrollFrom
       const unlockAt = from === undefined ? pos.length - 1 : indexOfPoint(from)
       el.toggleAttribute(
         'data-scroll-drawer-full',
         unlockAt !== -1 && index >= unlockAt,
       )
-      const sheet = sheetRef.current
-      if (sheet) {
-        // Layout offsets, not getBoundingClientRect: the pinned entry translate
-        // may still be running and would inflate the hidden height.
-        const hidden =
-          sheet.offsetTop + sheet.offsetHeight - el.scrollTop - el.clientHeight
-        el.style.setProperty(
-          '--scroll-drawer-hidden',
-          `${Math.max(0, Math.round(hidden))}px`,
-        )
-      }
+      layoutHidden(el)
       const raw = s.raw[index] as SnapPoint
       const session = sessionRef.current
       if (session?.ended) {
@@ -497,7 +529,76 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
       p.onAnimationComplete?.(raw)
       p.onHeightChange?.(visibleHeight())
-    }, [dragInfo, indexOfPoint, setOpen, visibleHeight])
+    }, [
+      dragInfo,
+      indexOfPoint,
+      layoutHidden,
+      restingTop,
+      setOpen,
+      visibleHeight,
+    ])
+
+    // Stops stay put while the keyboard is up (it isn't a new screen size);
+    // instead the scroller shrinks to the visual viewport and the sheet rides
+    // up with it, as v2's panel docks above the keyboard.
+    const followKeyboard = useCallback(
+      (vp: ViewportInfo) => {
+        const el = scrollerRef.current
+        const s = stopsRef.current
+        if (!el || !s || !openedRef.current || closingRef.current) return
+        const inset = vp.isKeyboardOpen
+          ? Math.max(0, Math.round(s.viewport - vp.height))
+          : 0
+        const kb = keyboardRef.current
+        if (!inset) {
+          if (!kb) return
+          const top = restingTop(el)
+          keyboardRef.current = null
+          // Before the height comes back, which would clamp the lifted top.
+          el.scrollTop =
+            positionsOf(s)[nearestIndex(top, positionsOf(s))] ?? top
+          el.removeAttribute('data-scroll-drawer-keyboard')
+          el.style.removeProperty('--scroll-drawer-keyboard-top')
+          el.style.removeProperty('--scroll-drawer-keyboard-height')
+          layoutHidden(el)
+          return
+        }
+        const top = restingTop(el)
+        keyboardRef.current = { inset, lift: kb?.lift ?? 0 }
+        el.setAttribute('data-scroll-drawer-keyboard', '')
+        el.style.setProperty(
+          '--scroll-drawer-keyboard-top',
+          `${vp.offsetTop}px`,
+        )
+        el.style.setProperty(
+          '--scroll-drawer-keyboard-height',
+          `${vp.height}px`,
+        )
+        el.scrollTop = physicalTop(top)
+        layoutHidden(el)
+        if (kb) return
+        // Focus scrolled the field into view against the full-height layout;
+        // the lower part of the sheet may since have moved behind the keyboard.
+        const active = document.activeElement
+        if (
+          active instanceof HTMLElement &&
+          active !== sheetRef.current &&
+          sheetRef.current?.contains(active) &&
+          typeof active.scrollIntoView === 'function'
+        ) {
+          active.scrollIntoView({ block: 'nearest' })
+        }
+      },
+      [layoutHidden, physicalTop, restingTop],
+    )
+
+    useVisualViewport({
+      enabled: mounted,
+      onViewportChange: (vp) => {
+        followKeyboard(vp)
+        latest.current.onViewportChange?.(vp)
+      },
+    })
 
     useImperativeHandle(
       ref,
@@ -528,6 +629,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     useLayoutEffect(() => {
       if (!mounted) {
         openedRef.current = false
+        keyboardRef.current = null
         setStops(null)
         return
       }
@@ -552,7 +654,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (!closingRef.current) {
           const i = lastIndexRef.current ?? targetIndex()
           const top = positionsOf(stops)[i]
-          if (top !== undefined) el.scrollTop = top
+          if (top !== undefined) el.scrollTop = physicalTop(top)
           settle()
         }
         return
@@ -611,7 +713,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         entry?.cancel()
         entryFade?.cancel()
       }
-    }, [stops, settle, targetIndex, visibleHeight])
+    }, [stops, settle, targetIndex, visibleHeight, physicalTop])
 
     useEffect(() => {
       const el = scrollerRef.current
@@ -688,8 +790,22 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         typeof ResizeObserver === 'function'
           ? new ResizeObserver(() => {
               if (!openedRef.current || closingRef.current) return
-              const next = resolveStops()
-              if (next && !sameStops(stopsRef.current, next)) setStops(next)
+              const current = stopsRef.current
+              const typing = !!keyboardRef.current
+              const next = resolveStops(typing ? current?.viewport : undefined)
+              if (!next || sameStops(current, next)) return
+              // As in v2: content that shrinks while the keyboard is up (a
+              // cleared query) mustn't pull the field away mid-typing. It
+              // re-resolves when the keyboard hides and the scroller resizes.
+              const top = (h: number[]) => h[h.length - 1] ?? 0
+              if (
+                typing &&
+                current &&
+                top(next.heights) < top(current.heights)
+              ) {
+                return
+              }
+              setStops(next)
             })
           : null
       ro?.observe(el)
@@ -957,7 +1073,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             data-scroll-drawer-content-scroll={contentScroll}
             style={
               {
-                height: `calc(100dvh - ${bottomInsetPx}px)`,
+                '--scroll-drawer-bottom-inset': `${bottomInsetPx}px`,
                 '--scroll-drawer-vh': stops ? `${stops.viewport}px` : undefined,
                 ...(stack
                   ? {
