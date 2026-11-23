@@ -229,14 +229,14 @@ Hiding the scrollbar removes a visible scroll affordance for mouse users, so pre
 
 ### Stacking
 
-Set `stack` on each drawer that should recede when another opens above it. The drawer behind scales and shifts with the top drawer's swipe, and a drawer stacked above another dims the page less so backdrops don't compound to black. Tune it with CSS variables:
+Set `stack` on each drawer that should recede when another opens above it. The drawer behind scales and shifts with the top drawer's swipe, and a drawer stacked above another dims the page less so backdrops don't compound to black. Each CSS variable is read in one place; set it there or on an ancestor it inherits from:
 
-| Variable                       | Default                                   | Effect                                         |
-| ------------------------------ | ----------------------------------------- | ---------------------------------------------- |
-| `--scroll-drawer-stack-scale`  | `0.92`                                    | Scale of a drawer behind another               |
-| `--scroll-drawer-stack-shift`  | `-8px`                                    | Vertical shift of a drawer behind another      |
-| `--scroll-drawer-backdrop-max` | `1` (`0.3` when stacked above another)    | Backdrop opacity at its most visible           |
-| `--scroll-drawer-backdrop-min` | `0` (`0.4` when `dismissible={false}`)    | Backdrop opacity at the lowest stop            |
+| Variable                       | Default                                | Read on                                                                 |
+| ------------------------------ | -------------------------------------- | ----------------------------------------------------------------------- |
+| `--scroll-drawer-stack-scale`  | `0.92`                                 | Scroller of the drawer that recedes (its root, or `:root` for all)       |
+| `--scroll-drawer-stack-shift`  | `-8px`                                 | Same as above                                                           |
+| `--scroll-drawer-backdrop-max` | `1` (`0.3` when stacked above another) | The drawer's own backdrop; the `0.3` is set on the stacked drawer's root, so an ancestor value doesn't reach it. Override with `overlayClassName="[--scroll-drawer-backdrop-max:0.2]"` |
+| `--scroll-drawer-backdrop-min` | `0` (`0.4` when `dismissible={false}`) | The drawer's own backdrop, overridden the same way                       |
 
 ### Dragging with a mouse
 

@@ -47,14 +47,15 @@ still exported as `LegacyDrawer`.
 **`modal={false}`** renders no backdrop, locks no scroll, and traps no focus;
 the page behind stays usable, while the sheet itself still drags and snaps.
 
-**Stack CSS variables**, set on the drawer behind (or any ancestor):
+**Stack CSS variables.** Each is read in one place, so set it where it is read
+(or on an ancestor, where a value inherits down to it):
 
-| Variable | Default | Effect |
-| -------- | ------- | ------ |
-| `--scroll-drawer-stack-scale` | `0.92` | Scale of a drawer at rest behind another. |
-| `--scroll-drawer-stack-shift` | `-8px` | Vertical shift of a receded drawer. |
-| `--scroll-drawer-backdrop-max` | `1` (`0.3` for a drawer stacked above another) | Opacity ceiling of the backdrop, so stacked backdrops don't compound to black. |
-| `--scroll-drawer-backdrop-min` | `0` (`0.4` for a non-dismissible drawer) | Backdrop opacity at the lowest stop. |
+| Variable | Default | Read on |
+| -------- | ------- | ------- |
+| `--scroll-drawer-stack-scale` | `0.92` | The scroller of the drawer that recedes; set it on that drawer's root or on `:root` for all. |
+| `--scroll-drawer-stack-shift` | `-8px` | Same as above. |
+| `--scroll-drawer-backdrop-max` | `1`; `0.3` on a drawer stacked above another | The drawer's own backdrop. The package sets the `0.3` on the stacked drawer's root, so an ancestor value does not reach it: override with `overlayClassName="[--scroll-drawer-backdrop-max:0.2]"` or a rule on `[data-scroll-drawer-root][data-scroll-drawer-stacked]`. |
+| `--scroll-drawer-backdrop-min` | `0`; `0.4` on a non-dismissible drawer | The drawer's own backdrop, same override rules as above. |
 
 **`data-drawer-drag`** on (or around) a button or link lets a mouse drag start
 there. A tap still clicks; the click a drag ends on is swallowed.
