@@ -319,23 +319,24 @@ describe('Drawer (scroll engine)', () => {
     expect(document.querySelector('[data-scroll-drawer]')).toBeNull()
   })
 
-  it('reports drags from touch sessions and the visible height', () => {
+  it('reports drags from touch sessions, y as the drag delta at release, and the visible height', () => {
     const onDragStart = vi.fn()
     const onDragEnd = vi.fn()
     const onHeightChange = vi.fn()
     renderDrawer({ onDragStart, onDragEnd, onHeightChange })
     const el = scroller()
+    el.scrollTop = 420
     fireEvent.touchStart(el, { touches: [{ clientY: 500 }] })
     el.scrollTop = 300
     fireEvent.scroll(el)
     expect(onDragStart).toHaveBeenCalledTimes(1)
     fireEvent.touchEnd(el)
-    settleAt(420)
+    settleAt(200)
     expect(onDragEnd).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ targetSnapPoint: 420, y: 420 }),
+      expect.objectContaining({ targetSnapPoint: 200, y: 120 }),
     )
-    expect(onHeightChange).toHaveBeenLastCalledWith(420)
+    expect(onHeightChange).toHaveBeenLastCalledWith(200)
   })
 
   it('reports drag velocity in px/s, positive downward, frozen at release', () => {
@@ -409,7 +410,7 @@ describe('Drawer (scroll engine)', () => {
     settleAt(420)
     expect(onDragEnd).toHaveBeenLastCalledWith(
       expect.anything(),
-      expect.objectContaining({ velocity: -2000 }),
+      expect.objectContaining({ velocity: -2000, y: -100 }),
     )
     vi.advanceTimersByTime(1)
     now.mockRestore()

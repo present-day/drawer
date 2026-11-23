@@ -69,9 +69,10 @@ type DragSession = {
   event: MouseEvent | TouchEvent | PointerEvent
   started: boolean
   ended: boolean
+  startTop: number
   samples: { t: number; top: number }[]
   /** Frozen at release, so `onDragEnd` reports the flick, not the settle. */
-  releaseVelocity?: number
+  release?: { y: number; velocity: number }
 }
 
 function startSession(event: DragSession['event'], top: number): DragSession {
@@ -79,6 +80,7 @@ function startSession(event: DragSession['event'], top: number): DragSession {
     event,
     started: false,
     ended: false,
+    startTop: top,
     samples: [{ t: performance.now(), top }],
   }
 }
@@ -104,9 +106,16 @@ function sessionVelocity(session: DragSession, now: number): number {
   return ((first.top - last.top) / (last.t - first.t)) * 1000
 }
 
-function endSession(session: DragSession, event: DragSession['event']) {
+function endSession(
+  session: DragSession,
+  event: DragSession['event'],
+  top: number,
+) {
   session.event = event
-  session.releaseVelocity = sessionVelocity(session, performance.now())
+  session.release = {
+    y: session.startTop - top,
+    velocity: sessionVelocity(session, performance.now()),
+  }
 }
 
 type Ctx = { registerContent: (el: HTMLElement | null) => void }
@@ -448,17 +457,16 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const s = stopsRef.current
         const pos = s ? positionsOf(s) : []
         const max = pos[pos.length - 1] ?? 0
-        const velocity = !session
-          ? 0
-          : (session.releaseVelocity ??
-            sessionVelocity(session, performance.now()))
+        const live = () => ({
+          y: session && el ? session.startTop - el.scrollTop : 0,
+          velocity: session ? sessionVelocity(session, performance.now()) : 0,
+        })
         return {
-          y: visibleHeight(),
-          velocity,
+          ...(session?.release ?? live()),
           progress: el && max > 0 ? Math.min(1, restingTop(el) / max) : 1,
         }
       },
-      [restingTop, visibleHeight],
+      [restingTop],
     )
 
     const scrollToIndex = useCallback(
@@ -782,7 +790,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const onTouchEnd = (e: TouchEvent) => {
         const session = sessionRef.current
         if (!session) return
-        endSession(session, e)
+        endSession(session, e, el.scrollTop)
         if (session.started) session.ended = true
         else sessionRef.current = null
       }
@@ -996,7 +1004,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           setTimeout(() => window.removeEventListener('click', swallow, true))
           const session = sessionRef.current
           if (session) {
-            endSession(session, ev)
+            endSession(session, ev, el.scrollTop)
             if (session.started) session.ended = true
             else sessionRef.current = null
           }

@@ -239,7 +239,9 @@ export interface DrawerRef {
 }
 
 export interface DragInfo {
+  /** Px the sheet has moved since the drag started, positive downward. */
   y: number
+  /** Px/s, positive while the sheet moves down. */
   velocity: number
   progress: number
 }
