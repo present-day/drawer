@@ -1015,14 +1015,19 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (lastIndexRef.current === null && entryRef.current) {
           // Content that lands mid-entry (data replacing a skeleton) moves the
           // target, and the entry carries on to it rather than jumping there.
-          const kept = entryIndexRef.current
+          const aim = aimRef.current
+          const kept =
+            entryIndexRef.current ?? (aim !== null && aim >= 0 ? aim : null)
           const index =
             kept !== null && kept < stops.heights.length ? kept : targetIndex()
-          if (kept !== null) entryIndexRef.current = index
+          if (entryIndexRef.current !== null) entryIndexRef.current = index
           const top = positionsOf(stops)[index] ?? 0
           layoutFor(el, stops, index)
           if (!(latest.current.dismissible ?? true)) el.scrollTop = top
-          else if (!entryRef.current.frame) scrollToTop(el, physicalTop(top))
+          else if (!entryRef.current.frame) {
+            aimRef.current = index
+            scrollToTop(el, physicalTop(top))
+          }
           return
         }
         // The release settles against the new stops.

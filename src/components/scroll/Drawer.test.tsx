@@ -746,6 +746,24 @@ describe('Drawer (scroll engine)', () => {
       expect(ref.current?.getActiveSnapPoint()).toBe(500)
     })
 
+    it('keeps a snap made during the entry when stops change', async () => {
+      const ref = createRef<DrawerRef>()
+      inFlight()
+      const props = { defaultSnapPoint: 200 }
+      const { rerender } = render(tree([200, 420, 700], props, ref))
+      await frame()
+      expect(scrollTo).toHaveBeenLastCalledWith({
+        top: 200,
+        behavior: 'smooth',
+      })
+      act(() => ref.current?.snapTo(700))
+      rerender(tree([200, 420, 710], props, ref))
+      expect(scrollTo).toHaveBeenLastCalledWith({
+        top: 710,
+        behavior: 'smooth',
+      })
+    })
+
     it('retargets an entry already scrolling, rather than jumping', async () => {
       const ref = createRef<DrawerRef>()
       // The entry scroll is still running, so scrollTop hasn't arrived.
