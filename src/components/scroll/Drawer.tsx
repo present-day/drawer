@@ -35,7 +35,13 @@ import type {
   SnapPoint,
   ViewportInfo,
 } from '../../types'
-import { cn, editableTargetHasContent, lockBody, unlockBody } from '../../utils'
+import {
+  cn,
+  EDITABLE_SELECTOR,
+  editableTargetHasContent,
+  lockBody,
+  unlockBody,
+} from '../../utils'
 import { DrawerHandle } from '../drawer/DrawerHandle'
 import { DrawerOverlay } from '../drawer/DrawerOverlay'
 import {
@@ -52,8 +58,7 @@ const DEFAULT_SNAP_POINTS: readonly SnapPoint[] = ['auto']
 const SETTLE_FALLBACK_MS = 120
 const CLOSE_FALLBACK_MS = 700
 const CONTROL_SELECTOR = 'button, a'
-const NEVER_DRAG_SELECTOR =
-  'input, textarea, select, [contenteditable="true"], [data-drawer-no-drag]'
+const NEVER_DRAG_SELECTOR = `${EDITABLE_SELECTOR}, select, [data-drawer-no-drag]`
 const EDGE_PX = 1
 // A finger jitters more than a mouse; under this a touch is still a tap.
 const TOUCH_SLOP_PX = 8

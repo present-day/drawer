@@ -111,12 +111,14 @@ const TEXT_INPUT_TYPES = new Set([
   'number',
 ])
 
+/** Fields and every editing host, including `plaintext-only`. */
+export const EDITABLE_SELECTOR =
+  'input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'
+
 /** Whether Escape on this target should clear a field rather than close the drawer. */
 export function editableTargetHasContent(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false
-  const editable = target.closest(
-    'input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]',
-  )
+  const editable = target.closest(EDITABLE_SELECTOR)
   if (!editable) return false
   if (editable instanceof HTMLInputElement) {
     // Only text-entry inputs participate in Escape-to-clear; checkboxes,

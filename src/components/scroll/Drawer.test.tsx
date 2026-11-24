@@ -869,6 +869,35 @@ describe('Drawer (scroll engine)', () => {
     now.mockRestore()
   })
 
+  it('never starts a mouse drag from an editable host', () => {
+    render(
+      <Drawer open ariaLabel="Sheet" snapPoints={[200, 420]}>
+        <Drawer.Content>
+          <div contentEditable="true" data-testid="true" />
+          <div contentEditable data-testid="empty" />
+          <div contentEditable="plaintext-only" data-testid="plain" />
+        </Drawer.Content>
+      </Drawer>,
+    )
+    // React writes `contentEditable` as "true"; the bare attribute is "".
+    screen.getByTestId('empty').setAttribute('contenteditable', '')
+    settleAt(420)
+    const el = scroller()
+    const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+    for (const id of ['true', 'empty', 'plain']) {
+      fireEvent.pointerDown(screen.getByTestId(id), {
+        ...mouse,
+        clientX: 100,
+        clientY: 100,
+      })
+      fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 110 })
+      fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 200 })
+      fireEvent.pointerUp(window, { ...mouse, clientX: 100, clientY: 200 })
+      vi.advanceTimersByTime(1)
+      expect(el.scrollTop, id).toBe(420)
+    }
+  })
+
   it('measures mouse drag velocity where it writes scrollTop', () => {
     const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
     const onDragEnd = vi.fn()
