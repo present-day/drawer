@@ -1808,6 +1808,34 @@ describe('Drawer (scroll engine)', () => {
       expect(onSnapPointChange).toHaveBeenCalledWith(200, 0)
     })
 
+    it('settles after a touch that was still down when it closed', () => {
+      const onSnapPointChange = vi.fn()
+      const tree = (open: boolean) => (
+        <Drawer
+          open={open}
+          ariaLabel="Sheet"
+          snapPoints={[200, 420]}
+          onSnapPointChange={onSnapPointChange}
+        >
+          <Drawer.Content />
+        </Drawer>
+      )
+      const { rerender } = render(tree(true))
+      scrollTo_(420)
+      vi.advanceTimersByTime(200)
+      fireEvent.touchStart(scroller(), { touches: [{ clientY: 500 }] })
+      scrollTo_(380)
+      rerender(tree(false))
+      act(() => vi.advanceTimersByTime(1000))
+      expect(screen.queryByRole('dialog')).toBeNull()
+      rerender(tree(true))
+      vi.advanceTimersByTime(200)
+      onSnapPointChange.mockClear()
+      scrollTo_(200)
+      vi.advanceTimersByTime(200)
+      expect(onSnapPointChange).toHaveBeenCalledWith(200, 0)
+    })
+
     it('settles a scroll that ends after the release', () => {
       const onSnapPointChange = vi.fn()
       renderDrawer({ onSnapPointChange })

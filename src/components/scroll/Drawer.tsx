@@ -972,6 +972,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       armedRef.current = false
       closingRef.current = false
       lastIndexRef.current = null
+      // A touch still down when it last closed never saw its touchend.
+      sessionRef.current = null
       entryIndexRef.current = targetIndex()
       const pinned = !(latest.current.dismissible ?? true)
       const target = positionsOf(stops)[targetIndex()] ?? 0
