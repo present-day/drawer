@@ -108,16 +108,25 @@ The panel is exposed as a **`role="dialog"`** with **`aria-modal="true"`** when 
 
 **Merge order** for surface classes: internal defaults → `Drawer`’s `slots` (`contentClassName`, `handleClassName`, `handleIndicatorClassName`) → each part’s own `className` (and `Drawer.Handle`’s `indicatorClassName` for the default bar only).
 
-**`data-*` attributes** (stable hooks for CSS):
+**`data-*` attributes** (stable hooks for CSS). `data-drawer-*` names the parts and the opt-ins you set; `data-scroll-drawer-*` is set by the v3 engine:
 
-| Attribute                     | Element                                      |
-| ----------------------------- | -------------------------------------------- |
-| `data-drawer-content`         | `Drawer.Content` root                        |
-| `data-drawer-handle`          | `Drawer.Handle` track                        |
-| `data-drawer-handle-indicator`| Default handle bar (`span`)                  |
-| `data-drawer-scroll`          | `Drawer.Scrollable` root                     |
-| `data-drawer-no-drag`         | Opt out of panel drag (buttons, inputs, etc.) |
-| `data-drawer-drag`            | Opt a button or link into mouse drags (scroll engine) |
+| Attribute                       | Element                                      |
+| ------------------------------- | -------------------------------------------- |
+| `data-drawer-content`           | `Drawer.Content` root                        |
+| `data-drawer-handle`            | `Drawer.Handle` track                        |
+| `data-drawer-handle-indicator`  | Default handle bar (`span`)                  |
+| `data-drawer-scroll`            | `Drawer.Scrollable` root                     |
+| `data-drawer-no-drag`           | Set it to opt an element out of drags (fields always are) |
+| `data-drawer-drag`              | Set it to let a mouse drag start on a button or link inside it (v3) |
+| `data-scroll-drawer-root`       | The drawer's outermost element (v3)          |
+| `data-scroll-drawer-stacked`    | On the root while the drawer is stacked above another `stack` drawer (v3) |
+| `data-scroll-drawer-pinned`     | On the root when `dismissible={false}` (v3)  |
+| `data-scroll-drawer-sheet`      | The sheet, which carries `role="dialog"` (v3) |
+| `data-scroll-drawer-backdrop`   | The modal backdrop (v3)                      |
+| `data-scroll-drawer-keyboard`   | On the scroller while the soft keyboard is up (v3) |
+| `data-scroll-drawer-dragging`   | On the scroller during a mouse or modeless touch drag (v3) |
+
+The public v3 CSS variables are `--scroll-drawer-stack-scale`, `--scroll-drawer-stack-shift`, `--scroll-drawer-backdrop-min`, `--scroll-drawer-backdrop-max` and `--scroll-drawer-fill` (see *Stacking*). Other `data-scroll-drawer-*` attributes and `--scroll-drawer-*` variables are internal and may change in a minor release. `--drawer-*` variables are `LegacyDrawer`'s.
 
 **`Drawer.Handle`:** use `indicatorClassName` to style the default pill without `[&>span]:…`. Pass `children` to replace the default bar entirely.
 
@@ -154,7 +163,7 @@ This package does not include app-specific chrome (e.g. big close buttons). Afte
 
 ### Mobile Safari, soft keyboard, and the visual viewport
 
-> This section describes `LegacyDrawer`. The v3 `Drawer` resolves snap points to px when it opens and when its scroller resizes, and the soft keyboard doesn't re-resolve them. While the keyboard is up, its scroller shrinks to the visual viewport and the sheet rides up by the keyboard height (never past `topInsetPx`), with its surface painted on behind the keyboard, then returns to its stop when the keyboard hides. `'auto'` content doesn't shrink while the keyboard is up, there is no iOS glide, and `onViewportChange` is still reported. `useDrawerKeyboardSnapMobile` works with both engines.
+> This section describes `LegacyDrawer`. The v3 `Drawer` resolves snap points to px when it opens and when its scroller resizes, and the soft keyboard doesn't re-resolve them. While the keyboard is up, its scroller shrinks to the visual viewport and the sheet rides up by the keyboard height (never past `topInsetPx`, or the top safe-area inset for a drawer with a `'screen'` stop), with its surface painted on behind the keyboard, then returns to its stop when the keyboard hides. `'auto'` content doesn't shrink while the keyboard is up, there is no iOS glide, and `onViewportChange` is still reported. `useDrawerKeyboardSnapMobile` works with both engines.
 
 When the drawer is **open**, it listens to `window.visualViewport` (`resize` and `scroll`). Snap heights and `--drawer-available-height` use the **visual** viewport height. The panel is `position: fixed` with an extra **`bottom` offset** so its bottom edge follows the **visual** viewport, not only the **layout** viewport. That avoids the common iOS case where a fixed `bottom: 0` sheet stays behind the on-screen keyboard even though heights were already keyboard-aware. The offset is exposed as `layoutBottomInset` on the [`ViewportInfo`](./src/types.ts) object: `max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop)`.
 
@@ -205,7 +214,7 @@ Hiding the scrollbar removes a visible scroll affordance for mouse users, so pre
 | --------------------- | ------------------------------------------------- | ---------- | --------------------------------- |
 | `open`                | `boolean`                                         | -          | Controls the open state           |
 | `onOpenChange`        | `(open: boolean) => void`                         | -          | Called when open state changes    |
-| `snapPoints`          | `SnapPoint[]`                                     | `['auto']` | Snap stops; each entry is a fraction (`≤ 1`), pixel value (`> 1`), `'auto'`, or `'full'` |
+| `snapPoints`          | `SnapPoint[]`                                     | `['auto']` | Snap stops; each entry is a fraction (`≤ 1`), pixel value (`> 1`), `'auto'`, `'full'`, or `'screen'` |
 | `defaultSnapPoint`    | `SnapPoint`                                       | last stop  | Initial snap point                |
 | `activeSnapPoint`     | `SnapPoint`                                       | -          | Controlled active snap            |
 | `onSnapPointChange`   | `(point: SnapPoint, index: number) => void`       | -          | Called when the active snap changes (drag, ref controls, programmatic); the `index` is provided as a convenience |
@@ -217,7 +226,7 @@ Hiding the scrollbar removes a visible scroll affordance for mouse users, so pre
 | `ariaLabel`           | `string`                                          | -          | Alternative accessible name if `title` is omitted |
 | `overlayClassName`    | `string`                                          | -          | Merged with default modal overlay |
 | `slots`               | `DrawerSlots`                                     | -          | Optional class names for content / handle |
-| `topInsetPx`          | `number`                                          | map inset  | Pixels subtracted from visual height for snap math |
+| `topInsetPx`          | `number`                                          | `96`       | Px kept clear above `'full'` and fractional stops (`LegacyDrawer`: subtracted from the visual viewport height) |
 | `safeAreaBottom`      | `boolean \| number`                               | `true`     | Bottom safe-area padding: `true` uses `env(safe-area-inset-bottom)`, a number forces pixels, `false` opts out |
 | `onViewportChange`    | `(viewport: ViewportInfo) => void`                | -          | Fired when the visual viewport updates while open; includes `layoutBottomInset`, `height`, `offsetTop`, `keyboardHeight`, `isKeyboardOpen` |
 | `contentScroll`       | `'top' \| 'always'`                               | `'top'`    | `'top'`: `Drawer.Scrollable` scrolls only at the top stop (or `contentScrollFrom`); below it a swipe moves the sheet. `'always'`: it scrolls at every stop |
@@ -239,7 +248,7 @@ Set `stack` on each drawer that should recede when another opens above it. The d
 | `--scroll-drawer-backdrop-min` | `0` (`0.4` when `dismissible={false}`) | The drawer's own backdrop, overridden the same way                       |
 | `--scroll-drawer-fill` | the content's background | Set on `Drawer.Content` when its surface is painted by a child, so the strip below the resting layout isn't transparent mid-drag, and the area behind the translucent iOS keyboard shows the sheet |
 
-### Dragging with a mouse
+### Dragging
 
 Touch pans a modal sheet natively. On a modeless sheet (`modal={false}`) touch is driven in JavaScript, because iOS won't pan a scroller that lets taps through to the page: it drags from anywhere, buttons and links included, except fields and `[data-drawer-no-drag]`; sideways swipes and a list that can scroll that way stay native, and a tap still taps. A mouse drags it from anywhere except buttons and links, unless they sit inside `[data-drawer-drag]`, and never from fields or `[data-drawer-no-drag]`. Mostly sideways drags are left to horizontal scrollers, and a plain click still clicks.
 
@@ -248,17 +257,21 @@ Touch pans a modal sheet natively. On a modeless sheet (`modal={false}`) touch i
 - `Drawer.Content` - Main content container (`data-drawer-content`)
 - `Drawer.Handle` - Drag handle (optional); supports `indicatorClassName` and `children`
 - `Drawer.Scrollable` - Scrollable content area; see `contentScroll`
-- `Drawer.Overlay` - Background overlay (auto-rendered when modal=true)
-- `LegacyDrawer` - The v2 motion engine, same props and parts as `Drawer` without the scroll-engine-only props
+- `Drawer.Overlay` - Deprecated; renders nothing. The backdrop is built in when `modal`; style it with `overlayClassName`
+- `LegacyDrawer` - The v2 motion engine, same props as `Drawer` without the scroll-engine-only props. Use its own parts: `LegacyDrawer.Content` and `LegacyDrawer.Scrollable`, or the named `LegacyDrawerContent` and `LegacyDrawerScrollable`
 
 ## Migration
 
 ### v2 → v3
 
-`Drawer` now runs on native scroll snapping with the v2 props, ref, and parts. Behavior differences (`nested` ignored, snap points resolved when the drawer opens, the keyboard ride-up, `onDragEnd` at settle, no `--drawer-*` variables, the v2 hooks being `LegacyDrawer` only) and the new props are listed in [`MIGRATION.md`](./MIGRATION.md). To keep the v2 engine, change one import:
+`Drawer` now runs on native scroll snapping with the v2 props, ref, and parts. Behavior differences (`nested` ignored, snap points resolved when the drawer opens, the keyboard ride-up, `onDragEnd` at settle, no `--drawer-*` variables, the v2 hooks being `LegacyDrawer` only) and the new props are listed in [`MIGRATION.md`](./MIGRATION.md). To keep the v2 engine, change the import, and the named parts if you use them:
 
 ```tsx
-import { LegacyDrawer as Drawer } from '@present-day/drawer'
+import {
+  LegacyDrawer as Drawer,
+  LegacyDrawerContent as DrawerContent,
+  LegacyDrawerScrollable as DrawerScrollable,
+} from '@present-day/drawer'
 ```
 
 ### v1 → v2
