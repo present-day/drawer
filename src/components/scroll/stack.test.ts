@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { joinStack } from './stack'
+import { joinStack as joinStackUnsafe } from './stack'
+
+const leaves: (() => void)[] = []
+/** Joins, and leaves in `afterEach` even if the test fails first. */
+function joinStack(...args: Parameters<typeof joinStackUnsafe>) {
+  const joined = joinStackUnsafe(...args)
+  leaves.push(joined.leave)
+  return joined
+}
 
 function entry(name: string, end = 300) {
   return {
@@ -14,6 +22,8 @@ const anim = (el: HTMLElement, prop: string) =>
 
 describe('drawer stack', () => {
   afterEach(() => {
+    for (const leave of leaves.splice(0).reverse()) leave()
+    document.body.replaceChildren()
     vi.unstubAllGlobals()
   })
 
@@ -91,7 +101,6 @@ describe('drawer stack', () => {
       expect.objectContaining({ duration: 300 }),
     )
     ja.leave()
-    a.scroller.remove()
   })
 
   it("keeps the page's own timeline scope while drawers are open", () => {
