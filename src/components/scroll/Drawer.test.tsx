@@ -9,7 +9,12 @@ import {
 } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useDrawerKeyboardSnapMobile } from '../../hooks/useDrawerKeyboardSnapMobile'
-import type { DrawerProps, DrawerRef, SnapPoint } from '../../types'
+import type {
+  DrawerProps,
+  DrawerRef,
+  SnapPoint,
+  ViewportInfo,
+} from '../../types'
 import { getLockCount } from '../../utils'
 import { Drawer } from './Drawer'
 import { nearestIndex, writeBackdropOpacity } from './geometry'
@@ -142,15 +147,22 @@ function restore(
 }
 
 describe('Drawer (scroll engine)', () => {
-  const scrollTo = vi.fn(function (this: HTMLElement, opts: ScrollToOptions) {
+  const jump = function (this: HTMLElement, opts: ScrollToOptions) {
     this.scrollTop = opts.top ?? 0
-  })
+  }
+  const scrollTo = vi.fn(jump)
+  /**
+   * From here on a scroll is recorded but doesn't move `scrollTop`: a smooth
+   * scroll one frame in. The default stub jumps to the target at once.
+   */
+  const inFlight = () => scrollTo.mockImplementation(() => {})
   let clientHeight: PropertyDescriptor | undefined
   let elementScrollTo: PropertyDescriptor | undefined
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     scrollTo.mockClear()
+    scrollTo.mockImplementation(jump)
     elementScrollTo = Object.getOwnPropertyDescriptor(
       Element.prototype,
       'scrollTo',
@@ -1125,6 +1137,72 @@ describe('Drawer (scroll engine)', () => {
       } finally {
         now.mockRestore()
       }
+    })
+
+    describe('a snap still scrolling when the viewport moves', () => {
+      const arrive = () => {
+        const el = scroller()
+        const last = scrollTo.mock.lastCall?.[0] as ScrollToOptions
+        el.scrollTop = last.top ?? 0
+        fireEvent.scroll(el)
+        fireEvent(el, new Event('scrollend'))
+      }
+
+      it('carries on to its stop at the new lift as the keyboard grows', () => {
+        const ref = createRef<DrawerRef>()
+        let was = false
+        const onViewportChange = (v: ViewportInfo) => {
+          if (v.isKeyboardOpen && !was) ref.current?.snapTo(500)
+          was = v.isKeyboardOpen
+        }
+        renderDrawer({ snapPoints: [200, 500], onViewportChange }, ref)
+        settleAt(200)
+        const el = scroller()
+        inFlight()
+        keyboard(60)
+        expect(scrollTo).toHaveBeenLastCalledWith({
+          top: 560,
+          behavior: 'smooth',
+        })
+        el.scrollTop = 280
+        fireEvent.scroll(el)
+        for (const k of [120, 180, 240, 300]) keyboard(k)
+        expect(el.scrollTop).toBe(280)
+        expect(scrollTo).toHaveBeenLastCalledWith({
+          top: 800,
+          behavior: 'smooth',
+        })
+        arrive()
+        expect(ref.current?.getActiveSnapPoint()).toBe(500)
+      })
+
+      it('carries on to a screen stop through a viewport pan', () => {
+        const ref = createRef<DrawerRef>()
+        let was = false
+        const onViewportChange = (v: ViewportInfo) => {
+          if (v.isKeyboardOpen && !was) ref.current?.snapTo('screen')
+          was = v.isKeyboardOpen
+        }
+        renderDrawer(
+          {
+            snapPoints: [200, 'screen'],
+            defaultSnapPoint: 200,
+            onViewportChange,
+          },
+          ref,
+        )
+        settleAt(200)
+        inFlight()
+        keyboard(KEYBOARD)
+        const el = scroller()
+        const before = el.scrollTop
+        const aimed = scrollTo.mock.lastCall?.[0]
+        keyboard(KEYBOARD, 40)
+        expect(el.scrollTop).toBe(before)
+        expect(scrollTo.mock.lastCall?.[0]).toEqual(aimed)
+        arrive()
+        expect(ref.current?.getActiveSnapPoint()).toBe('screen')
+      })
     })
 
     it('paints the sheet surface behind the keyboard, below the scroller', () => {

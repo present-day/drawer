@@ -336,6 +336,11 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const lastIndexRef = useRef<number | null>(null)
     /** The stop the opening scroll heads for, until that scroll starts. */
     const entryIndexRef = useRef<number | null>(null)
+    /**
+     * The stop index a programmatic scroll is heading for, -1 for closed;
+     * null once it settles or a drag takes over.
+     */
+    const aimRef = useRef<number | null>(null)
     /** The opening frame and animations; `frame` is 0 once it has run. */
     const entryRef = useRef<{
       frame: number
@@ -659,6 +664,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           visibleHeight(),
           s.heights[index] ?? 0,
         )
+        aimRef.current = index
         scrollToTop(el, target, instant)
       },
       [physicalTop, visibleHeight],
@@ -677,6 +683,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const el = scrollerRef.current
       const s = stopsRef.current
       if (!el || !s || draggingRef.current) return
+      aimRef.current = null
       const p = latest.current
       if (closingRef.current) {
         if (el.scrollTop <= EDGE_PX) setMounted(false)
@@ -820,7 +827,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           // lands before the height comes back, which would clamp the lifted
           // top.
           const dragged = dragActive() || !!session?.blurred
-          if (!dragged) {
+          const aim = aimRef.current
+          if (!dragged && aim !== null) {
+            scrollToTop(el, aim === -1 ? 0 : (positionsOf(s)[aim] ?? top))
+          } else if (!dragged) {
             el.scrollTop =
               positionsOf(s)[nearestIndex(top, positionsOf(s))] ?? top
           }
@@ -873,7 +883,15 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           `${vp.height}px`,
         )
         if (!keyboardRef.current.pending && !dragActive()) {
-          el.scrollTop = physicalTop(top)
+          // Writing scrollTop would cut a snap still scrolling short, and
+          // snapping is off to finish it; re-aim it at the new lift instead.
+          const aim = aimRef.current
+          if (aim !== null) {
+            scrollToTop(
+              el,
+              aim === -1 ? 0 : physicalTop(positionsOf(s)[aim] ?? 0),
+            )
+          } else el.scrollTop = physicalTop(top)
         }
         layoutHidden(el)
         if (dragActive()) layoutAhead(el)
@@ -1009,6 +1027,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       lastIndexRef.current = null
       // A touch still down when it last closed never saw its touchend.
       sessionRef.current = null
+      aimRef.current = null
       entryIndexRef.current = targetIndex()
       const pinned = !(latest.current.dismissible ?? true)
       const target = positionsOf(stops)[targetIndex()] ?? 0
@@ -1051,6 +1070,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         latest.current.onAnimationStart?.(0, now.heights[index] ?? 0)
         const lifted = physicalTop(positionsOf(now)[index] ?? 0)
         if (keyboardRef.current) keyboardRef.current.pending = false
+        aimRef.current = index
         scrollToTop(el, lifted)
         if (Math.abs(el.scrollTop - lifted) <= EDGE_PX && lifted > EDGE_PX) {
           settle()
@@ -1146,6 +1166,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (!hasScrollEnd) armFallback()
       }
       const onTouchStart = (e: TouchEvent) => {
+        aimRef.current = null
         sessionRef.current = startSession(e, el.scrollTop)
       }
       const onTouchMove = (e: TouchEvent) => {
@@ -1254,6 +1275,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
       closingRef.current = true
       latest.current.onAnimationStart?.(visibleHeight(), 0)
+      aimRef.current = -1
       scrollToTop(el, 0)
       const timer = setTimeout(() => setMounted(false), CLOSE_FALLBACK_MS)
       return () => clearTimeout(timer)
@@ -1365,6 +1387,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (!el) return null
         const anchor = { y: fromY, top: el.scrollTop }
         draggingRef.current = true
+        aimRef.current = null
         const session = startSession(event, el.scrollTop)
         sessionRef.current = session
         el.style.scrollSnapType = 'none'
