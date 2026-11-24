@@ -305,6 +305,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     // starts; without this the sheet reads that as a swipe-to-dismiss.
     const armedRef = useRef(false)
     const lastIndexRef = useRef<number | null>(null)
+    /** The stop the opening scroll heads for, until that scroll starts. */
+    const entryIndexRef = useRef<number | null>(null)
     /** Set while a JS-driven drag (mouse, or touch on a modeless sheet) writes scrollTop. */
     const draggingRef = useRef(false)
     const sessionRef = useRef<DragSession | null>(null)
@@ -533,6 +535,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (!el || !s) return
         const top = positionsOf(s)[index]
         if (top === undefined) return
+        // A snap asked for before the opening scroll starts would be undone by it.
+        if (entryIndexRef.current !== null) entryIndexRef.current = index
         latest.current.onAnimationStart?.(
           visibleHeight(),
           s.heights[index] ?? 0,
@@ -714,7 +718,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     )
 
     useVisualViewport({
-      enabled: mounted,
+      // Not before the stops: the hook reports the current viewport once when
+      // enabled, and a keyboard already up then (focus handed over from the
+      // opener) sends no further event to follow.
+      enabled: mounted && stops !== null,
       onViewportChange: (vp) => {
         followKeyboard(vp)
         latest.current.onViewportChange?.(vp)
@@ -784,6 +791,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       armedRef.current = false
       closingRef.current = false
       lastIndexRef.current = null
+      entryIndexRef.current = targetIndex()
       const pinned = !(latest.current.dismissible ?? true)
       const target = positionsOf(stops)[targetIndex()] ?? 0
       el.scrollTop = pinned ? target : 0
@@ -819,12 +827,14 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           : null
 
       const frame = requestAnimationFrame(() => {
+        const index = entryIndexRef.current ?? targetIndex()
+        entryIndexRef.current = null
         if (pinned) {
           settle()
           return
         }
-        latest.current.onAnimationStart?.(0, stops.heights[targetIndex()] ?? 0)
-        const lifted = physicalTop(target)
+        latest.current.onAnimationStart?.(0, stops.heights[index] ?? 0)
+        const lifted = physicalTop(positionsOf(stops)[index] ?? 0)
         if (keyboardRef.current) keyboardRef.current.pending = false
         scrollToTop(el, lifted)
         if (Math.abs(el.scrollTop - lifted) <= EDGE_PX && lifted > EDGE_PX) {

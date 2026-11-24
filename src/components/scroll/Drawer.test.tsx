@@ -804,6 +804,66 @@ describe('Drawer (scroll engine)', () => {
       })
     })
 
+    describe('when the keyboard is already up as the drawer mounts', () => {
+      beforeEach(() => {
+        vv.height = VIEWPORT - KEYBOARD
+        vi.useRealTimers()
+      })
+      const settle = (top: number) => {
+        const el = scroller()
+        el.scrollTop = top
+        fireEvent.scroll(el)
+        fireEvent(el, new Event('scrollend'))
+      }
+
+      it('rides above it from the first frame', async () => {
+        const ref = createRef<DrawerRef>()
+        const onViewportChange = vi.fn()
+        renderDrawer({ snapPoints: [300, 700], onViewportChange }, ref)
+        const el = scroller()
+        expect(el).toHaveAttribute('data-scroll-drawer-keyboard')
+        expect(
+          el.style.getPropertyValue('--scroll-drawer-keyboard-height'),
+        ).toBe(`${VIEWPORT - KEYBOARD}px`)
+        expect(onViewportChange).toHaveBeenCalledWith(
+          expect.objectContaining({ isKeyboardOpen: true }),
+        )
+        await waitFor(() =>
+          expect(scrollTo).toHaveBeenLastCalledWith(
+            expect.objectContaining({ top: VIEWPORT - TOP_INSET }),
+          ),
+        )
+        settle(VIEWPORT - TOP_INSET)
+        expect(ref.current?.getActiveSnapPoint()).toBe(700)
+        vv.height = VIEWPORT
+        act(() => {
+          vv.dispatchEvent(new Event('resize'))
+        })
+        expect(el.scrollTop).toBe(700)
+      })
+
+      it('lets onViewportChange pick the stop the sheet opens to', async () => {
+        const ref = createRef<DrawerRef>()
+        renderDrawer(
+          {
+            snapPoints: [300, 700, 'screen'],
+            defaultSnapPoint: 700,
+            onViewportChange: (vp) => {
+              if (vp.isKeyboardOpen) ref.current?.snapTo('screen')
+            },
+          },
+          ref,
+        )
+        await waitFor(() =>
+          expect(scrollTo).toHaveBeenLastCalledWith(
+            expect.objectContaining({ top: VIEWPORT }),
+          ),
+        )
+        settle(VIEWPORT)
+        expect(ref.current?.getActiveSnapPoint()).toBe('screen')
+      })
+    })
+
     it('works with useDrawerKeyboardSnapMobile', () => {
       function Sheet() {
         const ref = useRef<DrawerRef>(null)
