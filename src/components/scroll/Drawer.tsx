@@ -82,6 +82,8 @@ type DragSession = {
   release?: { y: number; velocity: number }
   /** Its release already picked a stop to scroll to. */
   aimed?: boolean
+  /** It hid the focused field, which was blurred to close the keyboard. */
+  blurred?: boolean
 }
 
 function startSession(event: DragSession['event'], top: number): DragSession {
@@ -323,6 +325,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       pending: boolean
       /** `env(safe-area-inset-top)` in px, read once per keyboard. */
       safeTop: number | null
+      /** The scroller's box while the keyboard is up, read on first need. */
+      bounds: { top: number; bottom: number } | null
     } | null>(null)
     const stopsRef = useRef<Stops | null>(null)
     stopsRef.current = stops
@@ -442,6 +446,41 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       )
       return nearestIndex(px, s.heights)
     }, [])
+
+    /** A finger or pointer is moving the sheet right now. */
+    const dragActive = useCallback((): boolean => {
+      const session = sessionRef.current
+      return (
+        draggingRef.current || (!!session && session.started && !session.ended)
+      )
+    }, [])
+
+    // As iOS's keyboardDismissMode: a drag that takes the field out of view
+    // closes the keyboard, rather than leaving it to notice much later.
+    const blurHiddenField = useCallback(
+      (el: HTMLElement, session: DragSession) => {
+        const kb = keyboardRef.current
+        const sheet = sheetRef.current
+        const field = document.activeElement
+        if (!kb || kb.pending || !sheet || !(field instanceof HTMLElement)) {
+          return
+        }
+        if (field === sheet || !sheet.contains(field)) return
+        // The scroller spans the visual viewport while the keyboard is up.
+        // Its rect, not visualViewport numbers, because iOS reports rects
+        // against the visual viewport once it pans.
+        if (!kb.bounds) {
+          const box = el.getBoundingClientRect()
+          kb.bounds = { top: box.top, bottom: box.bottom }
+        }
+        const r = field.getBoundingClientRect()
+        if (r.top >= kb.bounds.bottom || r.bottom <= kb.bounds.top) {
+          session.blurred = true
+          field.blur()
+        }
+      },
+      [],
+    )
 
     /** scrollTop as if the keyboard were down: what stops are measured in. */
     const restingTop = useCallback((el: HTMLElement): number => {
@@ -568,9 +607,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
       const kb = keyboardRef.current
       const session = sessionRef.current
-      // Snapping is off while the keyboard is up, so a native drag would rest
-      // wherever momentum left it; aim it as the JS drag does.
-      if (kb && !kb.pending && session?.ended && !session.aimed) {
+      if (kb && session?.ended && session.blurred) {
+        // It blurred the field and the keyboard is on its way down; unless
+        // it's closing, landing it waits for that, once the lift is gone.
+        if (!((p.dismissible ?? true) && el.scrollTop <= EDGE_PX)) return
+      } else if (kb && !kb.pending && session?.ended && !session.aimed) {
+        // Snapping is off while the keyboard is up, so a native drag would
+        // rest wherever momentum left it; aim it as the JS drag does.
         session.aimed = true
         const dismissible = p.dismissible ?? true
         const stopsAt = dismissible ? [0, ...positionsOf(s)] : positionsOf(s)
@@ -672,14 +715,34 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           if (!kb) return
           const top = restingTop(el)
           keyboardRef.current = null
-          // Before the height comes back, which would clamp the lifted top.
-          el.scrollTop =
-            positionsOf(s)[nearestIndex(top, positionsOf(s))] ?? top
+          const session = sessionRef.current
+          // A drag that closed the keyboard keeps its scrollTop, so the sheet
+          // stays under the finger: the scroller's top stays at the screen's
+          // and the lift just becomes part of the position. Otherwise this
+          // lands before the height comes back, which would clamp the lifted
+          // top.
+          const dragged = dragActive() || !!session?.blurred
+          if (!dragged) {
+            el.scrollTop =
+              positionsOf(s)[nearestIndex(top, positionsOf(s))] ?? top
+          }
           el.removeAttribute('data-scroll-drawer-keyboard')
           el.style.removeProperty('--scroll-drawer-keyboard-top')
           el.style.removeProperty('--scroll-drawer-keyboard-height')
           el.style.removeProperty('--scroll-drawer-keyboard-sheet-max')
           layoutHidden(el)
+          // Released while snapping was still off: land it from here.
+          if (session?.blurred && session.ended && !dragActive()) {
+            const pos = positionsOf(s)
+            const land = releaseTarget(
+              el.scrollTop,
+              0,
+              (latest.current.dismissible ?? true) ? [0, ...pos] : pos,
+            )
+            // Already there, no scroll would end to settle it.
+            if (Math.abs(el.scrollTop - land) <= EDGE_PX) settle()
+            else scrollToTop(el, land)
+          }
           return
         }
         const top = restingTop(el)
@@ -691,6 +754,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           lift: kb?.lift ?? 0,
           pending: kb ? kb.pending : entering,
           safeTop: kb?.safeTop ?? null,
+          bounds: null,
         }
         el.setAttribute('data-scroll-drawer-keyboard', '')
         // The scroller is shorter by the keyboard, which would add as much
@@ -709,7 +773,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           '--scroll-drawer-keyboard-height',
           `${vp.height}px`,
         )
-        if (!keyboardRef.current.pending) el.scrollTop = physicalTop(top)
+        if (!keyboardRef.current.pending && !dragActive()) {
+          el.scrollTop = physicalTop(top)
+        }
         layoutHidden(el)
         const fill = keyboardFillRef.current
         if (fill) fill.style.top = `${vp.offsetTop + vp.height}px`
@@ -729,11 +795,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         }
       },
       [
+        dragActive,
         keyboardMinTop,
         layoutHidden,
         paintKeyboardFill,
         physicalTop,
         restingTop,
+        settle,
       ],
     )
 
@@ -915,6 +983,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           session.started = true
           latest.current.onDragStart?.(session.event, dragInfo(session))
         }
+        if (session && !session.ended && !session.blurred) {
+          blurHiddenField(el, session)
+        }
         if (
           !frame &&
           (latest.current.onDrag || latest.current.onHeightChange)
@@ -987,7 +1058,14 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         el.removeEventListener('touchcancel', onTouchEnd)
         el.removeEventListener('scrollend', settle)
       }
-    }, [mounted, settle, dragInfo, visibleHeight, resolveStops])
+    }, [
+      mounted,
+      settle,
+      dragInfo,
+      visibleHeight,
+      resolveStops,
+      blurHiddenField,
+    ])
 
     useEffect(() => {
       if (!mounted) return

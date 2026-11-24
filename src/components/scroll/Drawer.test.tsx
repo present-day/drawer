@@ -988,6 +988,195 @@ describe('Drawer (scroll engine)', () => {
       })
     })
 
+    describe('a drag that takes the focused field out of view', () => {
+      /** The field sits this far below the sheet's top. */
+      const FIELD_Y = 40
+      const FIELD_H = 40
+      let rects: ReturnType<typeof vi.spyOn>
+      let field: HTMLInputElement
+
+      beforeEach(() => {
+        rects = vi
+          .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+          .mockImplementation(function (this: HTMLElement) {
+            const el = scroller()
+            if (this === el) {
+              return { top: 0, bottom: vv.height } as DOMRect
+            }
+            if (this === field) {
+              // Dismissible, so the spacer above the sheet is the viewport.
+              const top = VIEWPORT - el.scrollTop + FIELD_Y
+              return { top, bottom: top + FIELD_H } as DOMRect
+            }
+            return { top: 0, bottom: 0, left: 0, width: 0 } as DOMRect
+          })
+      })
+
+      afterEach(() => {
+        rects.mockRestore()
+      })
+
+      const open = (
+        props: Partial<DrawerProps> = {},
+        ref?: React.Ref<DrawerRef>,
+      ) => {
+        const utils = renderDrawer({ snapPoints: [200, 420], ...props }, ref)
+        field = screen.getByRole('textbox', { name: 'Search' })
+        settleAt(420)
+        act(() => field.focus())
+        keyboard(KEYBOARD)
+        // The keyboard's top is at VIEWPORT - KEYBOARD = 600.
+        expect(scroller().scrollTop).toBe(420 + KEYBOARD)
+        return utils
+      }
+      const scrollTo_ = (top: number) => {
+        scroller().scrollTop = top
+        fireEvent.scroll(scroller())
+      }
+
+      it('blurs the field once it goes below the keyboard, and keeps the sheet under the finger as the keyboard closes', () => {
+        const onSnapPointChange = vi.fn()
+        open({ onSnapPointChange })
+        const blur = vi.spyOn(field, 'blur')
+        const el = scroller()
+        fireEvent.touchStart(el, { touches: [{ clientY: 300 }] })
+        scrollTo_(600)
+        scrollTo_(400)
+        expect(blur).not.toHaveBeenCalled()
+        scrollTo_(330)
+        expect(blur).toHaveBeenCalledTimes(1)
+        expect(document.activeElement).not.toBe(field)
+        scrollTo_(320)
+        expect(blur).toHaveBeenCalledTimes(1)
+
+        // The keyboard animates down over a few frames.
+        keyboard(KEYBOARD - 120)
+        expect(el.scrollTop).toBe(320)
+        keyboard(0)
+        expect(el).not.toHaveAttribute('data-scroll-drawer-keyboard')
+        expect(el.scrollTop).toBe(320)
+
+        scrollTo_(300)
+        scrollTo.mockClear()
+        onSnapPointChange.mockClear()
+        fireEvent.touchEnd(el)
+        // Snapping is back on, so the browser lands it; nothing re-aims it.
+        settleAt(200)
+        expect(scrollTo).not.toHaveBeenCalled()
+        expect(onSnapPointChange).toHaveBeenCalledWith(200, 0)
+      })
+
+      it('lands a release made before the keyboard has gone from where the sheet is', () => {
+        open()
+        const el = scroller()
+        fireEvent.touchStart(el, { touches: [{ clientY: 300 }] })
+        scrollTo_(330)
+        expect(document.activeElement).not.toBe(field)
+        fireEvent.touchEnd(el)
+        scrollTo.mockClear()
+        fireEvent(el, new Event('scrollend'))
+        expect(scrollTo).not.toHaveBeenCalled()
+
+        // Snapping comes back with the keyboard gone; it lands from where it
+        // is, not from where the stale lift would put it.
+        keyboard(0)
+        expect(scrollTo).toHaveBeenLastCalledWith(
+          expect.objectContaining({ top: 420 }),
+        )
+        settleAt(420)
+        expect(scroller().scrollTop).toBe(420)
+      })
+
+      it('closes a sheet released to the bottom without waiting for the keyboard', () => {
+        const { onOpenChange } = open()
+        const el = scroller()
+        fireEvent.touchStart(el, { touches: [{ clientY: 300 }] })
+        scrollTo_(300)
+        fireEvent.touchEnd(el)
+        scrollTo_(0)
+        fireEvent(el, new Event('scrollend'))
+        expect(onOpenChange).toHaveBeenCalledWith(false)
+      })
+
+      it('blurs a field dragged above the visible area too', () => {
+        open()
+        const el = scroller()
+        fireEvent.touchStart(el, { touches: [{ clientY: 300 }] })
+        // Field bottom: VIEWPORT - scrollTop + FIELD_Y + FIELD_H.
+        scrollTo_(979)
+        expect(document.activeElement).toBe(field)
+        scrollTo_(980)
+        expect(document.activeElement).not.toBe(field)
+      })
+
+      it('leaves the field alone while it stays visible', () => {
+        open()
+        const blur = vi.spyOn(field, 'blur')
+        const el = scroller()
+        fireEvent.touchStart(el, { touches: [{ clientY: 300 }] })
+        scrollTo_(600)
+        scrollTo_(380)
+        fireEvent.touchEnd(el)
+        expect(blur).not.toHaveBeenCalled()
+        expect(document.activeElement).toBe(field)
+      })
+
+      it('picks the stop from where the sheet is when a pointer drag closed the keyboard', () => {
+        const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+        try {
+          open()
+          const el = scroller()
+          const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+          fireEvent.pointerDown(screen.getByRole('dialog'), {
+            ...mouse,
+            clientX: 100,
+            clientY: 100,
+          })
+          // Past the slop: this one anchors the drag.
+          fireEvent.pointerMove(window, {
+            ...mouse,
+            clientX: 100,
+            clientY: 110,
+          })
+          now.mockReturnValue(1100)
+          fireEvent.pointerMove(window, {
+            ...mouse,
+            clientX: 100,
+            clientY: 500,
+          })
+          fireEvent.scroll(el)
+          expect(el.scrollTop).toBe(330)
+          expect(document.activeElement).not.toBe(field)
+
+          keyboard(0)
+          expect(el.scrollTop).toBe(330)
+          now.mockReturnValue(1400)
+          fireEvent.pointerUp(window, { ...mouse, clientX: 100, clientY: 500 })
+          expect(scrollTo).toHaveBeenLastCalledWith(
+            expect.objectContaining({ top: 420 }),
+          )
+          vi.advanceTimersByTime(1)
+        } finally {
+          now.mockRestore()
+        }
+      })
+
+      it('never blurs for scrolls it did not get from a drag', () => {
+        const ref = createRef<DrawerRef>()
+        open({}, ref)
+        const blur = vi.spyOn(field, 'blur')
+        const el = scroller()
+        act(() => ref.current?.snapTo(200))
+        scrollTo_(250)
+        // Released: momentum and re-aims aren't the finger.
+        fireEvent.touchStart(el, { touches: [{ clientY: 300 }] })
+        scrollTo_(600)
+        fireEvent.touchEnd(el)
+        scrollTo_(200)
+        expect(blur).not.toHaveBeenCalled()
+      })
+    })
+
     it('stops lifting at the top inset', () => {
       const ref = createRef<DrawerRef>()
       renderDrawer({ snapPoints: [200, 700] }, ref)
