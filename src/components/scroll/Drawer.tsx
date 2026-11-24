@@ -1175,7 +1175,27 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const hasScrollEnd = 'onscrollend' in window
       // A finger held still for the timeout isn't a scroll that ended; the
       // release arms it again.
+      // Touch events go to the element the touch began on; once that leaves
+      // the page (a row replaced under the finger) touchend never gets here.
+      const dropDetached = () => {
+        const session = sessionRef.current
+        const target = session?.event.target
+        if (!session || session.ended || draggingRef.current) return
+        if (!(target instanceof Node) || target.isConnected) return
+        if (!session.started) {
+          sessionRef.current = null
+          return
+        }
+        endSession(
+          session,
+          session.event,
+          el.scrollTop,
+          keyboardRef.current?.lift ?? 0,
+        )
+        session.ended = true
+      }
       const fallback = () => {
+        dropDetached()
         const session = sessionRef.current
         if (draggingRef.current || (session && !session.ended)) return
         settle()
@@ -1193,6 +1213,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         p.onHeightChange?.(visibleHeight())
       }
       const onScroll = () => {
+        dropDetached()
         if (el.scrollTop > EDGE_PX) armedRef.current = true
         paintBackdrop()
         const session = sessionRef.current

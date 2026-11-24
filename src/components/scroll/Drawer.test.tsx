@@ -2241,6 +2241,27 @@ describe('Drawer (scroll engine)', () => {
       expect(onSnapPointChange).toHaveBeenCalledWith(200, 0)
     })
 
+    it('settles later scrolls after a touch whose target left the page', () => {
+      const ref = createRef<DrawerRef>()
+      const onSnapPointChange = vi.fn()
+      const onDragStart = vi.fn()
+      renderDrawer({ onSnapPointChange, onDragStart }, ref)
+      scrollTo_(200)
+      vi.advanceTimersByTime(200)
+      onSnapPointChange.mockClear()
+      // A row replaced under the finger: its touchend never reaches the scroller.
+      const row = document.createElement('div')
+      screen.getByRole('dialog').appendChild(row)
+      fireEvent.touchStart(row, { touches: [{ clientY: 500 }] })
+      row.remove()
+      fireEvent.touchEnd(row)
+      act(() => ref.current?.snapTo(420))
+      fireEvent.scroll(scroller())
+      vi.advanceTimersByTime(200)
+      expect(onSnapPointChange).toHaveBeenCalledWith(420, 1)
+      expect(onDragStart).not.toHaveBeenCalled()
+    })
+
     it('settles a scroll that ends after the release', () => {
       const onSnapPointChange = vi.fn()
       renderDrawer({ onSnapPointChange })
