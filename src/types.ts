@@ -113,7 +113,8 @@ export interface DrawerProps {
    */
   snapToSequentialPoint?: boolean
   /**
-   * `LegacyDrawer` only; the scroll engine ignores it. Set to `true` when
+   * @deprecated `LegacyDrawer` only; the scroll engine ignores it, as a
+   * drawer opened from another never drags both. Set to `true` when
    * this drawer is rendered inside another drawer. Stops pointer events from
    * bubbling to the outer drawer’s drag handlers so the two drawers do not
    * fight over the same gesture.

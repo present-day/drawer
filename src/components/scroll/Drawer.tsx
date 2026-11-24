@@ -1777,5 +1777,6 @@ export const Drawer = Object.assign(DrawerRoot, {
   Content: DrawerContent,
   Scrollable: DrawerScrollable,
   Handle: DrawerHandle,
+  /** @deprecated Renders nothing; the backdrop is built in. */
   Overlay: DrawerOverlay,
 })
