@@ -257,7 +257,9 @@ function sameStops(a: Stops | null, b: Stops): boolean {
     a.viewport === b.viewport &&
     a.offset === b.offset &&
     a.heights.length === b.heights.length &&
-    a.heights.every((h, i) => h === b.heights[i])
+    a.heights.every((h, i) => h === b.heights[i]) &&
+    a.raw.length === b.raw.length &&
+    a.raw.every((r, i) => r === b.raw[i])
   )
 }
 

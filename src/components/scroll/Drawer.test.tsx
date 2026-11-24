@@ -379,6 +379,21 @@ describe('Drawer (scroll engine)', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
+  it('reports the configured stop when a new config resolves to the same heights', () => {
+    const ref = createRef<DrawerRef>()
+    const tree = (snapPoints: SnapPoint[]) => (
+      <Drawer ref={ref} open ariaLabel="Sheet" snapPoints={snapPoints}>
+        <Drawer.Content />
+      </Drawer>
+    )
+    const full = VIEWPORT - TOP_INSET
+    const { rerender } = render(tree([200, full]))
+    settleAt(full)
+    expect(ref.current?.getActiveSnapPoint()).toBe(full)
+    rerender(tree([200, 'full']))
+    expect(ref.current?.getActiveSnapPoint()).toBe('full')
+  })
+
   it('hears Escape only from inside once it turns modeless while open', () => {
     const onOpenChange = vi.fn()
     const tree = (modal: boolean) => (
