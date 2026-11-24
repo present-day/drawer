@@ -1045,6 +1045,34 @@ describe('Drawer (scroll engine)', () => {
       expect(markers()).toEqual(before)
     })
 
+    it('flicks a keyboard-up touch one stop from where it began with snapToSequentialPoint', () => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+      try {
+        renderDrawer({
+          snapPoints: [200, 420, 700],
+          snapToSequentialPoint: true,
+        })
+        settleAt(200)
+        keyboard(KEYBOARD)
+        const el = scroller()
+        expect(el.scrollTop).toBe(200 + KEYBOARD)
+        fireEvent.touchStart(el, { touches: [{ clientY: 600 }] })
+        fireEvent.scroll(el)
+        now.mockReturnValue(1050)
+        el.scrollTop = 500 + KEYBOARD
+        fireEvent.scroll(el)
+        fireEvent.touchEnd(el)
+        scrollTo.mockClear()
+        fireEvent(el, new Event('scrollend'))
+        expect(scrollTo).toHaveBeenLastCalledWith(
+          expect.objectContaining({ top: 420 + KEYBOARD }),
+        )
+        vi.advanceTimersByTime(200)
+      } finally {
+        now.mockRestore()
+      }
+    })
+
     it('aims a touch release with the lift it was released under', () => {
       const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
       try {

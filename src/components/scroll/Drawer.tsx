@@ -695,10 +695,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const dismissible = p.dismissible ?? true
         const stopsAt = dismissible ? [0, ...positionsOf(s)] : positionsOf(s)
         const released = session.startTop - (session.release?.y ?? 0)
+        const lift = session.release?.lift ?? kb.lift
         const top = releaseTarget(
-          released - (session.release?.lift ?? kb.lift),
+          released - lift,
           session.release?.velocity ?? 0,
           stopsAt,
+          p.snapToSequentialPoint ? session.startTop - lift : undefined,
         )
         const physical = dismissible && top === 0 ? 0 : physicalTop(top)
         if (Math.abs(el.scrollTop - physical) > EDGE_PX) {
