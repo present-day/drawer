@@ -189,7 +189,9 @@ Pressing **Escape** inside a **non-empty** `input`, `textarea`, or `contentedita
 
 ### Scrollbar in `Drawer.Scrollable`
 
-`Drawer.Scrollable` is a plain `overflow-y-auto` container: it **reserves no scrollbar gutter** and does **not** hide the scrollbar. There is intentionally no prop for either; style the scrollbar through the part's `className` (merged with **tailwind-merge** when installed) or `style`. On **classic, space-taking scrollbars** (Windows, Linux, or macOS set to always show scrollbars), content width **shrinks** once the list overflows. **Overlay-scrollbar platforms** (default macOS, iOS, Android) are unaffected.
+In the v3 `Drawer`, `Drawer.Scrollable` is `overflow: hidden` until the sheet reaches the stop that unlocks it (`contentScroll`, `contentScrollFrom`), and `overflow-y: auto` from there. Those rules sit inside `:where()`, so any overflow class on its `className` wins: `overflow-y-auto` there unlocks it at every stop and defeats `contentScroll="top"`, so leave overflow to the engine. On `LegacyDrawer` it is a plain `overflow-y-auto` container.
+
+In both engines it **reserves no scrollbar gutter** and does **not** hide the scrollbar. There is intentionally no prop for either; style the scrollbar through the part's `className` (merged with **tailwind-merge** when installed) or `style`. On **classic, space-taking scrollbars** (Windows, Linux, or macOS set to always show scrollbars), content width **shrinks** once the list overflows. **Overlay-scrollbar platforms** (default macOS, iOS, Android) are unaffected.
 
 ```tsx
 <Drawer.Scrollable
