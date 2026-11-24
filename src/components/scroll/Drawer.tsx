@@ -341,6 +341,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
      * null once it settles or a drag takes over.
      */
     const aimRef = useRef<number | null>(null)
+    /** `settle`, for `scrollToIndex`, which `settle` itself depends on. */
+    const settleRef = useRef<(() => void) | null>(null)
     /** The opening frame and animations; `frame` is 0 once it has run. */
     const entryRef = useRef<{
       frame: number
@@ -657,9 +659,18 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         // A snap asked for before the opening scroll starts would be undone by it.
         if (entryIndexRef.current !== null) entryIndexRef.current = index
         const target = physicalTop(top)
+        const aim = aimRef.current
+        if (aim === index) return
         // No scroll would follow to settle it and pair the callbacks; a
-        // parent echoing the stop it was just told about lands here.
-        if (Math.abs(el.scrollTop - target) <= EDGE_PX) return
+        // parent echoing the stop it was just told about lands here. A scroll
+        // still heading elsewhere would carry it off, so stop that one here.
+        if (Math.abs(el.scrollTop - target) <= EDGE_PX) {
+          if (aim !== null) {
+            scrollToTop(el, target, true)
+            settleRef.current?.()
+          }
+          return
+        }
         latest.current.onAnimationStart?.(
           visibleHeight(),
           s.heights[index] ?? 0,
@@ -784,6 +795,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       setOpen,
       visibleHeight,
     ])
+
+    useInsertionEffect(() => {
+      settleRef.current = settle
+    })
 
     // iOS draws the keyboard and its accessory bar translucent; native sheets
     // keep their surface behind them, so the page mustn't show through where

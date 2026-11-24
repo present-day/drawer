@@ -496,6 +496,54 @@ describe('Drawer (scroll engine)', () => {
     })
   })
 
+  describe('a snap to where the sheet is while it scrolls away', () => {
+    it('stays open when reopened before the close scroll has moved', () => {
+      const tree = (open: boolean, onOpenChange: () => void) => (
+        <Drawer
+          open={open}
+          onOpenChange={onOpenChange}
+          ariaLabel="Sheet"
+          snapPoints={[200, 420]}
+        >
+          <Drawer.Content />
+        </Drawer>
+      )
+      const onOpenChange = vi.fn()
+      const { rerender } = render(tree(true, onOpenChange))
+      settleAt(420)
+      inFlight()
+      rerender(tree(false, onOpenChange))
+      expect(scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: 'smooth' })
+      rerender(tree(true, onOpenChange))
+      expect(scrollTo).toHaveBeenLastCalledWith({
+        top: 420,
+        behavior: 'instant',
+      })
+      vi.advanceTimersByTime(1000)
+      expect(onOpenChange).not.toHaveBeenCalled()
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('keeps an expand that follows a collapse in the same frame', () => {
+      const ref = createRef<DrawerRef>()
+      const onSnapPointChange = vi.fn()
+      renderDrawer({ onSnapPointChange }, ref)
+      settleAt(420)
+      onSnapPointChange.mockClear()
+      inFlight()
+      act(() => {
+        ref.current?.collapse()
+        ref.current?.expand()
+      })
+      expect(scrollTo).toHaveBeenLastCalledWith({
+        top: 420,
+        behavior: 'instant',
+      })
+      expect(ref.current?.getActiveSnapPoint()).toBe(420)
+      expect(onSnapPointChange).not.toHaveBeenCalled()
+    })
+  })
+
   it('hears Escape only from inside once it turns modeless while open', () => {
     const onOpenChange = vi.fn()
     const tree = (modal: boolean) => (
