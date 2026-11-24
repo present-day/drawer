@@ -614,11 +614,15 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (top === undefined) return
         // A snap asked for before the opening scroll starts would be undone by it.
         if (entryIndexRef.current !== null) entryIndexRef.current = index
+        const target = physicalTop(top)
+        // No scroll would follow to settle it and pair the callbacks; a
+        // parent echoing the stop it was just told about lands here.
+        if (Math.abs(el.scrollTop - target) <= EDGE_PX) return
         latest.current.onAnimationStart?.(
           visibleHeight(),
           s.heights[index] ?? 0,
         )
-        scrollToTop(el, physicalTop(top), instant)
+        scrollToTop(el, target, instant)
       },
       [physicalTop, visibleHeight],
     )

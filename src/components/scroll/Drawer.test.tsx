@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { createRef, useRef, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useDrawerKeyboardSnapMobile } from '../../hooks/useDrawerKeyboardSnapMobile'
-import type { DrawerProps, DrawerRef } from '../../types'
+import type { DrawerProps, DrawerRef, SnapPoint } from '../../types'
 import { getLockCount } from '../../utils'
 import { Drawer } from './Drawer'
 import { nearestIndex, writeBackdropOpacity } from './geometry'
@@ -540,6 +540,36 @@ describe('Drawer (scroll engine)', () => {
         delete HTMLElement.prototype.animate
       }
     })
+  })
+
+  it('starts no animation for a stop the sheet is already at', () => {
+    const onAnimationStart = vi.fn()
+    const ref = createRef<DrawerRef>()
+    function Parent() {
+      const [active, setActive] = useState<SnapPoint>(200)
+      return (
+        <Drawer
+          ref={ref}
+          open
+          ariaLabel="Sheet"
+          snapPoints={[200, 420]}
+          activeSnapPoint={active}
+          onSnapPointChange={setActive}
+          onAnimationStart={onAnimationStart}
+        >
+          <Drawer.Content />
+        </Drawer>
+      )
+    }
+    render(<Parent />)
+    settleAt(200)
+    onAnimationStart.mockClear()
+    // A drag lands on 420 and the parent echoes it back.
+    settleAt(420)
+    act(() => ref.current?.snapTo(420))
+    expect(onAnimationStart).not.toHaveBeenCalled()
+    act(() => ref.current?.snapTo(200))
+    expect(onAnimationStart).toHaveBeenCalledTimes(1)
   })
 
   it('brings a swiped-down sheet back when the parent keeps it open', () => {
