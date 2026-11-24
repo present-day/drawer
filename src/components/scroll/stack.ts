@@ -22,6 +22,8 @@ export type StackEntry = {
 
 const entries: StackEntry[] = []
 let scopeBefore: string | null = null
+/** The page's effective `timeline-scope` when the first drawer joined. */
+let pageScope = ''
 
 const STACK_TIMING = {
   duration: '300ms',
@@ -86,9 +88,21 @@ function applyBehind(entry: StackEntry, front: StackEntry[]) {
 function sync() {
   const root = document.documentElement.style
   if (entries.length > 0) {
-    if (scopeBefore === null)
+    if (scopeBefore === null) {
       scopeBefore = root.getPropertyValue('timeline-scope')
-    root.setProperty('timeline-scope', entries.map((e) => e.name).join(', '))
+      const computed = getComputedStyle(document.documentElement)
+        .getPropertyValue('timeline-scope')
+        .trim()
+      pageScope = computed && computed !== 'none' ? computed : scopeBefore
+    }
+    // `all` already hoists every name, and can't be combined with a list.
+    if (pageScope !== 'all') {
+      const names = entries.map((e) => e.name)
+      root.setProperty(
+        'timeline-scope',
+        (pageScope ? [pageScope, ...names] : names).join(', '),
+      )
+    }
   } else if (scopeBefore !== null) {
     if (scopeBefore) root.setProperty('timeline-scope', scopeBefore)
     else root.removeProperty('timeline-scope')

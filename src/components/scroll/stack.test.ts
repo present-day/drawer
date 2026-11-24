@@ -94,6 +94,20 @@ describe('drawer stack', () => {
     a.scroller.remove()
   })
 
+  it("keeps the page's own timeline scope while drawers are open", () => {
+    vi.stubGlobal('CSS', { supports: () => true })
+    const root = document.documentElement.style
+    root.setProperty('timeline-scope', '--page')
+    try {
+      const ja = joinStack(entry('--a'))
+      expect(root.getPropertyValue('timeline-scope')).toBe('--page, --a')
+      ja.leave()
+      expect(root.getPropertyValue('timeline-scope')).toBe('--page')
+    } finally {
+      root.removeProperty('timeline-scope')
+    }
+  })
+
   it('follows a front drawer whose stops change', () => {
     vi.stubGlobal('CSS', { supports: () => true })
     const a = entry('--a')
