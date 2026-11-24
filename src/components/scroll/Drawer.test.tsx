@@ -994,6 +994,31 @@ describe('Drawer (scroll engine)', () => {
       expect(markers()).toEqual(before)
     })
 
+    it('aims a touch release with the lift it was released under', () => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+      try {
+        renderDrawer()
+        settleAt(200)
+        keyboard(KEYBOARD)
+        const el = scroller()
+        expect(el.scrollTop).toBe(200 + KEYBOARD)
+        fireEvent.touchStart(el, { touches: [{ clientY: 300 }] })
+        el.scrollTop = 510
+        fireEvent.scroll(el)
+        now.mockReturnValue(1400)
+        fireEvent.touchEnd(el)
+        keyboard(430)
+        scrollTo.mockClear()
+        fireEvent(el, new Event('scrollend'))
+        expect(scrollTo).toHaveBeenLastCalledWith(
+          expect.objectContaining({ top: 200 + 430 }),
+        )
+        vi.advanceTimersByTime(200)
+      } finally {
+        now.mockRestore()
+      }
+    })
+
     it('closes a mouse drag released toward closed with the keyboard up', () => {
       const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
       try {

@@ -80,7 +80,8 @@ type DragSession = {
   startTop: number
   samples: { t: number; top: number }[]
   /** Frozen at release, so `onDragEnd` reports the flick, not the settle. */
-  release?: { y: number; velocity: number }
+  /** `lift`: the keyboard lift in effect at release. */
+  release?: { y: number; velocity: number; lift: number }
   /** Its release already picked a stop to scroll to. */
   aimed?: boolean
   /** It hid the focused field, which was blurred to close the keyboard. */
@@ -148,11 +149,13 @@ function endSession(
   session: DragSession,
   event: DragSession['event'],
   top: number,
+  lift: number,
 ) {
   session.event = event
   session.release = {
     y: session.startTop - top,
     velocity: sessionVelocity(session, performance.now()),
+    lift,
   }
 }
 
@@ -682,7 +685,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const stopsAt = dismissible ? [0, ...positionsOf(s)] : positionsOf(s)
         const released = session.startTop - (session.release?.y ?? 0)
         const top = releaseTarget(
-          released - kb.lift,
+          released - (session.release?.lift ?? kb.lift),
           session.release?.velocity ?? 0,
           stopsAt,
         )
@@ -1126,7 +1129,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const session = sessionRef.current
         // Already ended by a modeless touch drag on the sheet.
         if (!session || session.ended) return
-        endSession(session, e, el.scrollTop)
+        endSession(session, e, el.scrollTop, keyboardRef.current?.lift ?? 0)
         if (session.started) {
           session.ended = true
           if (!hasScrollEnd) armFallback()
@@ -1363,7 +1366,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
               once: true,
             })
             setTimeout(() => window.removeEventListener('click', swallow, true))
-            endSession(session, ev, el.scrollTop)
+            endSession(
+              session,
+              ev,
+              el.scrollTop,
+              keyboardRef.current?.lift ?? 0,
+            )
             session.aimed = true
             if (sessionRef.current === session) {
               if (session.started) session.ended = true
