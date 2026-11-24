@@ -723,6 +723,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         unlockAt !== -1 && index >= unlockAt,
       )
       layoutHidden(el)
+      if (s.raw.length === 0) {
+        sessionRef.current = null
+        return
+      }
       const raw = s.raw[index] as SnapPoint
       if (session?.ended) {
         sessionRef.current = null

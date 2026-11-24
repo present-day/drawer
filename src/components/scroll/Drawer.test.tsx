@@ -394,6 +394,21 @@ describe('Drawer (scroll engine)', () => {
     expect(ref.current?.getActiveSnapPoint()).toBe('full')
   })
 
+  it('reports no snap for a pinned drawer with no stops', async () => {
+    const onSnapPointChange = vi.fn()
+    const onAnimationComplete = vi.fn()
+    renderDrawer({
+      snapPoints: [],
+      dismissible: false,
+      onSnapPointChange,
+      onAnimationComplete,
+    })
+    await act(() => new Promise<void>((r) => requestAnimationFrame(() => r())))
+    settleAt(0)
+    expect(onSnapPointChange).not.toHaveBeenCalled()
+    expect(onAnimationComplete).not.toHaveBeenCalled()
+  })
+
   it('hears Escape only from inside once it turns modeless while open', () => {
     const onOpenChange = vi.fn()
     const tree = (modal: boolean) => (
