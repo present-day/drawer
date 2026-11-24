@@ -931,7 +931,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (lastIndexRef.current === null && entryRef.current) {
           // Content that lands mid-entry (data replacing a skeleton) moves the
           // target, and the entry carries on to it rather than jumping there.
-          const index = entryIndexRef.current ?? targetIndex()
+          const kept = entryIndexRef.current
+          const index =
+            kept !== null && kept < stops.heights.length ? kept : targetIndex()
+          if (kept !== null) entryIndexRef.current = index
           const top = positionsOf(stops)[index] ?? 0
           layoutFor(el, stops, index)
           if (!(latest.current.dismissible ?? true)) el.scrollTop = top
