@@ -198,15 +198,15 @@ export interface DrawerProps {
   onAnimationComplete?: (snapPoint: SnapPoint) => void
   onViewportChange?: (viewport: ViewportInfo) => void
   /**
-   * Scroll engine only. `'full'` (default): `Drawer.Scrollable` scrolls once
-   * the sheet is at its top stop, and below that a swipe on it moves the
-   * sheet. `'always'`: it scrolls at every stop; the sheet then moves from
+   * Scroll engine only. `'top'` (default): `Drawer.Scrollable` scrolls once
+   * the sheet is at its top stop (or `contentScrollFrom`), and below that a
+   * swipe on it moves the sheet. `'always'`: it scrolls at every stop; the sheet then moves from
    * the handle and other chrome, or when the list's scroll chains at its top.
    * Either way `Drawer.Content` is laid out for the stop the sheet rests at.
    */
-  contentScroll?: 'full' | 'always'
+  contentScroll?: 'top' | 'always'
   /**
-   * Scroll engine only, with `contentScroll="full"`: the lowest stop at which
+   * Scroll engine only, with `contentScroll="top"`: the lowest stop at which
    * `Drawer.Scrollable` scrolls; below it a swipe on the list moves the sheet.
    * Defaults to the top stop. Set it when the top stop is one users don't rest
    * at, such as a full-screen stop added for the software keyboard.

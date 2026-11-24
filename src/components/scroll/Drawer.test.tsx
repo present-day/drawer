@@ -2155,7 +2155,7 @@ describe('Drawer (scroll engine)', () => {
       document.querySelector('[data-drawer-handle-indicator]')?.className,
     ).toMatch(/ind/)
     expect(document.querySelector('[data-drawer-scroll]')).toHaveAttribute(
-      'data-scroll-drawer-content',
+      'data-scroll-drawer-scrollable',
     )
   })
 })

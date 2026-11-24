@@ -782,7 +782,7 @@ function ContentScrollDemo({
   contentScroll,
   contentScrollFrom,
 }: {
-  contentScroll: 'full' | 'always'
+  contentScroll: 'top' | 'always'
   contentScrollFrom?: SnapPoint
 }) {
   const { lines, push } = useEventLog()
@@ -814,14 +814,14 @@ function ContentScrollDemo({
 }
 
 export const ContentScrollFull: Story = {
-  name: 'contentScroll full',
-  render: () => <ContentScrollDemo contentScroll="full" />,
+  name: 'contentScroll top',
+  render: () => <ContentScrollDemo contentScroll="top" />,
 }
 
 export const ContentScrollFrom: Story = {
-  name: 'contentScroll full, contentScrollFrom 0.65',
+  name: 'contentScroll top, contentScrollFrom 0.65',
   render: () => (
-    <ContentScrollDemo contentScroll="full" contentScrollFrom={0.65} />
+    <ContentScrollDemo contentScroll="top" contentScrollFrom={0.65} />
   ),
 }
 

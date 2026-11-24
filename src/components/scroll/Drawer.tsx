@@ -286,7 +286,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       children,
       overlayClassName,
       slots,
-      contentScroll = 'full',
+      contentScroll = 'top',
       stack = false,
     } = props
 
@@ -1733,8 +1733,8 @@ export type DrawerScrollableProps = React.HTMLAttributes<HTMLDivElement> & {
 }
 
 /**
- * The sheet's inner scroller. With `contentScroll="full"` it is locked until
- * the sheet reaches its top stop, then scrolls and chains back to the sheet at
+ * The sheet's inner scroller. With `contentScroll="top"` it is locked until
+ * the sheet reaches its top stop (or `contentScrollFrom`), then scrolls and chains back to the sheet at
  * its top; with `"always"` it scrolls at every stop.
  */
 export const DrawerScrollable = forwardRef<
@@ -1756,7 +1756,7 @@ export const DrawerScrollable = forwardRef<
     <div
       ref={setRefs}
       data-drawer-scroll=""
-      data-scroll-drawer-content=""
+      data-scroll-drawer-scrollable=""
       className={cn('min-h-0 flex-1', className)}
       {...rest}
     />

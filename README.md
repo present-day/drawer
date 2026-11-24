@@ -220,8 +220,8 @@ Hiding the scrollbar removes a visible scroll affordance for mouse users, so pre
 | `topInsetPx`          | `number`                                          | map inset  | Pixels subtracted from visual height for snap math |
 | `safeAreaBottom`      | `boolean \| number`                               | `true`     | Bottom safe-area padding: `true` uses `env(safe-area-inset-bottom)`, a number forces pixels, `false` opts out |
 | `onViewportChange`    | `(viewport: ViewportInfo) => void`                | -          | Fired when the visual viewport updates while open; includes `layoutBottomInset`, `height`, `offsetTop`, `keyboardHeight`, `isKeyboardOpen` |
-| `contentScroll`       | `'full' \| 'always'`                              | `'full'`   | `'full'`: `Drawer.Scrollable` scrolls only at the top stop; below it a swipe moves the sheet. `'always'`: it scrolls at every stop |
-| `contentScrollFrom`   | `SnapPoint`                                       | top stop   | With `contentScroll="full"`, the lowest stop at which `Drawer.Scrollable` scrolls |
+| `contentScroll`       | `'top' \| 'always'`                               | `'top'`    | `'top'`: `Drawer.Scrollable` scrolls only at the top stop (or `contentScrollFrom`); below it a swipe moves the sheet. `'always'`: it scrolls at every stop |
+| `contentScrollFrom`   | `SnapPoint`                                       | top stop   | With `contentScroll="top"`, the lowest stop at which `Drawer.Scrollable` scrolls |
 | `onHeightChange`      | `(height: number) => void`                        | -          | Visible sheet height in px, at most once per frame while it moves; costs no layout |
 | `stack`               | `boolean`                                         | `false`    | While another `stack` drawer is open on top, this one recedes (see *Stacking*) |
 

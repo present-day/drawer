@@ -52,8 +52,8 @@ still exported as `LegacyDrawer`.
 
 | Prop | What it does |
 | ---- | ------------ |
-| `contentScroll` | `'full'` (default): `Drawer.Scrollable` scrolls once the sheet is at its top stop; below that a swipe on it moves the sheet. `'always'`: it scrolls at every stop, and the sheet moves from the handle and other chrome or when the list's scroll chains at its top. |
-| `contentScrollFrom` | With `contentScroll="full"`, the lowest stop at which `Drawer.Scrollable` scrolls. Defaults to the top stop. Set it when the top stop is one users don't rest at, such as a full-screen stop added for the keyboard. |
+| `contentScroll` | `'top'` (default): `Drawer.Scrollable` scrolls once the sheet is at its top stop (or `contentScrollFrom`); below that a swipe on it moves the sheet. `'always'`: it scrolls at every stop, and the sheet moves from the handle and other chrome or when the list's scroll chains at its top. |
+| `contentScrollFrom` | With `contentScroll="top"`, the lowest stop at which `Drawer.Scrollable` scrolls. Defaults to the top stop. Set it when the top stop is one users don't rest at, such as a full-screen stop added for the keyboard. |
 | `onHeightChange` | Visible sheet height in px, at most once per frame while it moves. Read from `scrollTop`, so it costs no layout. A `ResizeObserver` on the sheet never fires, because the sheet scrolls rather than resizes. |
 | `stack` | Opt-in stacking. While another `stack` drawer is open on top, this one recedes, and once more per further drawer above it. |
 
