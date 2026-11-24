@@ -1454,6 +1454,7 @@ describe('Drawer (scroll engine)', () => {
       vi.stubGlobal('visualViewport', vv)
       vi.stubGlobal('innerHeight', LAYOUT)
       vi.stubGlobal('innerWidth', 393)
+      vi.stubGlobal('navigator', { ...navigator, maxTouchPoints: 5 })
       Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
         configurable: true,
         get(this: HTMLElement) {

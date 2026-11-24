@@ -161,6 +161,16 @@ describe('useVisualViewport', () => {
         value,
       })
     let field: HTMLInputElement
+    const touchPoints = (value: number | null) => {
+      if (value === null) {
+        delete (navigator as { maxTouchPoints?: number }).maxTouchPoints
+      } else {
+        Object.defineProperty(navigator, 'maxTouchPoints', {
+          configurable: true,
+          value,
+        })
+      }
+    }
 
     beforeEach(() => {
       // A width no other test uses, so the baseline starts from this page.
@@ -169,9 +179,11 @@ describe('useVisualViewport', () => {
       setVisualViewportSize(695, 0)
       field = document.createElement('input')
       document.body.append(field)
+      touchPoints(5)
     })
 
     afterEach(() => {
+      touchPoints(null)
       field.remove()
       if (innerHeight) Object.defineProperty(window, 'innerHeight', innerHeight)
       if (innerWidth) Object.defineProperty(window, 'innerWidth', innerWidth)
@@ -206,13 +218,54 @@ describe('useVisualViewport', () => {
       expect(result.current.keyboardHeight).toBe(0)
     })
 
+    it('ignores the baseline without a touch screen', () => {
+      touchPoints(null)
+      const { result } = renderHook(() => useVisualViewport())
+      // A desktop window made shorter with a field focused.
+      act(() => {
+        field.focus()
+        setInnerHeight(392)
+        setVisualViewportSize(392, 0)
+      })
+      expect(result.current.isKeyboardOpen).toBe(false)
+    })
+
+    it('reads the keyboard closed once the field blurs, with no viewport event', async () => {
+      const onViewportChange = vi.fn()
+      const { result } = renderHook(() =>
+        useVisualViewport({ onViewportChange }),
+      )
+      act(() => {
+        field.focus()
+        setInnerHeight(392)
+        setVisualViewportSize(392, 303)
+      })
+      expect(result.current.isKeyboardOpen).toBe(true)
+      onViewportChange.mockClear()
+      await act(async () => {
+        field.blur()
+        await Promise.resolve()
+      })
+      expect(result.current.isKeyboardOpen).toBe(false)
+      expect(onViewportChange).toHaveBeenCalledTimes(1)
+      // Focus that changes nothing reports nothing.
+      const other = document.createElement('button')
+      document.body.append(other)
+      await act(async () => {
+        other.focus()
+        await Promise.resolve()
+      })
+      other.remove()
+      expect(onViewportChange).toHaveBeenCalledTimes(1)
+    })
+
     it('starts over when the width changes', () => {
       const { result } = renderHook(() => useVisualViewport())
       act(() => {
         setInnerWidth(844)
         setInnerHeight(390)
-        field.focus()
         setVisualViewportSize(390, 0)
+        field.focus()
       })
       expect(result.current.isKeyboardOpen).toBe(false)
     })

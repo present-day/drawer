@@ -67,6 +67,16 @@ function editableFocused(): boolean {
   return el instanceof HTMLTextAreaElement || el.isContentEditable
 }
 
+// A desktop window resized shorter, or devtools docked below, shrinks the
+// layout height with no keyboard involved.
+function softKeyboardLikely(): boolean {
+  if (navigator.maxTouchPoints > 0) return true
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer: coarse)').matches
+  )
+}
+
 /**
  * Tracks visualViewport height/offsetTop, derives keyboard state, and exposes
  * keyboard-aware available height for snap resolution.
@@ -84,66 +94,71 @@ export function useVisualViewport(
 
   const [availableHeight, setAvailableHeight] = useState(0)
 
-  const update = useCallback(() => {
-    if (typeof window === 'undefined' || !enabled) {
-      return
-    }
-    const vv = window.visualViewport
-    if (!vv) {
-      return
-    }
+  const lastRef = useRef<ViewportInfo | null>(null)
 
-    // Applied synchronously: the keyboard is already animating when the event
-    // fires, so any deferral (rAF batching included) shows up as the panel
-    // trailing the keyboard. React batches the setStates below on its own.
-    const height = vv.height
-    const offsetTop = vv.offsetTop
-    const innerH = window.innerHeight
-    const base = layoutBaseline(height)
-    // Against the baseline only with a field focused: the browser toolbars
-    // also move the layout height, by more than the threshold.
-    const keyboardHeight = Math.max(
-      0,
-      innerH - height,
-      editableFocused() ? base - height : 0,
-    )
-    const isKeyboardOpen = keyboardHeight > KEYBOARD_THRESHOLD_PX
-    // The inset exists to dock the panel above the soft keyboard. When no
-    // keyboard is present it is forced to 0 rather than trusting the
-    // arithmetic: after dismissal iOS can leave vv.height/offsetTop slightly
-    // short of the layout viewport, and that residual would hold the panel
-    // lifted off the bottom edge indefinitely.
-    const layoutBottomInset = isKeyboardOpen
-      ? Math.max(0, Math.round(innerH - height - offsetTop))
-      : 0
+  const update = useCallback(
+    (onlyIfChanged = false) => {
+      if (typeof window === 'undefined' || !enabled) {
+        return
+      }
+      const vv = window.visualViewport
+      if (!vv) {
+        return
+      }
 
-    const next: ViewportInfo = {
-      height,
-      offsetTop,
-      keyboardHeight,
-      isKeyboardOpen,
-      layoutBottomInset,
-    }
+      // Applied synchronously: the keyboard is already animating when the event
+      // fires, so any deferral (rAF batching included) shows up as the panel
+      // trailing the keyboard. React batches the setStates below on its own.
+      const height = vv.height
+      const offsetTop = vv.offsetTop
+      const innerH = window.innerHeight
+      const base = layoutBaseline(height)
+      // Against the baseline only with a field focused: the browser toolbars
+      // also move the layout height, by more than the threshold.
+      const keyboardHeight = Math.max(
+        0,
+        innerH - height,
+        editableFocused() && softKeyboardLikely() ? base - height : 0,
+      )
+      const isKeyboardOpen = keyboardHeight > KEYBOARD_THRESHOLD_PX
+      // The inset exists to dock the panel above the soft keyboard. When no
+      // keyboard is present it is forced to 0 rather than trusting the
+      // arithmetic: after dismissal iOS can leave vv.height/offsetTop slightly
+      // short of the layout viewport, and that residual would hold the panel
+      // lifted off the bottom edge indefinitely.
+      const layoutBottomInset = isKeyboardOpen
+        ? Math.max(0, Math.round(innerH - height - offsetTop))
+        : 0
 
-    setViewport((prev) => {
-      if (
+      const next: ViewportInfo = {
+        height,
+        offsetTop,
+        keyboardHeight,
+        isKeyboardOpen,
+        layoutBottomInset,
+      }
+
+      const prev = lastRef.current
+      const same =
+        !!prev &&
         prev.height === next.height &&
         prev.offsetTop === next.offsetTop &&
         prev.keyboardHeight === next.keyboardHeight &&
         prev.isKeyboardOpen === next.isKeyboardOpen &&
         prev.layoutBottomInset === next.layoutBottomInset
-      ) {
-        return prev
-      }
-      return next
-    })
+      if (same && onlyIfChanged) return
+      if (!same) lastRef.current = next
+      setViewport((current) => (same ? current : next))
 
-    setAvailableHeight(height)
-    onViewportChangeRef.current?.(next)
-  }, [enabled])
+      setAvailableHeight(height)
+      onViewportChangeRef.current?.(next)
+    },
+    [enabled],
+  )
 
   useEffect(() => {
     if (typeof window === 'undefined' || !enabled) {
+      lastRef.current = null
       setViewport({ ...DEFAULT_VIEWPORT })
       setAvailableHeight(0)
       return
@@ -154,13 +169,23 @@ export function useVisualViewport(
       return
     }
 
+    const onViewport = () => update()
+    // Focus changes whether the baseline counts, and no viewport event need
+    // follow: a blur with the keyboard already down, or a desktop field.
+    const onFocus = () => update(true)
+    // During focusout, focus hasn't landed anywhere yet.
+    const onFocusOut = () => queueMicrotask(onFocus)
     update()
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
+    vv.addEventListener('resize', onViewport)
+    vv.addEventListener('scroll', onViewport)
+    document.addEventListener('focusin', onFocus)
+    document.addEventListener('focusout', onFocusOut)
 
     return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
+      vv.removeEventListener('resize', onViewport)
+      vv.removeEventListener('scroll', onViewport)
+      document.removeEventListener('focusin', onFocus)
+      document.removeEventListener('focusout', onFocusOut)
     }
   }, [enabled, update])
 
