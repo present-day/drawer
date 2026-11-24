@@ -805,6 +805,31 @@ describe('Drawer (scroll engine)', () => {
     now.mockRestore()
   })
 
+  it('flicks a mouse drag one stop from where it began with snapToSequentialPoint', () => {
+    const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+    try {
+      renderDrawer({ snapPoints: [200, 420, 700], snapToSequentialPoint: true })
+      settleAt(200)
+      const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+      fireEvent.pointerDown(screen.getByRole('dialog'), {
+        ...mouse,
+        clientX: 100,
+        clientY: 600,
+      })
+      fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 590 })
+      now.mockReturnValue(1050)
+      fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 290 })
+      expect(scroller().scrollTop).toBe(500)
+      fireEvent.pointerUp(window, { ...mouse, clientY: 290 })
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ top: 420 }),
+      )
+      vi.advanceTimersByTime(1)
+    } finally {
+      now.mockRestore()
+    }
+  })
+
   describe('software keyboard', () => {
     const KEYBOARD = 300
     let vv: EventTarget & { height: number; offsetTop: number }

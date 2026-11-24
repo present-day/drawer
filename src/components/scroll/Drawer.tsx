@@ -117,13 +117,27 @@ function sessionVelocity(session: DragSession, now: number): number {
   return ((first.top - last.top) / (last.t - first.t)) * 1000
 }
 
-/** A flick goes one stop in its direction; anything slower to the nearest. */
-function releaseTarget(top: number, velocity: number, pos: number[]): number {
+/**
+ * A flick goes one stop in its direction; anything slower to the nearest.
+ * With `from`, where a sequential drag began, a flick lands at most one stop
+ * from there, as `scroll-snap-stop: always` does natively.
+ */
+function releaseTarget(
+  top: number,
+  velocity: number,
+  pos: number[],
+  from?: number,
+): number {
   if (Math.abs(velocity) >= VELOCITY_THRESHOLD) {
     const ahead =
       velocity < 0
         ? pos.find((p) => p > top + EDGE_PX)
         : pos.filter((p) => p < top - EDGE_PX).pop()
+    if (ahead !== undefined && from !== undefined) {
+      const start = nearestIndex(from, pos)
+      const i = pos.indexOf(ahead)
+      return pos[Math.min(start + 1, Math.max(start - 1, i))] ?? ahead
+    }
     if (ahead !== undefined) return ahead
   }
   return pos[nearestIndex(top, pos)] ?? 0
@@ -1347,7 +1361,15 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             const dismissible = latest.current.dismissible ?? true
             const pos = dismissible ? [0, ...positionsOf(s)] : positionsOf(s)
             const velocity = flick ? (session.release?.velocity ?? 0) : 0
-            const top = releaseTarget(restingTop(el), velocity, pos)
+            const lift = keyboardRef.current?.lift ?? 0
+            const top = releaseTarget(
+              restingTop(el),
+              velocity,
+              pos,
+              latest.current.snapToSequentialPoint
+                ? session.startTop - lift
+                : undefined,
+            )
             // Closed is physical 0 whatever the lift, as on the native path.
             const closing = dismissible && top === 0
             const there = closing
