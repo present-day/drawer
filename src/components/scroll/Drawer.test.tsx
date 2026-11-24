@@ -1919,6 +1919,54 @@ describe('Drawer (scroll engine)', () => {
     )
   })
 
+  describe('handleOnly with native touch', () => {
+    const touch = (y: number, x = 100) => [
+      { identifier: 1, clientX: x, clientY: y },
+    ]
+    /** False when the drawer canceled the pan. */
+    const pan = (target: Element, dy: number, dx = 0) => {
+      fireEvent.touchStart(target, { touches: touch(300) })
+      return fireEvent.touchMove(target, { touches: touch(300 + dy, 100 + dx) })
+    }
+
+    it('keeps a pan on the list or other content from moving the sheet', () => {
+      renderDrawer({ handleOnly: true })
+      const list = document.querySelector('[data-drawer-scroll]')
+      const handle = document.querySelector('[data-drawer-handle]')
+      if (!list || !handle) throw new Error('parts missing')
+      expect(pan(list, -40)).toBe(false)
+      expect(pan(list, 40)).toBe(false)
+      expect(pan(handle, 40)).toBe(true)
+      // Sideways: whatever scrolls horizontally there.
+      expect(pan(list, 5, 40)).toBe(true)
+    })
+
+    it('lets an unlocked list scroll itself', () => {
+      const scrollHeight = vi
+        .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+        .mockReturnValue(2000)
+      try {
+        renderDrawer({ handleOnly: true, contentScroll: 'always' })
+        const list = document.querySelector<HTMLElement>('[data-drawer-scroll]')
+        if (!list) throw new Error('list missing')
+        expect(pan(list, -40)).toBe(true)
+        // At its top, a pull down would chain to the sheet.
+        expect(pan(list, 40)).toBe(false)
+        list.scrollTop = 100
+        expect(pan(list, 40)).toBe(true)
+      } finally {
+        scrollHeight.mockRestore()
+      }
+    })
+
+    it('leaves native touch alone without handleOnly', () => {
+      renderDrawer()
+      const list = document.querySelector('[data-drawer-scroll]')
+      if (!list) throw new Error('list missing')
+      expect(pan(list, 40)).toBe(true)
+    })
+  })
+
   it('applies slots and keeps the v2 part attributes', () => {
     render(
       <Drawer

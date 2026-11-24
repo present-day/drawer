@@ -1367,6 +1367,17 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       [beginDrag],
     )
 
+    /** Whether the list under the finger scrolls this way by itself. */
+    const listScrolls = useCallback((target: Element, down: boolean) => {
+      const list = target.closest<HTMLElement>('[data-drawer-scroll]')
+      if (!list || !sheetRef.current?.contains(list)) return false
+      const unlocked =
+        latest.current.contentScroll === 'always' ||
+        !!scrollerRef.current?.hasAttribute('data-scroll-drawer-full')
+      if (!unlocked || down) return list.scrollTop > 0
+      return list.scrollTop + list.clientHeight < list.scrollHeight - EDGE_PX
+    }, [])
+
     // Unlike the mouse, a touch drags from buttons and links too: past the
     // slop it was never a tap, and a pill-like control is often the only part
     // of a collapsed modeless sheet there is to grab.
@@ -1387,17 +1398,6 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           if (t.identifier === gesture.id) return t
         }
         return null
-      }
-      // Whether the list under the finger scrolls this way by itself.
-      const listScrolls = (target: Element, down: boolean) => {
-        const list = target.closest<HTMLElement>('[data-drawer-scroll]')
-        if (!list || !sheet.contains(list)) return false
-        const el = scrollerRef.current
-        const unlocked =
-          latest.current.contentScroll === 'always' ||
-          !!el?.hasAttribute('data-scroll-drawer-full')
-        if (!unlocked || down) return list.scrollTop > 0
-        return list.scrollTop + list.clientHeight < list.scrollHeight - EDGE_PX
       }
 
       const onStart = (e: TouchEvent) => {
@@ -1467,7 +1467,36 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         sheet.removeEventListener('touchcancel', onEnd)
         if (gesture?.drag) draggingRef.current = false
       }
-    }, [mounted, modal, beginDrag])
+    }, [mounted, modal, beginDrag, listScrolls])
+
+    // `touch-action` can't stop a list's pan from chaining to the scroller,
+    // nor reach content outside `Drawer.Content`, so the browser's own pan
+    // of the sheet is canceled here unless it starts on the handle.
+    useEffect(() => {
+      const sheet = sheetRef.current
+      if (!mounted || !handleOnly || !sheet) return
+      let start = { x: 0, y: 0 }
+      const onStart = (e: TouchEvent) => {
+        const t = e.touches[0]
+        start = { x: t?.clientX ?? 0, y: t?.clientY ?? 0 }
+      }
+      const onMove = (e: TouchEvent) => {
+        const target = e.target
+        const t = e.touches[0]
+        if (!e.cancelable || !t || !(target instanceof Element)) return
+        if (target.closest('[data-drawer-handle]')) return
+        const dy = t.clientY - start.y
+        if (Math.abs(t.clientX - start.x) > Math.abs(dy)) return
+        if (listScrolls(target, dy > 0)) return
+        e.preventDefault()
+      }
+      sheet.addEventListener('touchstart', onStart, { passive: true })
+      sheet.addEventListener('touchmove', onMove, { passive: false })
+      return () => {
+        sheet.removeEventListener('touchstart', onStart)
+        sheet.removeEventListener('touchmove', onMove)
+      }
+    }, [mounted, handleOnly, listScrolls])
 
     const registerContent = useCallback((el: HTMLElement | null) => {
       contentRef.current = el
