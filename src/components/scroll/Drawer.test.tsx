@@ -544,6 +544,28 @@ describe('Drawer (scroll engine)', () => {
     })
   })
 
+  it('paints a backdrop added by turning modal on, without scroll timelines', () => {
+    vi.stubGlobal('CSS', { supports: () => false })
+    try {
+      const tree = (modal: boolean) => (
+        <Drawer open modal={modal} ariaLabel="Sheet" snapPoints={[200, 420]}>
+          <Drawer.Content />
+        </Drawer>
+      )
+      const { rerender } = render(tree(false))
+      settleAt(420)
+      rerender(tree(true))
+      const backdrop = document.querySelector<HTMLElement>(
+        '[data-scroll-drawer-backdrop]',
+      )
+      expect(Number(backdrop?.style.opacity)).toBe(1)
+      settleAt(100)
+      expect(Number(backdrop?.style.opacity)).toBe(0.5)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('hears Escape only from inside once it turns modeless while open', () => {
     const onOpenChange = vi.fn()
     const tree = (modal: boolean) => (

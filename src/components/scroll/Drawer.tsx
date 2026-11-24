@@ -343,6 +343,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const aimRef = useRef<number | null>(null)
     /** `settle`, for `scrollToIndex`, which `settle` itself depends on. */
     const settleRef = useRef<(() => void) | null>(null)
+    /** Writes the backdrop's opacity where scroll timelines can't. */
+    const paintBackdropRef = useRef<(() => void) | null>(null)
     /** The opening frame and animations; `frame` is 0 once it has run. */
     const entryRef = useRef<{
       frame: number
@@ -1143,13 +1145,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     useEffect(() => {
       const el = scrollerRef.current
       if (!mounted || !el) return
-      const backdrop = supportsScrollTimeline() ? null : backdropRef.current
-      const range = () => {
+      const scrollDriven = supportsScrollTimeline()
+      const range = (backdrop: HTMLElement) => {
         const s = stopsRef.current
         const r = s
           ? backdropRange(s, latest.current.fadeFromIndex)
           : { start: 0, end: 0, min: 0, max: 1 }
-        if (!backdrop) return r
         const css = getComputedStyle(backdrop)
         const read = (name: string, fallback: number) => {
           const v = Number.parseFloat(css.getPropertyValue(name))
@@ -1161,7 +1162,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           max: read('--scroll-drawer-backdrop-max', 1),
         }
       }
-      if (backdrop) writeBackdropOpacity(el, backdrop, range())
+      // Read each time: turning `modal` on mounts the backdrop later.
+      const paintBackdrop = () => {
+        const backdrop = scrollDriven ? null : backdropRef.current
+        if (backdrop) writeBackdropOpacity(el, backdrop, range(backdrop))
+      }
+      paintBackdrop()
+      paintBackdropRef.current = paintBackdrop
 
       let timer: ReturnType<typeof setTimeout> | undefined
       let frame = 0
@@ -1187,7 +1194,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
       const onScroll = () => {
         if (el.scrollTop > EDGE_PX) armedRef.current = true
-        if (backdrop) writeBackdropOpacity(el, backdrop, range())
+        paintBackdrop()
         const session = sessionRef.current
         // A JS drag samples where it writes scrollTop; this event lands a
         // frame later and would skew the timing.
@@ -1264,6 +1271,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       el.addEventListener('touchcancel', onTouchEnd, { passive: true })
       if (hasScrollEnd) el.addEventListener('scrollend', settle)
       return () => {
+        paintBackdropRef.current = null
         clearTimeout(timer)
         cancelAnimationFrame(frame)
         ro?.disconnect()
@@ -1412,6 +1420,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     useEffect(() => {
       if (layerRef.current) layerRef.current.modal = modal
+      paintBackdropRef.current?.()
     }, [modal])
 
     const requestClose = () => {
