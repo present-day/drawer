@@ -952,9 +952,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       if (next && !sameStops(stopsRef.current, next)) setStops(next)
     }, [mounted, pointsKey, dismissible, topInsetPx, resolveStops])
 
+    const shownStopsRef = useRef<Stops | null>(null)
     useLayoutEffect(() => {
       const el = scrollerRef.current
       if (!stops || !el) return
+      const prev = shownStopsRef.current
+      shownStopsRef.current = stops
       if (openedRef.current) {
         if (closingRef.current) return
         if (lastIndexRef.current === null && entryRef.current) {
@@ -970,8 +973,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           else if (!entryRef.current.frame) scrollToTop(el, physicalTop(top))
           return
         }
-        // Stops moved under an open sheet: hold the same stop at its new height.
-        const i = lastIndexRef.current ?? targetIndex()
+        // Stops moved under an open sheet: hold the same stop at its new
+        // height, found by value, since 'auto' can move past a fixed stop.
+        const held = lastIndexRef.current
+        const heldRaw = held === null ? undefined : prev?.raw[held]
+        const found = heldRaw === undefined ? -1 : stops.raw.indexOf(heldRaw)
+        const i = found !== -1 ? found : (held ?? targetIndex())
         const top = positionsOf(stops)[i]
         if (top !== undefined) el.scrollTop = physicalTop(top)
         settle()

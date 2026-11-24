@@ -1628,6 +1628,27 @@ describe('Drawer (scroll engine)', () => {
       expect(scroller().scrollTop).toBe(700)
     })
 
+    it('follows its auto stop past a fixed one', () => {
+      let listHeight = 300
+      const scrollHeight = vi
+        .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+        .mockImplementation(function (this: HTMLElement) {
+          return this.hasAttribute('data-drawer-scroll') ? listHeight : 0
+        })
+      try {
+        const ref = createRef<DrawerRef>()
+        renderDrawer({ snapPoints: [200, 'auto', 700] }, ref)
+        settleAt(300)
+        expect(ref.current?.getActiveSnapPoint()).toBe('auto')
+        listHeight = 150
+        resize()
+        expect(scroller().scrollTop).toBe(150)
+        expect(ref.current?.getActiveSnapPoint()).toBe('auto')
+      } finally {
+        scrollHeight.mockRestore()
+      }
+    })
+
     it('stays open when its auto stop measures nothing for a while', () => {
       let listHeight = 300
       const scrollHeight = vi
