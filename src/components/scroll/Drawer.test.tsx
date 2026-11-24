@@ -464,6 +464,84 @@ describe('Drawer (scroll engine)', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
+  describe('stops that change while the sheet is entering', () => {
+    const tree = (
+      snapPoints: number[],
+      props: Partial<DrawerProps> = {},
+      ref?: React.Ref<DrawerRef>,
+    ) => (
+      <Drawer
+        ref={ref}
+        open
+        ariaLabel="Sheet"
+        snapPoints={snapPoints}
+        {...props}
+      >
+        <Drawer.Content />
+      </Drawer>
+    )
+    const frame = () =>
+      act(() => new Promise<void>((r) => requestAnimationFrame(() => r())))
+
+    it('heads for the new target before the entry starts', async () => {
+      const ref = createRef<DrawerRef>()
+      const { rerender } = render(tree([200, 420], {}, ref))
+      rerender(tree([200, 500], {}, ref))
+      expect(scroller().scrollTop).toBe(0)
+      expect(scrollTo).not.toHaveBeenCalled()
+      await frame()
+      expect(scrollTo).toHaveBeenLastCalledWith({
+        top: 500,
+        behavior: 'smooth',
+      })
+      expect(ref.current?.getActiveSnapPoint()).toBe(500)
+    })
+
+    it('retargets an entry already scrolling, rather than jumping', async () => {
+      const ref = createRef<DrawerRef>()
+      // The entry scroll is still running, so scrollTop hasn't arrived.
+      scrollTo.mockImplementation(() => {})
+      try {
+        const { rerender } = render(tree([200, 420], {}, ref))
+        await frame()
+        expect(scrollTo).toHaveBeenLastCalledWith({
+          top: 420,
+          behavior: 'smooth',
+        })
+        rerender(tree([200, 500], {}, ref))
+        expect(scrollTo).toHaveBeenLastCalledWith({
+          top: 500,
+          behavior: 'smooth',
+        })
+        expect(scroller().scrollTop).toBe(0)
+        expect(ref.current?.getActiveSnapPoint()).toBeNull()
+      } finally {
+        scrollTo.mockImplementation(function (
+          this: HTMLElement,
+          opts: ScrollToOptions,
+        ) {
+          this.scrollTop = opts.top ?? 0
+        })
+      }
+    })
+
+    it('lets a pinned sheet finish its slide', () => {
+      const cancel = vi.fn()
+      const animate = vi.fn(() => ({ cancel }) as unknown as Animation)
+      HTMLElement.prototype.animate = animate
+      try {
+        const props = { dismissible: false, defaultSnapPoint: 200 }
+        const { rerender } = render(tree([200, 420], props))
+        expect(animate).toHaveBeenCalled()
+        rerender(tree([250, 420], props))
+        expect(cancel).not.toHaveBeenCalled()
+      } finally {
+        // @ts-expect-error happy-dom has no animate
+        delete HTMLElement.prototype.animate
+      }
+    })
+  })
+
   it('brings a swiped-down sheet back when the parent keeps it open', () => {
     const { onOpenChange } = renderDrawer()
     settleAt(420)

@@ -311,6 +311,11 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const lastIndexRef = useRef<number | null>(null)
     /** The stop the opening scroll heads for, until that scroll starts. */
     const entryIndexRef = useRef<number | null>(null)
+    /** The opening frame and animations; `frame` is 0 once it has run. */
+    const entryRef = useRef<{
+      frame: number
+      animations: (Animation | null)[]
+    } | null>(null)
     /** Set while a JS-driven drag (mouse, or touch on a modeless sheet) writes scrollTop. */
     const draggingRef = useRef(false)
     /** The stop content is laid out for during a drag; null at rest. */
@@ -894,7 +899,15 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       if (next) setStops(next)
     }, [mounted, resolveStops])
 
-    // Re-resolve when the snap config changes while open.
+    /** The resting layout for a stop the sheet hasn't reached yet. */
+    const layoutFor = (el: HTMLElement, s: Stops, index: number) => {
+      const sheetH = s.heights[s.heights.length - 1] ?? 0
+      el.style.setProperty(
+        '--scroll-drawer-hidden',
+        `${Math.max(0, sheetH - (s.heights[index] ?? 0))}px`,
+      )
+    }
+
     const pointsKey = (snapPoints ?? DEFAULT_SNAP_POINTS).join('|')
     useLayoutEffect(() => {
       if (!mounted || !openedRef.current) return
@@ -906,13 +919,22 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const el = scrollerRef.current
       if (!stops || !el) return
       if (openedRef.current) {
-        // Stops moved under an open sheet: hold the same stop at its new height.
-        if (!closingRef.current) {
-          const i = lastIndexRef.current ?? targetIndex()
-          const top = positionsOf(stops)[i]
-          if (top !== undefined) el.scrollTop = physicalTop(top)
-          settle()
+        if (closingRef.current) return
+        if (lastIndexRef.current === null && entryRef.current) {
+          // Content that lands mid-entry (data replacing a skeleton) moves the
+          // target, and the entry carries on to it rather than jumping there.
+          const index = entryIndexRef.current ?? targetIndex()
+          const top = positionsOf(stops)[index] ?? 0
+          layoutFor(el, stops, index)
+          if (!(latest.current.dismissible ?? true)) el.scrollTop = top
+          else if (!entryRef.current.frame) scrollToTop(el, physicalTop(top))
+          return
         }
+        // Stops moved under an open sheet: hold the same stop at its new height.
+        const i = lastIndexRef.current ?? targetIndex()
+        const top = positionsOf(stops)[i]
+        if (top !== undefined) el.scrollTop = physicalTop(top)
+        settle()
         return
       }
       openedRef.current = true
@@ -923,12 +945,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const pinned = !(latest.current.dismissible ?? true)
       const target = positionsOf(stops)[targetIndex()] ?? 0
       el.scrollTop = pinned ? target : 0
-      const sheetH = stops.heights[stops.heights.length - 1] ?? 0
-      const targetH = stops.heights[targetIndex()] ?? 0
-      el.style.setProperty(
-        '--scroll-drawer-hidden',
-        `${Math.max(0, sheetH - targetH)}px`,
-      )
+      layoutFor(el, stops, targetIndex())
       // Synchronously, so chrome positioned against the sheet is right on
       // first paint rather than one frame late.
       latest.current.onHeightChange?.(visibleHeight())
@@ -955,26 +972,35 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           : null
 
       const frame = requestAnimationFrame(() => {
+        if (entryRef.current) entryRef.current.frame = 0
         const index = entryIndexRef.current ?? targetIndex()
         entryIndexRef.current = null
         if (pinned) {
           settle()
           return
         }
-        latest.current.onAnimationStart?.(0, stops.heights[index] ?? 0)
-        const lifted = physicalTop(positionsOf(stops)[index] ?? 0)
+        const now = stopsRef.current ?? stops
+        latest.current.onAnimationStart?.(0, now.heights[index] ?? 0)
+        const lifted = physicalTop(positionsOf(now)[index] ?? 0)
         if (keyboardRef.current) keyboardRef.current.pending = false
         scrollToTop(el, lifted)
         if (Math.abs(el.scrollTop - lifted) <= EDGE_PX && lifted > EDGE_PX) {
           settle()
         }
       })
-      return () => {
-        cancelAnimationFrame(frame)
-        entry?.cancel()
-        entryFade?.cancel()
-      }
+      entryRef.current = { frame, animations: [entry, entryFade] }
     }, [stops, settle, targetIndex, visibleHeight, physicalTop])
+
+    useLayoutEffect(() => {
+      if (!mounted) return
+      return () => {
+        const entry = entryRef.current
+        entryRef.current = null
+        if (!entry) return
+        cancelAnimationFrame(entry.frame)
+        for (const a of entry.animations) a?.cancel()
+      }
+    }, [mounted])
 
     useEffect(() => {
       const el = scrollerRef.current
