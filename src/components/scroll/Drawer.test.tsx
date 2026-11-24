@@ -125,15 +125,29 @@ describe('scroll engine geometry', () => {
   })
 })
 
+function restore(
+  target: object,
+  key: string,
+  descriptor: PropertyDescriptor | undefined,
+) {
+  if (descriptor) Object.defineProperty(target, key, descriptor)
+  else delete (target as Record<string, unknown>)[key]
+}
+
 describe('Drawer (scroll engine)', () => {
   const scrollTo = vi.fn(function (this: HTMLElement, opts: ScrollToOptions) {
     this.scrollTop = opts.top ?? 0
   })
   let clientHeight: PropertyDescriptor | undefined
+  let elementScrollTo: PropertyDescriptor | undefined
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     scrollTo.mockClear()
+    elementScrollTo = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      'scrollTo',
+    )
     Element.prototype.scrollTo =
       scrollTo as unknown as typeof Element.prototype.scrollTo
     clientHeight = Object.getOwnPropertyDescriptor(
@@ -150,9 +164,8 @@ describe('Drawer (scroll engine)', () => {
 
   afterEach(() => {
     vi.useRealTimers()
-    if (clientHeight) {
-      Object.defineProperty(HTMLElement.prototype, 'clientHeight', clientHeight)
-    }
+    restore(HTMLElement.prototype, 'clientHeight', clientHeight)
+    restore(Element.prototype, 'scrollTo', elementScrollTo)
   })
 
   it('resolves fractions and tokens to px against the screen it opens on', () => {
