@@ -80,6 +80,8 @@ type DragSession = {
   samples: { t: number; top: number }[]
   /** Frozen at release, so `onDragEnd` reports the flick, not the settle. */
   release?: { y: number; velocity: number }
+  /** Its release already picked a stop to scroll to. */
+  aimed?: boolean
 }
 
 function startSession(event: DragSession['event'], top: number): DragSession {
@@ -564,6 +566,26 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (el.scrollTop <= EDGE_PX) setMounted(false)
         return
       }
+      const kb = keyboardRef.current
+      const session = sessionRef.current
+      // Snapping is off while the keyboard is up, so a native drag would rest
+      // wherever momentum left it; aim it as the JS drag does.
+      if (kb && !kb.pending && session?.ended && !session.aimed) {
+        session.aimed = true
+        const dismissible = p.dismissible ?? true
+        const stopsAt = dismissible ? [0, ...positionsOf(s)] : positionsOf(s)
+        const released = session.startTop - (session.release?.y ?? 0)
+        const top = releaseTarget(
+          released - kb.lift,
+          session.release?.velocity ?? 0,
+          stopsAt,
+        )
+        const physical = dismissible && top === 0 ? 0 : physicalTop(top)
+        if (Math.abs(el.scrollTop - physical) > EDGE_PX) {
+          scrollToTop(el, physical)
+          return
+        }
+      }
       if ((p.dismissible ?? true) && el.scrollTop <= EDGE_PX) {
         if (!armedRef.current) return
         sessionRef.current = null
@@ -572,7 +594,6 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
       const pos = positionsOf(s)
       const index = nearestIndex(restingTop(el), pos)
-      const kb = keyboardRef.current
       if (kb?.pending) {
         kb.pending = false
         const lifted = physicalTop(pos[index] ?? 0)
@@ -589,7 +610,6 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       )
       layoutHidden(el)
       const raw = s.raw[index] as SnapPoint
-      const session = sessionRef.current
       if (session?.ended) {
         sessionRef.current = null
         if (session.started) {
@@ -1134,6 +1154,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             })
             setTimeout(() => window.removeEventListener('click', swallow, true))
             endSession(session, ev, el.scrollTop)
+            session.aimed = true
             if (sessionRef.current === session) {
               if (session.started) session.ended = true
               else sessionRef.current = null

@@ -899,6 +899,95 @@ describe('Drawer (scroll engine)', () => {
       )
     })
 
+    describe('a native drag released with the keyboard up', () => {
+      it('goes one stop on with a flick', () => {
+        const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+        try {
+          const { onOpenChange } = renderDrawer()
+          settleAt(420)
+          keyboard(KEYBOARD)
+          const el = scroller()
+          const start = el.scrollTop
+          fireEvent.touchStart(el, { touches: [{ clientY: 500 }] })
+          now.mockReturnValue(1050)
+          el.scrollTop = start - 100
+          fireEvent.scroll(el)
+          fireEvent.touchEnd(el)
+          // Momentum carries it past that stop before the scroll ends.
+          el.scrollTop = start - 650
+          fireEvent(el, new Event('scrollend'))
+          expect(scrollTo).toHaveBeenLastCalledWith(
+            expect.objectContaining({ top: 200 + KEYBOARD }),
+          )
+          expect(onOpenChange).not.toHaveBeenCalled()
+        } finally {
+          now.mockRestore()
+        }
+      })
+
+      /** A slow drag: 200 ms, then a pause before release, so no flick. */
+      const drag = (to: number) => {
+        const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+        try {
+          const el = scroller()
+          fireEvent.touchStart(el, { touches: [{ clientY: 500 }] })
+          now.mockReturnValue(1200)
+          el.scrollTop = to
+          fireEvent.scroll(el)
+          now.mockReturnValue(1400)
+          fireEvent.touchEnd(el)
+          fireEvent(el, new Event('scrollend'))
+        } finally {
+          now.mockRestore()
+        }
+      }
+
+      it('closes below the lowest stop', () => {
+        const { onOpenChange } = renderDrawer()
+        settleAt(200)
+        keyboard(KEYBOARD)
+        drag(KEYBOARD + 50)
+        expect(scrollTo).toHaveBeenLastCalledWith(
+          expect.objectContaining({ top: 0 }),
+        )
+        settleAt(0)
+        expect(onOpenChange).toHaveBeenCalledWith(false)
+      })
+
+      it('snaps to the nearest stop between stops, lifted', () => {
+        const ref = createRef<DrawerRef>()
+        const onDragEnd = vi.fn()
+        const { onOpenChange } = renderDrawer({ onDragEnd }, ref)
+        settleAt(200)
+        keyboard(KEYBOARD)
+        drag(KEYBOARD + 340)
+        expect(scrollTo).toHaveBeenLastCalledWith(
+          expect.objectContaining({ top: 420 + KEYBOARD }),
+        )
+        expect(onDragEnd).not.toHaveBeenCalled()
+        settleAt(420 + KEYBOARD)
+        expect(ref.current?.getActiveSnapPoint()).toBe(420)
+        expect(onDragEnd).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ targetSnapPoint: 420 }),
+        )
+        expect(onOpenChange).not.toHaveBeenCalled()
+      })
+
+      it('stays put when not dismissible, at the lowest stop', () => {
+        const { onOpenChange } = renderDrawer({ dismissible: false })
+        // Not dismissible, the lowest stop is scrollTop 0.
+        settleAt(0)
+        keyboard(KEYBOARD)
+        expect(scroller().scrollTop).toBe(KEYBOARD)
+        drag(KEYBOARD + 20)
+        expect(scrollTo).toHaveBeenLastCalledWith(
+          expect.objectContaining({ top: KEYBOARD }),
+        )
+        expect(onOpenChange).not.toHaveBeenCalled()
+      })
+    })
+
     it('stops lifting at the top inset', () => {
       const ref = createRef<DrawerRef>()
       renderDrawer({ snapPoints: [200, 700] }, ref)
