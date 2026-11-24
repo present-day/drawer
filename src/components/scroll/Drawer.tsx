@@ -994,6 +994,17 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       let timer: ReturnType<typeof setTimeout> | undefined
       let frame = 0
       const hasScrollEnd = 'onscrollend' in window
+      // A finger held still for the timeout isn't a scroll that ended; the
+      // release arms it again.
+      const fallback = () => {
+        const session = sessionRef.current
+        if (draggingRef.current || (session && !session.ended)) return
+        settle()
+      }
+      const armFallback = () => {
+        clearTimeout(timer)
+        timer = setTimeout(fallback, SETTLE_FALLBACK_MS)
+      }
       const perFrame = () => {
         frame = 0
         const session = sessionRef.current
@@ -1025,10 +1036,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         ) {
           frame = requestAnimationFrame(perFrame)
         }
-        if (!hasScrollEnd) {
-          clearTimeout(timer)
-          timer = setTimeout(settle, SETTLE_FALLBACK_MS)
-        }
+        if (!hasScrollEnd) armFallback()
       }
       const onTouchStart = (e: TouchEvent) => {
         sessionRef.current = startSession(e, el.scrollTop)
@@ -1041,8 +1049,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         // Already ended by a modeless touch drag on the sheet.
         if (!session || session.ended) return
         endSession(session, e, el.scrollTop)
-        if (session.started) session.ended = true
-        else sessionRef.current = null
+        if (session.started) {
+          session.ended = true
+          if (!hasScrollEnd) armFallback()
+        } else sessionRef.current = null
       }
       const ro =
         typeof ResizeObserver === 'function'

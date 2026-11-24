@@ -1398,6 +1398,69 @@ describe('Drawer (scroll engine)', () => {
     })
   })
 
+  describe('without scrollend', () => {
+    let scrollEnd: PropertyDescriptor | undefined
+
+    beforeEach(() => {
+      scrollEnd = Object.getOwnPropertyDescriptor(window, 'onscrollend')
+      delete (window as { onscrollend?: unknown }).onscrollend
+    })
+
+    afterEach(() => {
+      if (scrollEnd) Object.defineProperty(window, 'onscrollend', scrollEnd)
+    })
+
+    const scrollTo_ = (top: number) => {
+      scroller().scrollTop = top
+      fireEvent.scroll(scroller())
+    }
+
+    it('waits for the finger to lift before settling', () => {
+      const onSnapPointChange = vi.fn()
+      const onDragEnd = vi.fn()
+      renderDrawer({ onSnapPointChange, onDragEnd })
+      scrollTo_(200)
+      vi.advanceTimersByTime(200)
+      onSnapPointChange.mockClear()
+      const el = scroller()
+      fireEvent.touchStart(el, { touches: [{ clientY: 500 }] })
+      scrollTo_(330)
+      // Held still past the fallback.
+      vi.advanceTimersByTime(500)
+      expect(onSnapPointChange).not.toHaveBeenCalled()
+      expect(onDragEnd).not.toHaveBeenCalled()
+      scrollTo_(420)
+      vi.advanceTimersByTime(500)
+      expect(onSnapPointChange).not.toHaveBeenCalled()
+
+      // Lifted on the stop, so no scroll follows the release.
+      fireEvent.touchEnd(el)
+      vi.advanceTimersByTime(200)
+      expect(onSnapPointChange).toHaveBeenCalledWith(420, 1)
+      expect(onDragEnd).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ targetSnapPoint: 420 }),
+      )
+    })
+
+    it('settles a scroll that ends after the release', () => {
+      const onSnapPointChange = vi.fn()
+      renderDrawer({ onSnapPointChange })
+      scrollTo_(420)
+      vi.advanceTimersByTime(200)
+      onSnapPointChange.mockClear()
+      const el = scroller()
+      fireEvent.touchStart(el, { touches: [{ clientY: 500 }] })
+      scrollTo_(350)
+      fireEvent.touchEnd(el)
+      scrollTo_(260)
+      scrollTo_(200)
+      vi.advanceTimersByTime(200)
+      expect(onSnapPointChange).toHaveBeenCalledTimes(1)
+      expect(onSnapPointChange).toHaveBeenCalledWith(200, 0)
+    })
+  })
+
   describe('content layout during a drag', () => {
     const STOPS = [200, 420, 700]
     /** What's below the screen with the sheet at `top`. */
