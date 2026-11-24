@@ -259,6 +259,23 @@ describe('useVisualViewport', () => {
       expect(onViewportChange).toHaveBeenCalledTimes(1)
     })
 
+    it('drops a blur check queued before unmount', async () => {
+      const onViewportChange = vi.fn()
+      const { unmount } = renderHook(() =>
+        useVisualViewport({ onViewportChange }),
+      )
+      act(() => {
+        field.focus()
+        setInnerHeight(392)
+        setVisualViewportSize(392, 303)
+      })
+      onViewportChange.mockClear()
+      field.blur()
+      unmount()
+      await Promise.resolve()
+      expect(onViewportChange).not.toHaveBeenCalled()
+    })
+
     it('starts over when the width changes', () => {
       const { result } = renderHook(() => useVisualViewport())
       act(() => {

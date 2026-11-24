@@ -169,10 +169,13 @@ export function useVisualViewport(
       return
     }
 
+    let subscribed = true
     const onViewport = () => update()
     // Focus changes whether the baseline counts, and no viewport event need
     // follow: a blur with the keyboard already down, or a desktop field.
-    const onFocus = () => update(true)
+    const onFocus = () => {
+      if (subscribed) update(true)
+    }
     // During focusout, focus hasn't landed anywhere yet.
     const onFocusOut = () => queueMicrotask(onFocus)
     update()
@@ -182,6 +185,7 @@ export function useVisualViewport(
     document.addEventListener('focusout', onFocusOut)
 
     return () => {
+      subscribed = false
       vv.removeEventListener('resize', onViewport)
       vv.removeEventListener('scroll', onViewport)
       document.removeEventListener('focusin', onFocus)
