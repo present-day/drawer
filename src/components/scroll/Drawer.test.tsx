@@ -1,5 +1,12 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { createRef, useRef, useState } from 'react'
+import {
+  createRef,
+  Suspense,
+  startTransition,
+  use,
+  useRef,
+  useState,
+} from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useDrawerKeyboardSnapMobile } from '../../hooks/useDrawerKeyboardSnapMobile'
 import type { DrawerProps, DrawerRef, SnapPoint } from '../../types'
@@ -338,6 +345,37 @@ describe('Drawer (scroll engine)', () => {
     fireEvent.keyDown(document.body, { key: 'Escape' })
     expect(onOpenChange).not.toHaveBeenCalled()
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('keeps reading the committed props while a transition is suspended', async () => {
+    const onOpenChange = vi.fn()
+    const never = new Promise<never>(() => {})
+    function Wait(): null {
+      use(never)
+      return null
+    }
+    const tree = (pending: boolean) => (
+      <Suspense fallback={null}>
+        <Drawer
+          open
+          onOpenChange={onOpenChange}
+          dismissible={!pending}
+          ariaLabel="Sheet"
+          snapPoints={[200, 420]}
+        >
+          <Drawer.Content>{pending && <Wait />}</Drawer.Content>
+        </Drawer>
+      </Suspense>
+    )
+    const { rerender } = render(tree(false))
+    await act(async () => {
+      startTransition(() => rerender(tree(true)))
+    })
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    const spacer = document.querySelector('[data-scroll-drawer-spacer]')
+    if (!spacer) throw new Error('spacer missing')
+    fireEvent.click(spacer)
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 

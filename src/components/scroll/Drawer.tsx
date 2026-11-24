@@ -10,6 +10,7 @@ import {
   useEffect,
   useId,
   useImperativeHandle,
+  useInsertionEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -352,7 +353,6 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       bounds: { top: number; bottom: number } | null
     } | null>(null)
     const stopsRef = useRef<Stops | null>(null)
-    stopsRef.current = stops
     const titleId = useId()
     const stackName = `--scroll-drawer-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
     const stackRef = useRef<ReturnType<typeof joinStack> | null>(null)
@@ -387,7 +387,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const descriptionId = useId()
 
     const latest = useRef(props)
-    latest.current = props
+    // Committed values only, so a render React discards can't reach handlers.
+    // An insertion effect runs before every layout effect and ref callback,
+    // children's included.
+    useInsertionEffect(() => {
+      latest.current = props
+      stopsRef.current = stops
+    })
     const openRef = useRef(open)
     openRef.current = open
 
