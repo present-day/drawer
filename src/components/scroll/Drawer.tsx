@@ -1307,6 +1307,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         el.setAttribute('data-scroll-drawer-dragging', '')
         document.getSelection()?.removeAllRanges()
         return {
+          session,
           move: (ev: DragSession['event'], y: number) => {
             session.event = ev
             el.scrollTop = anchor.top - (y - anchor.y)
@@ -1389,6 +1390,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           stop()
           if (!drag) return
           draggingRef.current = false
+          if (sessionRef.current === drag.session) sessionRef.current = null
           const el = scrollerRef.current
           el?.removeAttribute('data-scroll-drawer-dragging')
           if (el) el.style.scrollSnapType = ''

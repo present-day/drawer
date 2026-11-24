@@ -1649,6 +1649,39 @@ describe('Drawer (scroll engine)', () => {
       )
     })
 
+    it('settles after a mouse drag that closed with the button held', () => {
+      const onSnapPointChange = vi.fn()
+      const tree = (open: boolean) => (
+        <Drawer
+          open={open}
+          ariaLabel="Sheet"
+          snapPoints={[200, 420]}
+          onSnapPointChange={onSnapPointChange}
+        >
+          <Drawer.Content />
+        </Drawer>
+      )
+      const { rerender } = render(tree(true))
+      scrollTo_(420)
+      vi.advanceTimersByTime(200)
+      const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+      fireEvent.pointerDown(screen.getByRole('dialog'), {
+        ...mouse,
+        clientX: 100,
+        clientY: 100,
+      })
+      fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 150 })
+      fireEvent.scroll(scroller())
+      rerender(tree(false))
+      vi.advanceTimersByTime(1000)
+      rerender(tree(true))
+      vi.advanceTimersByTime(200)
+      onSnapPointChange.mockClear()
+      scrollTo_(200)
+      vi.advanceTimersByTime(200)
+      expect(onSnapPointChange).toHaveBeenCalledWith(200, 0)
+    })
+
     it('settles a scroll that ends after the release', () => {
       const onSnapPointChange = vi.fn()
       renderDrawer({ onSnapPointChange })
