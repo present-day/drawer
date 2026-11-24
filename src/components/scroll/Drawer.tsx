@@ -313,6 +313,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const entryIndexRef = useRef<number | null>(null)
     /** Set while a JS-driven drag (mouse, or touch on a modeless sheet) writes scrollTop. */
     const draggingRef = useRef(false)
+    /** The stop content is laid out for during a drag; null at rest. */
+    const aheadRef = useRef<number | null>(null)
     const sessionRef = useRef<DragSession | null>(null)
     /**
      * Set while the software keyboard is up; `lift` is the scrollTop added.
@@ -530,18 +532,45 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       [liftAt],
     )
 
-    const layoutHidden = useCallback((el: HTMLElement) => {
+    const writeHidden = useCallback((el: HTMLElement, top: number) => {
       const sheet = sheetRef.current
       if (!sheet) return
       // Layout offsets, not getBoundingClientRect: the pinned entry translate
       // may still be running and would inflate the hidden height.
       const hidden =
-        sheet.offsetTop + sheet.offsetHeight - el.scrollTop - el.clientHeight
+        sheet.offsetTop + sheet.offsetHeight - top - el.clientHeight
       el.style.setProperty(
         '--scroll-drawer-hidden',
         `${Math.max(0, Math.round(hidden))}px`,
       )
     }, [])
+
+    const layoutHidden = useCallback(
+      (el: HTMLElement) => {
+        aheadRef.current = null
+        writeHidden(el, el.scrollTop)
+      },
+      [writeHidden],
+    )
+
+    // Laid out for the resting stop, a sheet dragged up would reveal only the
+    // empty fill strip until it settles; lay out for the stop it's heading
+    // into instead, and only when it crosses one.
+    const layoutAhead = useCallback(
+      (el: HTMLElement) => {
+        const s = stopsRef.current
+        if (!s) return
+        const pos = positionsOf(s)
+        const top = restingTop(el)
+        const found = pos.findIndex((p) => p >= top - EDGE_PX)
+        const index = found === -1 ? pos.length - 1 : found
+        if (index === aheadRef.current) return
+        aheadRef.current = index
+        const stop = pos[index] ?? 0
+        writeHidden(el, stop + (keyboardRef.current ? liftAt(stop) : 0))
+      },
+      [restingTop, liftAt, writeHidden],
+    )
 
     const visibleHeight = useCallback((): number => {
       const el = scrollerRef.current
@@ -731,6 +760,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           el.style.removeProperty('--scroll-drawer-keyboard-height')
           el.style.removeProperty('--scroll-drawer-keyboard-sheet-max')
           layoutHidden(el)
+          if (dragActive()) layoutAhead(el)
           // Released while snapping was still off: land it from here.
           if (session?.blurred && session.ended && !dragActive()) {
             const pos = positionsOf(s)
@@ -777,6 +807,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           el.scrollTop = physicalTop(top)
         }
         layoutHidden(el)
+        if (dragActive()) layoutAhead(el)
         const fill = keyboardFillRef.current
         if (fill) fill.style.top = `${vp.offsetTop + vp.height}px`
         if (kb) return
@@ -797,6 +828,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       [
         dragActive,
         keyboardMinTop,
+        layoutAhead,
         layoutHidden,
         paintKeyboardFill,
         physicalTop,
@@ -986,6 +1018,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (session && !session.ended && !session.blurred) {
           blurHiddenField(el, session)
         }
+        if (dragActive()) layoutAhead(el)
         if (
           !frame &&
           (latest.current.onDrag || latest.current.onHeightChange)
@@ -1065,6 +1098,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       visibleHeight,
       resolveStops,
       blurHiddenField,
+      dragActive,
+      layoutAhead,
     ])
 
     useEffect(() => {
@@ -1216,6 +1251,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             session.event = ev
             el.scrollTop = anchor.top - (y - anchor.y)
             recordSample(session, el.scrollTop)
+            layoutAhead(el)
           },
           /** `flick` false (a canceled touch) ignores the release velocity. */
           end: (ev: DragSession['event'], flick = true) => {
@@ -1251,7 +1287,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           },
         }
       },
-      [physicalTop, restingTop, settle],
+      [layoutAhead, physicalTop, restingTop, settle],
     )
 
     // Same rules as v2: not from controls or `[data-drawer-no-drag]`, not from

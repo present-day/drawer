@@ -24,6 +24,46 @@ function settleAt(top: number) {
   vi.advanceTimersByTime(200)
 }
 
+/**
+ * Gives the sheet a layout box: it sits below a spacer of `spacer` px and is
+ * `height` tall, so at scrollTop t the part below the screen is
+ * spacer + height - t - clientHeight.
+ */
+function stubSheetBox(height: number, spacer = VIEWPORT) {
+  const top = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'offsetTop',
+  )
+  const tall = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'offsetHeight',
+  )
+  const isSheet = (el: HTMLElement) =>
+    el.hasAttribute('data-scroll-drawer-sheet')
+  Object.defineProperty(HTMLElement.prototype, 'offsetTop', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return isSheet(this) ? spacer : 0
+    },
+  })
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+    configurable: true,
+    get(this: HTMLElement) {
+      return isSheet(this) ? height : 0
+    },
+  })
+  return () => {
+    if (top) Object.defineProperty(HTMLElement.prototype, 'offsetTop', top)
+    if (tall) {
+      Object.defineProperty(HTMLElement.prototype, 'offsetHeight', tall)
+    }
+  }
+}
+
+function hidden() {
+  return scroller().style.getPropertyValue('--scroll-drawer-hidden')
+}
+
 function markers() {
   return [
     ...document.querySelectorAll<HTMLElement>('[data-scroll-drawer-marker]'),
@@ -1177,6 +1217,32 @@ describe('Drawer (scroll engine)', () => {
       })
     })
 
+    it('picks the stop to lay out for from the resting top while the keyboard is up', () => {
+      const restore = stubSheetBox(700)
+      try {
+        renderDrawer({ snapPoints: [200, 420, 700] })
+        settleAt(200)
+        keyboard(KEYBOARD)
+        const el = scroller()
+        expect(el.scrollTop).toBe(200 + KEYBOARD)
+        fireEvent.touchStart(el, { touches: [{ clientY: 500 }] })
+        // Resting 210, so 420 is next; raw scrollTop would say 700.
+        el.scrollTop = 210 + KEYBOARD
+        fireEvent.scroll(el)
+        // 420 lifts by the whole keyboard; the scroller is the visual viewport.
+        expect(hidden()).toBe(
+          `${VIEWPORT + 700 - (420 + KEYBOARD) - (VIEWPORT - KEYBOARD)}px`,
+        )
+        // Closing mid-drag keeps scrollTop, so the lift becomes position and
+        // the sheet is past 420.
+        keyboard(0)
+        expect(el.scrollTop).toBe(210 + KEYBOARD)
+        expect(hidden()).toBe('0px')
+      } finally {
+        restore()
+      }
+    })
+
     it('stops lifting at the top inset', () => {
       const ref = createRef<DrawerRef>()
       renderDrawer({ snapPoints: [200, 700] }, ref)
@@ -1318,6 +1384,117 @@ describe('Drawer (scroll engine)', () => {
       apply(FRAMES[rest])
       expect(el).not.toHaveAttribute('data-scroll-drawer-keyboard')
       expect(el.scrollTop).toBe(LAYOUT - TOP_INSET)
+    })
+  })
+
+  describe('content layout during a drag', () => {
+    const STOPS = [200, 420, 700]
+    /** What's below the screen with the sheet at `top`. */
+    const at = (top: number) => `${700 - top}px`
+    let restore: () => void
+
+    beforeEach(() => {
+      restore = stubSheetBox(700)
+    })
+
+    afterEach(() => {
+      restore()
+    })
+
+    const scrollTo_ = (top: number) => {
+      scroller().scrollTop = top
+      fireEvent.scroll(scroller())
+    }
+    const hiddenWrites = () => vi.spyOn(scroller().style, 'setProperty')
+    const writesOf = (spy: ReturnType<typeof hiddenWrites>) =>
+      spy.mock.calls.filter(([name]) => name === '--scroll-drawer-hidden')
+        .length
+
+    it('lays out for the next stop up as a drag leaves the lowest, and again past each stop', () => {
+      renderDrawer({ snapPoints: STOPS })
+      settleAt(200)
+      expect(hidden()).toBe(at(200))
+      const writes = hiddenWrites()
+      const el = scroller()
+      fireEvent.touchStart(el, { touches: [{ clientY: 500 }] })
+      scrollTo_(210)
+      expect(hidden()).toBe(at(420))
+      scrollTo_(300)
+      scrollTo_(419)
+      expect(hidden()).toBe(at(420))
+      expect(writesOf(writes)).toBe(1)
+      scrollTo_(430)
+      expect(hidden()).toBe(at(700))
+      // Overscroll past the top stop keeps the top layout.
+      scrollTo_(760)
+      expect(hidden()).toBe(at(700))
+      expect(writesOf(writes)).toBe(2)
+    })
+
+    it('keeps the higher layout dragging down until it passes below a stop', () => {
+      renderDrawer({ snapPoints: STOPS })
+      settleAt(700)
+      expect(hidden()).toBe(at(700))
+      const el = scroller()
+      fireEvent.touchStart(el, { touches: [{ clientY: 100 }] })
+      scrollTo_(690)
+      scrollTo_(430)
+      expect(hidden()).toBe(at(700))
+      scrollTo_(410)
+      expect(hidden()).toBe(at(420))
+      scrollTo_(150)
+      expect(hidden()).toBe(at(200))
+    })
+
+    it('returns to the resting layout once released and settled', () => {
+      renderDrawer({ snapPoints: STOPS })
+      settleAt(200)
+      const el = scroller()
+      fireEvent.touchStart(el, { touches: [{ clientY: 500 }] })
+      scrollTo_(300)
+      fireEvent.touchEnd(el)
+      // Momentum isn't the finger.
+      scrollTo_(250)
+      expect(hidden()).toBe(at(420))
+      settleAt(200)
+      expect(hidden()).toBe(at(200))
+    })
+
+    it('leaves a programmatic snap at the resting layout until it settles', () => {
+      const ref = createRef<DrawerRef>()
+      renderDrawer({ snapPoints: STOPS }, ref)
+      settleAt(200)
+      act(() => ref.current?.snapTo(700))
+      scrollTo_(400)
+      scrollTo_(600)
+      expect(hidden()).toBe(at(200))
+      settleAt(700)
+      expect(hidden()).toBe(at(700))
+    })
+
+    it('does the same for a pointer drag', () => {
+      renderDrawer({ snapPoints: STOPS })
+      settleAt(200)
+      const el = scroller()
+      const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+      const sheet = screen.getByRole('dialog')
+      fireEvent.pointerDown(sheet, { ...mouse, clientX: 100, clientY: 500 })
+      // Past the slop: this one anchors the drag.
+      fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 510 })
+      expect(hidden()).toBe(at(200))
+      fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 490 })
+      expect(el.scrollTop).toBe(220)
+      expect(hidden()).toBe(at(420))
+      fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 200 })
+      expect(hidden()).toBe(at(700))
+      fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 400 })
+      expect(el.scrollTop).toBe(310)
+      expect(hidden()).toBe(at(420))
+      fireEvent.pointerUp(window, { ...mouse, clientX: 100, clientY: 400 })
+      expect(hidden()).toBe(at(420))
+      settleAt(200)
+      expect(hidden()).toBe(at(200))
+      vi.advanceTimersByTime(1)
     })
   })
 
