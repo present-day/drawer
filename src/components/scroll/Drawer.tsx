@@ -367,6 +367,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     const latest = useRef(props)
     latest.current = props
+    const openRef = useRef(open)
+    openRef.current = open
 
     const setOpen = useCallback(
       (next: boolean) => {
@@ -662,6 +664,11 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (!armedRef.current) return
         sessionRef.current = null
         setOpen(false)
+        // A controlled parent may keep it open (a "discard changes?" veto);
+        // off screen, the scroller would still cover the page.
+        setTimeout(() => {
+          if (openRef.current && !closingRef.current) scrollToIndex(0)
+        })
         return
       }
       const pos = positionsOf(s)
@@ -705,6 +712,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       layoutHidden,
       physicalTop,
       restingTop,
+      scrollToIndex,
       setOpen,
       visibleHeight,
     ])

@@ -464,19 +464,50 @@ describe('Drawer (scroll engine)', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
+  it('brings a swiped-down sheet back when the parent keeps it open', () => {
+    const { onOpenChange } = renderDrawer()
+    settleAt(420)
+    scrollTo.mockClear()
+    settleAt(0)
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(scrollTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({ top: 200 }),
+    )
+  })
+
+  it('stays down when the parent closes it', () => {
+    function Parent() {
+      const [open, setOpen] = useState(true)
+      return (
+        <Drawer open={open} onOpenChange={setOpen} snapPoints={[200, 420]}>
+          <Drawer.Content />
+        </Drawer>
+      )
+    }
+    render(<Parent />)
+    settleAt(420)
+    scrollTo.mockClear()
+    settleAt(0)
+    expect(scrollTo).not.toHaveBeenCalled()
+  })
+
   it('dismisses when a scroll settles closed, and fires onClose', () => {
     const onClose = vi.fn()
     const { onOpenChange, rerender } = renderDrawer({ onClose })
     settleAt(0)
     expect(onOpenChange).not.toHaveBeenCalled()
     settleAt(420)
-    settleAt(0)
+    const el = scroller()
+    el.scrollTop = 0
+    fireEvent.scroll(el)
+    fireEvent(el, new Event('scrollend'))
     expect(onOpenChange).toHaveBeenCalledWith(false)
     rerender(
       <Drawer open={false} onOpenChange={onOpenChange} onClose={onClose}>
         <Drawer.Content />
       </Drawer>,
     )
+    vi.advanceTimersByTime(200)
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(document.querySelector('[data-scroll-drawer]')).toBeNull()
   })
