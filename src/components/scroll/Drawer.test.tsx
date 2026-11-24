@@ -1000,6 +1000,19 @@ describe('Drawer (scroll engine)', () => {
     now.mockRestore()
   })
 
+  it('keeps a vertical touch pan from starting on a no-drag region', () => {
+    render(
+      <Drawer open ariaLabel="Sheet" snapPoints={[200, 420]}>
+        <Drawer.Content>
+          <div data-drawer-no-drag="" data-testid="crop" />
+        </Drawer.Content>
+      </Drawer>,
+    )
+    expect(getComputedStyle(screen.getByTestId('crop')).touchAction).toBe(
+      'pan-x pinch-zoom',
+    )
+  })
+
   it('never starts a mouse drag from an editable host', () => {
     render(
       <Drawer open ariaLabel="Sheet" snapPoints={[200, 420]}>

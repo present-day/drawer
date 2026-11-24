@@ -1917,8 +1917,8 @@ export const DrawerScrollable = forwardRef<
  * A bottom sheet whose track is a native scroll-snap container, so a swipe
  * runs on the compositor instead of a JavaScript animation loop.
  *
- * Touch drags the sheet from anywhere; on a modeless sheet, not from fields
- * or `[data-drawer-no-drag]`.
+ * Touch drags the sheet from anywhere except `[data-drawer-no-drag]`, and on
+ * a modeless sheet not from fields either.
  * A mouse drags it from anywhere except buttons and links, unless they sit
  * inside `[data-drawer-drag]`, and never from fields or `[data-drawer-no-drag]`.
  */
