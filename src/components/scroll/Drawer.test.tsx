@@ -901,6 +901,35 @@ describe('Drawer (scroll engine)', () => {
       expect(markers()).toEqual(before)
     })
 
+    it('closes a mouse drag released toward closed with the keyboard up', () => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+      try {
+        const { onOpenChange } = renderDrawer()
+        settleAt(200)
+        keyboard(KEYBOARD)
+        const el = scroller()
+        expect(el.scrollTop).toBe(200 + KEYBOARD)
+        const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+        fireEvent.pointerDown(screen.getByRole('dialog'), {
+          ...mouse,
+          clientX: 100,
+          clientY: 100,
+        })
+        fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 110 })
+        fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 260 })
+        expect(el.scrollTop).toBe(350)
+        now.mockReturnValue(1400)
+        fireEvent.pointerUp(window, { ...mouse, clientX: 100, clientY: 260 })
+        expect(scrollTo).toHaveBeenLastCalledWith(
+          expect.objectContaining({ top: 0 }),
+        )
+        settleAt(0)
+        expect(onOpenChange).toHaveBeenCalledWith(false)
+      } finally {
+        now.mockRestore()
+      }
+    })
+
     it('paints the sheet surface behind the keyboard, below the scroller', () => {
       const surface = (style: React.CSSProperties) =>
         render(

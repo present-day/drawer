@@ -1344,14 +1344,17 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             const s = stopsRef.current
             el.style.scrollSnapType = ''
             if (!s) return
-            const pos =
-              (latest.current.dismissible ?? true)
-                ? [0, ...positionsOf(s)]
-                : positionsOf(s)
+            const dismissible = latest.current.dismissible ?? true
+            const pos = dismissible ? [0, ...positionsOf(s)] : positionsOf(s)
             const velocity = flick ? (session.release?.velocity ?? 0) : 0
             const top = releaseTarget(restingTop(el), velocity, pos)
-            if (Math.abs(restingTop(el) - top) <= EDGE_PX) settle()
-            else scrollToTop(el, physicalTop(top))
+            // Closed is physical 0 whatever the lift, as on the native path.
+            const closing = dismissible && top === 0
+            const there = closing
+              ? el.scrollTop <= EDGE_PX
+              : Math.abs(restingTop(el) - top) <= EDGE_PX
+            if (there) settle()
+            else scrollToTop(el, closing ? 0 : physicalTop(top))
           },
         }
       },
