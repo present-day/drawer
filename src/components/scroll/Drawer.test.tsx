@@ -1337,6 +1337,24 @@ describe('Drawer (scroll engine)', () => {
       })
     })
 
+    it('resolves a snap config change against the screen, not the keyboard-shortened scroller', () => {
+      const tree = (snapPoints: SnapPoint[]) => (
+        <Drawer open ariaLabel="Sheet" snapPoints={snapPoints}>
+          <Drawer.Content />
+        </Drawer>
+      )
+      const { rerender } = render(tree([200, 420]))
+      settleAt(200)
+      const el = scroller()
+      keyboard(KEYBOARD)
+      rerender(tree([200, 'full']))
+      expect(el.style.getPropertyValue('--scroll-drawer-vh')).toBe(
+        `${VIEWPORT}px`,
+      )
+      keyboard(KEYBOARD)
+      expect(el).toHaveAttribute('data-scroll-drawer-keyboard')
+    })
+
     it('paints the sheet surface behind the keyboard, below the scroller', () => {
       const surface = (style: React.CSSProperties) =>
         render(

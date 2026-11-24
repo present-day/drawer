@@ -1000,7 +1000,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const pointsKey = (snapPoints ?? DEFAULT_SNAP_POINTS).join('|')
     useLayoutEffect(() => {
       if (!mounted || !openedRef.current) return
-      const next = resolveStops()
+      // The keyboard shortens the scroller; stops stay against the screen.
+      const next = resolveStops(
+        keyboardRef.current ? stopsRef.current?.viewport : undefined,
+      )
       if (next && !sameStops(stopsRef.current, next)) setStops(next)
     }, [mounted, pointsKey, dismissible, topInsetPx, resolveStops])
 
