@@ -409,6 +409,28 @@ describe('Drawer (scroll engine)', () => {
     expect(onAnimationComplete).not.toHaveBeenCalled()
   })
 
+  it("doesn't echo a parent's snap that resolves to an equivalent stop", () => {
+    const onSnapPointChange = vi.fn()
+    const tree = (activeSnapPoint: SnapPoint) => (
+      <Drawer
+        open
+        ariaLabel="Sheet"
+        snapPoints={[200, 1, 'full']}
+        activeSnapPoint={activeSnapPoint}
+        onSnapPointChange={onSnapPointChange}
+      >
+        <Drawer.Content />
+      </Drawer>
+    )
+    const { rerender } = render(tree(200))
+    settleAt(200)
+    rerender(tree('full'))
+    settleAt(VIEWPORT - TOP_INSET)
+    expect(onSnapPointChange).not.toHaveBeenCalled()
+    settleAt(200)
+    expect(onSnapPointChange).toHaveBeenCalledWith(200, 0)
+  })
+
   it('hears Escape only from inside once it turns modeless while open', () => {
     const onOpenChange = vi.fn()
     const tree = (modal: boolean) => (

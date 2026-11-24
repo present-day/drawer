@@ -467,21 +467,27 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
     }, [])
 
-    const indexOfPoint = useCallback((point: SnapPoint): number => {
-      const s = stopsRef.current
-      if (!s || s.heights.length === 0) return -1
-      const exact = s.raw.indexOf(point)
-      if (exact !== -1) return exact
+    const pxOfPoint = useCallback((point: SnapPoint, s: Stops): number => {
       const p = latest.current
-      const px = resolveSnapValueToPx(
+      return resolveSnapValueToPx(
         point,
         Math.max(0, s.viewport - (p.topInsetPx ?? DRAWER_TOP_INSET_PX)),
         s.heights[s.heights.length - 1],
         0,
         s.viewport,
       )
-      return nearestIndex(px, s.heights)
     }, [])
+
+    const indexOfPoint = useCallback(
+      (point: SnapPoint): number => {
+        const s = stopsRef.current
+        if (!s || s.heights.length === 0) return -1
+        const exact = s.raw.indexOf(point)
+        if (exact !== -1) return exact
+        return nearestIndex(pxOfPoint(point, s), s.heights)
+      },
+      [pxOfPoint],
+    )
 
     /** A finger or pointer is moving the sheet right now. */
     const dragActive = useCallback((): boolean => {
@@ -742,9 +748,14 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
       if (index !== lastIndexRef.current) {
         lastIndexRef.current = index
-        // A parent driving `activeSnapPoint` already knows; echoing it back
+        // A parent driving `activeSnapPoint` already knows, even when the
+        // stop kept is an equivalent value ('full' for 1); echoing it back
         // invites feedback loops.
-        if (raw !== p.activeSnapPoint) p.onSnapPointChange?.(raw, index)
+        const want = p.activeSnapPoint
+        const known =
+          want !== undefined &&
+          (raw === want || pxOfPoint(want, s) === s.heights[index])
+        if (!known) p.onSnapPointChange?.(raw, index)
       }
       p.onAnimationComplete?.(raw)
       p.onHeightChange?.(visibleHeight())
@@ -753,6 +764,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       indexOfPoint,
       layoutHidden,
       physicalTop,
+      pxOfPoint,
       restingTop,
       scrollToIndex,
       setOpen,
