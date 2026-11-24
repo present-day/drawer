@@ -1377,6 +1377,27 @@ describe('Drawer (scroll engine)', () => {
       expect(el).toHaveAttribute('data-scroll-drawer-keyboard')
     })
 
+    it('drops a keyboard that hid during the close when it reopens', () => {
+      const tree = (open: boolean) => (
+        <Drawer open={open} ariaLabel="Sheet" snapPoints={[200, 420]}>
+          <Drawer.Content />
+        </Drawer>
+      )
+      const { rerender } = render(tree(true))
+      settleAt(420)
+      const el = scroller()
+      keyboard(KEYBOARD)
+      expect(el).toHaveAttribute('data-scroll-drawer-keyboard')
+      inFlight()
+      rerender(tree(false))
+      keyboard(0)
+      rerender(tree(true))
+      expect(el).not.toHaveAttribute('data-scroll-drawer-keyboard')
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ top: 420 }),
+      )
+    })
+
     it('paints the sheet surface behind the keyboard, below the scroller', () => {
       const surface = (style: React.CSSProperties) =>
         render(

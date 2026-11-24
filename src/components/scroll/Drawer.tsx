@@ -828,11 +828,26 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       (vp: ViewportInfo) => {
         const el = scrollerRef.current
         const s = stopsRef.current
-        if (!el || !s || !openedRef.current || closingRef.current) return
+        if (!el || !s || !openedRef.current) return
         const inset = vp.isKeyboardOpen
           ? Math.max(0, Math.round(s.viewport - vp.height))
           : 0
         const kb = keyboardRef.current
+        const unstyle = () => {
+          el.removeAttribute('data-scroll-drawer-keyboard')
+          el.style.removeProperty('--scroll-drawer-keyboard-top')
+          el.style.removeProperty('--scroll-drawer-keyboard-height')
+          el.style.removeProperty('--scroll-drawer-keyboard-sheet-max')
+        }
+        if (closingRef.current) {
+          // Still followed, so a reopen before unmount doesn't lift for a
+          // keyboard that's gone.
+          if (!inset && kb) {
+            keyboardRef.current = null
+            unstyle()
+          }
+          return
+        }
         if (!inset) {
           if (!kb) return
           const top = restingTop(el)
@@ -851,10 +866,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             el.scrollTop =
               positionsOf(s)[nearestIndex(top, positionsOf(s))] ?? top
           }
-          el.removeAttribute('data-scroll-drawer-keyboard')
-          el.style.removeProperty('--scroll-drawer-keyboard-top')
-          el.style.removeProperty('--scroll-drawer-keyboard-height')
-          el.style.removeProperty('--scroll-drawer-keyboard-sheet-max')
+          unstyle()
           layoutHidden(el)
           if (dragActive()) layoutAhead(el)
           // Released while snapping was still off: land it from here.
