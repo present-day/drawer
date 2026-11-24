@@ -1010,13 +1010,26 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           else if (!entryRef.current.frame) scrollToTop(el, physicalTop(top))
           return
         }
+        // The release settles against the new stops.
+        if (dragActive()) {
+          layoutHidden(el)
+          layoutAhead(el)
+          return
+        }
         // Stops moved under an open sheet: hold the same stop at its new
         // height, found by value, since 'auto' can move past a fixed stop.
-        const held = lastIndexRef.current
+        // A snap still scrolling holds the stop it's heading for.
+        const aim = aimRef.current
+        const held = aim !== null && aim >= 0 ? aim : lastIndexRef.current
         const heldRaw = held === null ? undefined : prev?.raw[held]
         const found = heldRaw === undefined ? -1 : stops.raw.indexOf(heldRaw)
         const i = found !== -1 ? found : (held ?? targetIndex())
         const top = positionsOf(stops)[i]
+        if (aim !== null && aim >= 0 && top !== undefined) {
+          aimRef.current = i
+          scrollToTop(el, physicalTop(top))
+          return
+        }
         if (top !== undefined) el.scrollTop = physicalTop(top)
         settle()
         return
@@ -1077,7 +1090,16 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         }
       })
       entryRef.current = { frame, animations: [entry, entryFade] }
-    }, [stops, settle, targetIndex, visibleHeight, physicalTop])
+    }, [
+      stops,
+      settle,
+      targetIndex,
+      visibleHeight,
+      physicalTop,
+      dragActive,
+      layoutHidden,
+      layoutAhead,
+    ])
 
     useEffect(() => {
       if (!open) mouseDragRef.current?.()

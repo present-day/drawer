@@ -443,6 +443,59 @@ describe('Drawer (scroll engine)', () => {
     expect(onSnapPointChange).toHaveBeenCalledWith(200, 0)
   })
 
+  describe('stops that change while the sheet is moving', () => {
+    const tree = (
+      snapPoints: SnapPoint[],
+      props: Partial<DrawerProps> = {},
+      ref?: React.Ref<DrawerRef>,
+    ) => (
+      <Drawer
+        ref={ref}
+        open
+        ariaLabel="Sheet"
+        snapPoints={snapPoints}
+        {...props}
+      >
+        <Drawer.Content />
+      </Drawer>
+    )
+
+    it('carries a snap still scrolling on to its stop at the new height', () => {
+      const ref = createRef<DrawerRef>()
+      const { rerender } = render(tree([200, 420], {}, ref))
+      settleAt(200)
+      inFlight()
+      act(() => ref.current?.snapTo(420))
+      const el = scroller()
+      el.scrollTop = 300
+      fireEvent.scroll(el)
+      rerender(tree([200, 500], {}, ref))
+      expect(el.scrollTop).toBe(300)
+      expect(scrollTo).toHaveBeenLastCalledWith({
+        top: 500,
+        behavior: 'smooth',
+      })
+    })
+
+    it('leaves a sheet under a finger where it is, and settles on release', () => {
+      const onAnimationComplete = vi.fn()
+      const props = { onAnimationComplete }
+      const { rerender } = render(tree([200, 420], props))
+      settleAt(420)
+      onAnimationComplete.mockClear()
+      const el = scroller()
+      fireEvent.touchStart(el, { touches: [{ clientY: 500 }] })
+      el.scrollTop = 250
+      fireEvent.scroll(el)
+      rerender(tree([200, 500], props))
+      expect(el.scrollTop).toBe(250)
+      expect(onAnimationComplete).not.toHaveBeenCalled()
+      fireEvent.touchEnd(el)
+      settleAt(200)
+      expect(onAnimationComplete).toHaveBeenCalledWith(200)
+    })
+  })
+
   it('hears Escape only from inside once it turns modeless while open', () => {
     const onOpenChange = vi.fn()
     const tree = (modal: boolean) => (
