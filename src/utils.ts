@@ -115,7 +115,7 @@ const TEXT_INPUT_TYPES = new Set([
 export function editableTargetHasContent(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false
   const editable = target.closest(
-    'input, textarea, [contenteditable="true"], [contenteditable=""]',
+    'input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]',
   )
   if (!editable) return false
   if (editable instanceof HTMLInputElement) {

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   cn,
+  editableTargetHasContent,
   forceUnlock,
   getLockCount,
   initTailwindMerge,
@@ -96,5 +97,16 @@ describe('lockBody / unlockBody', () => {
     forceUnlock()
     expect(getLockCount()).toBe(0)
     expect(document.body.style.overflow).toBe('auto')
+  })
+})
+
+describe('editableTargetHasContent', () => {
+  it('treats a filled plaintext-only editor as a field to clear', () => {
+    const editor = document.createElement('div')
+    editor.setAttribute('contenteditable', 'plaintext-only')
+    editor.textContent = 'note'
+    expect(editableTargetHasContent(editor)).toBe(true)
+    editor.textContent = ''
+    expect(editableTargetHasContent(editor)).toBe(false)
   })
 })
