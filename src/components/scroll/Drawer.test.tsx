@@ -572,6 +572,36 @@ describe('Drawer (scroll engine)', () => {
     expect(onAnimationStart).toHaveBeenCalledTimes(1)
   })
 
+  it('lets go of a mouse drag when it closes with the button held', () => {
+    const tree = (open: boolean) => (
+      <Drawer open={open} ariaLabel="Sheet" snapPoints={[200, 420]}>
+        <Drawer.Content />
+      </Drawer>
+    )
+    const { rerender } = render(tree(true))
+    settleAt(420)
+    const el = scroller()
+    const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+    fireEvent.pointerDown(screen.getByRole('dialog'), {
+      ...mouse,
+      clientX: 100,
+      clientY: 100,
+    })
+    fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 110 })
+    fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 150 })
+    expect(el).toHaveAttribute('data-scroll-drawer-dragging')
+    const removed = vi.spyOn(window, 'removeEventListener')
+    rerender(tree(false))
+    expect(el).not.toHaveAttribute('data-scroll-drawer-dragging')
+    expect(removed.mock.calls.map(([type]) => type)).toEqual(
+      expect.arrayContaining(['pointermove', 'pointerup', 'pointercancel']),
+    )
+    removed.mockRestore()
+    const before = el.scrollTop
+    fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 400 })
+    expect(el.scrollTop).toBe(before)
+  })
+
   it('brings a swiped-down sheet back when the parent keeps it open', () => {
     const { onOpenChange } = renderDrawer()
     settleAt(420)

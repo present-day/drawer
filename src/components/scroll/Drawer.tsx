@@ -318,6 +318,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     } | null>(null)
     /** Set while a JS-driven drag (mouse, or touch on a modeless sheet) writes scrollTop. */
     const draggingRef = useRef(false)
+    /** Ends a mouse drag's window listeners early. */
+    const mouseDragRef = useRef<(() => void) | null>(null)
     /** The stop content is laid out for during a drag; null at rest. */
     const aheadRef = useRef<number | null>(null)
     const sessionRef = useRef<DragSession | null>(null)
@@ -998,9 +1000,14 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       entryRef.current = { frame, animations: [entry, entryFade] }
     }, [stops, settle, targetIndex, visibleHeight, physicalTop])
 
+    useEffect(() => {
+      if (!open) mouseDragRef.current?.()
+    }, [open])
+
     useLayoutEffect(() => {
       if (!mounted) return
       return () => {
+        mouseDragRef.current?.()
         const entry = entryRef.current
         entryRef.current = null
         if (!entry) return
@@ -1373,7 +1380,19 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           window.removeEventListener('pointermove', move)
           window.removeEventListener('pointerup', end)
           window.removeEventListener('pointercancel', end)
+          if (mouseDragRef.current === abandon) mouseDragRef.current = null
         }
+        // Closed or unmounted with the button still held.
+        const abandon = () => {
+          stop()
+          if (!drag) return
+          draggingRef.current = false
+          const el = scrollerRef.current
+          el?.removeAttribute('data-scroll-drawer-dragging')
+          if (el) el.style.scrollSnapType = ''
+        }
+        mouseDragRef.current?.()
+        mouseDragRef.current = abandon
         const move = (ev: PointerEvent) => {
           if (ev.pointerId !== id) return
           if (!drag) {
