@@ -1242,6 +1242,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
     }, [open, mounted, modal, focusTrap])
 
+    const layerRef = useRef<Layer | null>(null)
     useEffect(() => {
       const sheet = sheetRef.current
       if (!open || !mounted || !sheet) return
@@ -1257,11 +1258,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         },
       }
       const { leave } = openLayer(layer)
+      layerRef.current = layer
       if (layer.modal && !sheet.contains(document.activeElement)) {
         // Focusing a snap area makes Chrome snap to it, skipping the open snap.
         sheet.focus({ preventScroll: true })
       }
       return () => {
+        layerRef.current = null
         const below = leave()
         const active = document.activeElement
         // Focus the user has since moved elsewhere stays where it is.
@@ -1282,6 +1285,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         }
       }
     }, [open, mounted, setOpen])
+
+    useEffect(() => {
+      if (layerRef.current) layerRef.current.modal = modal
+    }, [modal])
 
     const requestClose = () => {
       if ((latest.current.dismissible ?? true) && !closingRef.current) {

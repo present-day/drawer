@@ -341,6 +341,27 @@ describe('Drawer (scroll engine)', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
+  it('hears Escape only from inside once it turns modeless while open', () => {
+    const onOpenChange = vi.fn()
+    const tree = (modal: boolean) => (
+      <Drawer
+        open
+        onOpenChange={onOpenChange}
+        modal={modal}
+        ariaLabel="Sheet"
+        snapPoints={[200, 420]}
+      >
+        <Drawer.Content />
+      </Drawer>
+    )
+    const { rerender } = render(tree(true))
+    rerender(tree(false))
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(onOpenChange).not.toHaveBeenCalled()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
   describe('a drawer opened from another, without a focus trap', () => {
     function Pair({
       childDismissible = true,
