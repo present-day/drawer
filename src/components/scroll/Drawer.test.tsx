@@ -1398,6 +1398,34 @@ describe('Drawer (scroll engine)', () => {
       )
     })
 
+    it('never reports a negative drag progress below the lift', async () => {
+      const onDrag = vi.fn()
+      const frame = () =>
+        act(() => new Promise<void>((r) => requestAnimationFrame(() => r())))
+      renderDrawer({ onDrag })
+      await frame()
+      settleAt(200)
+      keyboard(KEYBOARD)
+      const el = scroller()
+      const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+      fireEvent.pointerDown(screen.getByRole('dialog'), {
+        ...mouse,
+        clientX: 100,
+        clientY: 100,
+      })
+      fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 110 })
+      fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 510 })
+      expect(el.scrollTop).toBe(100)
+      fireEvent.scroll(el)
+      await frame()
+      expect(onDrag).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({ progress: 0 }),
+      )
+      fireEvent.pointerUp(window, { ...mouse, clientX: 100, clientY: 510 })
+      vi.advanceTimersByTime(1)
+    })
+
     it('paints the sheet surface behind the keyboard, below the scroller', () => {
       const surface = (style: React.CSSProperties) =>
         render(

@@ -645,7 +645,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         })
         return {
           ...(session?.release ?? live()),
-          progress: el && max > 0 ? Math.min(1, restingTop(el) / max) : 1,
+          progress:
+            el && max > 0 ? Math.max(0, Math.min(1, restingTop(el) / max)) : 1,
         }
       },
       [restingTop],
