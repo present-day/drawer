@@ -107,7 +107,7 @@ function recordSample(session: DragSession, top: number) {
 
 /**
  * Px/s over the last {@link VELOCITY_WINDOW_MS}, positive while the sheet
- * moves down, matching v2's pointer velocity. A pause before release reads 0.
+ * moves down. A pause before release reads 0.
  */
 function sessionVelocity(session: DragSession, now: number): number {
   const recent = session.samples.filter((s) => now - s.t <= VELOCITY_WINDOW_MS)
@@ -519,7 +519,6 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
      * stays visible, but never past `keyboardMinTop`: the scroller has shrunk
      * to the visual viewport and a taller sheet is laid out shorter instead.
      */
-
     const liftAt = useCallback(
       (top: number): number => {
         const kb = keyboardRef.current
@@ -752,7 +751,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     // Stops stay put while the keyboard is up (it isn't a new screen size);
     // instead the scroller shrinks to the visual viewport and the sheet rides
-    // up with it, as v2's panel docks above the keyboard.
+    // up with it, docked above the keyboard.
     const followKeyboard = useCallback(
       (vp: ViewportInfo) => {
         const el = scrollerRef.current
@@ -1110,8 +1109,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
               const typing = !!keyboardRef.current
               const next = resolveStops(typing ? current?.viewport : undefined)
               if (!next || sameStops(current, next)) return
-              // As in v2: content that shrinks while the keyboard is up (a
-              // cleared query) mustn't pull the field away mid-typing. It
+              // Content that shrinks while the keyboard is up (a cleared
+              // query) mustn't pull the field away mid-typing. It
               // re-resolves when the keyboard hides and the scroller resizes.
               const top = (h: number[]) => h[h.length - 1] ?? 0
               if (
@@ -1348,14 +1347,14 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       [layoutAhead, physicalTop, restingTop, settle],
     )
 
-    // Same rules as v2: not from controls or `[data-drawer-no-drag]`, not from
+    // Not from controls or `[data-drawer-no-drag]`, not from
     // a list that is scrolled, and only past the slop so a click still clicks.
     const onSheetPointerDown = useCallback(
       (e: React.PointerEvent<HTMLElement>) => {
         if (e.pointerType !== 'mouse' || e.button !== 0) return
         if (!(e.target instanceof Element)) return
         // React bubbles through portals: a drawer opened from this one would
-        // otherwise drag both. v2 needed `nested` for this; here it's implied.
+        // otherwise drag both.
         if (!e.currentTarget.contains(e.target)) return
         const target = e.target
         if (target.closest(NEVER_DRAG_SELECTOR)) return
@@ -1729,6 +1728,7 @@ export const DrawerContent = forwardRef<HTMLDivElement, DrawerContentProps>(
 )
 
 export type DrawerScrollableProps = React.HTMLAttributes<HTMLDivElement> & {
+  /** Also receives the scrolling element, alongside the forwarded `ref`. */
   externalRef?: React.RefObject<HTMLElement | null>
 }
 
@@ -1764,9 +1764,8 @@ export const DrawerScrollable = forwardRef<
 })
 
 /**
- * v3 drawer: the same API as the v2 `Drawer`, but the sheet is a native
- * scroll-snap container, so a swipe runs on the compositor instead of a
- * JavaScript animation loop.
+ * A bottom sheet whose track is a native scroll-snap container, so a swipe
+ * runs on the compositor instead of a JavaScript animation loop.
  *
  * Touch drags the sheet from anywhere; on a modeless sheet, not from fields
  * or `[data-drawer-no-drag]`.

@@ -1,11 +1,10 @@
-/**
- * Track layout: a spacer of `viewport - offset` px sits above the sheet, so at
- * `scrollTop = t` exactly `t + offset` px of the sheet are on screen. The
- * offset is 0 when dismissible (`scrollTop` 0 = closed), or the lowest stop's
- * height when not, so the sheet can't be scrolled below it. A marker `h` px
- * below the sheet top with `scroll-margin-top` equal to the viewport snaps at
- * `scrollTop = h - offset`.
- */
+// Track layout: a spacer of `viewport - offset` px sits above the sheet, so at
+// `scrollTop = t` exactly `t + offset` px of the sheet are on screen. The
+// offset is 0 when dismissible (`scrollTop` 0 = closed), or the lowest stop's
+// height when not, so the sheet can't be scrolled below it. A marker `h` px
+// below the sheet top with `scroll-margin-top` equal to the viewport snaps at
+// `scrollTop = h - offset`.
+
 export function nearestIndex(
   scrollTop: number,
   positions: readonly number[],

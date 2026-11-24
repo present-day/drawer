@@ -17,7 +17,8 @@ export const DRAWER_CONTEXT_CONSUMER = {
  * - `QUARTER` / `THIRD` / `HALF` / `TWO_THIRDS` / `THREE_QUARTERS` — fractions
  * - `NEAR_FULL` — `0.9` of available height (was `SNAP_POINT.FULL` pre-v2)
  * - `MAX` — full available drawer height as a fraction (`1`)
- * - `SCREEN` — the ENTIRE viewport, ignoring `topInsetPx`. `FULL`/`MAX` stop
+ * - `SCREEN` — the whole scroller, ignoring `topInsetPx` (the viewport less
+ *   `bottomInsetPx`; on `LegacyDrawer`, the whole viewport). `FULL`/`MAX` stop
  *   `topInsetPx` short of the top (96px by default, to leave room for map
  *   chrome), which is correct for a sheet over content but wrong when the
  *   drawer is the whole task — a long list, or a field with the software

@@ -1,8 +1,7 @@
 const STYLE_ID = 'present-day-scroll-drawer'
 
-// Injected at runtime rather than shipped as a stylesheet so the engine works
-// in any bundler without CSS handling. Anything a consumer may restyle sits in
-// `:where()`, so a single class wins over it.
+// Anything a consumer may restyle sits in `:where()`, so a single class wins
+// over it.
 export const SCROLL_DRAWER_CSS = `
 @keyframes scroll-drawer-stack {
   from { transform: translateY(0px) scale(1); }
@@ -71,11 +70,12 @@ export const SCROLL_DRAWER_CSS = `
 }
 :where([data-scroll-drawer-full] [data-scroll-drawer-scrollable]) { overflow-y: auto; }
 :where([data-scroll-drawer-content-scroll="always"] [data-scroll-drawer-scrollable]) { overflow-y: auto; }
-/* Content is laid out for the stop the sheet rests at, so footers and the end
-   of an inner list sit at the screen's bottom edge, as in v2. Set on settle,
-   never per frame; the part of the sheet below the screen is painted in the
-   content's own background, or --scroll-drawer-fill when the content's
-   surface is a child, so a drag never shows the page through it. */
+/* Content is laid out for the stop the sheet rests at (during a drag, the
+   next stop up), so footers and the end of an inner list sit at the screen's
+   bottom edge. Set when that stop changes, never per frame; the part of the
+   sheet below the screen is painted in the content's own background, or
+   --scroll-drawer-fill when the content's surface is a child, so a drag never
+   shows the page through it. */
 [data-scroll-drawer-sheet] > [data-drawer-content] { position: relative; margin-bottom: var(--scroll-drawer-hidden, 0px); }
 [data-scroll-drawer-sheet] > [data-drawer-content]::after {
   content: ''; position: absolute; left: 0; right: 0; top: 100%;

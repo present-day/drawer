@@ -18,7 +18,8 @@ export type DrawerSlots = {
  * - `number` > 1 → pixel height (e.g. `480` is 480px)
  * - `'auto'`     → measured intrinsic content height (live, via `ResizeObserver`)
  * - `'full'`     → full available drawer height (viewport minus top inset)
- * - `'screen'`   → the ENTIRE viewport, ignoring `topInsetPx`
+ * - `'screen'`   → the whole scroller, ignoring `topInsetPx`: the viewport
+ *   less `bottomInsetPx` (`LegacyDrawer`: the whole viewport)
  *
  * Use as elements of `Drawer`’s `snapPoints` array, or as the type of a
  * `defaultSnapPoint` / `activeSnapPoint` value.
@@ -138,9 +139,11 @@ export interface DrawerProps {
    */
   description?: ReactNode
   /**
-   * Pixels subtracted from visual viewport height when resolving snap heights.
-   * Default leaves top space for map chrome (`DRAWER_TOP_INSET_PX`). Use `0`
-   * for edge-to-top panels (e.g. full-screen search).
+   * Px kept clear above the sheet at `'full'` and fractional stops: they
+   * resolve against the scroller's height less this. The soft keyboard
+   * doesn't change it; `LegacyDrawer` subtracts it from the visual viewport
+   * instead. Default leaves top space for map chrome (`DRAWER_TOP_INSET_PX`).
+   * Use `0` for edge-to-top panels (e.g. full-screen search).
    */
   topInsetPx?: number
   /**
@@ -150,15 +153,15 @@ export interface DrawerProps {
    *
    * For sheets that must coexist with persistent bottom chrome (a fixed nav
    * bar, a tab bar) instead of covering it. The panel is portaled to
-   * `document.body` and its `bottom` is driven by a motion value, so a
-   * consumer cannot offset it from the outside; this is the supported way.
+   * `document.body`, so a consumer cannot offset it from the outside; this is
+   * the supported way.
    *
    * The soft keyboard still wins: while it is up the panel rides the larger
    * of this and the keyboard inset, because chrome the keyboard has already
    * covered should not also hold the sheet up.
    *
-   * `SNAP_POINT.SCREEN` ignores this, exactly as it ignores `topInsetPx` —
-   * that stop means the whole viewport.
+   * `SNAP_POINT.SCREEN` honors this: it fills the scroller, which stops
+   * here. `LegacyDrawer` ignores it there, as it ignores `topInsetPx`.
    */
   bottomInsetPx?: number
   /**
@@ -238,7 +241,9 @@ export interface DrawerRef {
   expand: () => void
   collapse: () => void
   dismiss: () => void
+  /** The stop the sheet rests at; `null` while it is entering or closing. */
   getActiveSnapPoint: () => SnapPoint | null
+  /** Visible sheet height in px. */
   getHeight: () => number
 }
 
@@ -247,6 +252,10 @@ export interface DragInfo {
   y: number
   /** Px/s, positive while the sheet moves down. */
   velocity: number
+  /**
+   * 0 to 1 at the top stop, clamped. 0 is closed, or the lowest stop on a
+   * non-dismissible sheet; on `LegacyDrawer` it is always the lowest stop.
+   */
   progress: number
 }
 
