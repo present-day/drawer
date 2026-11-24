@@ -22,6 +22,51 @@ const DEFAULT_VIEWPORT: ViewportInfo = {
   layoutBottomInset: 0,
 }
 
+const KEYBOARD_THRESHOLD_PX = 50
+
+/**
+ * The tallest layout height seen at the current width. iOS sometimes shrinks
+ * `innerHeight` with the keyboard (it then equals `visualViewport.height` and
+ * the page pans instead), so `innerHeight` alone can't show the keyboard.
+ */
+const baseline = { width: -1, height: 0 }
+
+function layoutBaseline(vvHeight: number): number {
+  const width = window.innerWidth
+  const height = Math.max(
+    window.innerHeight,
+    document.documentElement.clientHeight,
+    vvHeight,
+  )
+  if (width !== baseline.width) {
+    baseline.width = width
+    baseline.height = height
+  } else {
+    baseline.height = Math.max(baseline.height, height)
+  }
+  return baseline.height
+}
+
+const NOT_TYPED = new Set([
+  'button',
+  'checkbox',
+  'color',
+  'file',
+  'hidden',
+  'image',
+  'radio',
+  'range',
+  'reset',
+  'submit',
+])
+
+function editableFocused(): boolean {
+  const el = document.activeElement
+  if (!(el instanceof HTMLElement)) return false
+  if (el instanceof HTMLInputElement) return !NOT_TYPED.has(el.type)
+  return el instanceof HTMLTextAreaElement || el.isContentEditable
+}
+
 /**
  * Tracks visualViewport height/offsetTop, derives keyboard state, and exposes
  * keyboard-aware available height for snap resolution.
@@ -54,8 +99,15 @@ export function useVisualViewport(
     const height = vv.height
     const offsetTop = vv.offsetTop
     const innerH = window.innerHeight
-    const keyboardHeight = Math.max(0, innerH - height)
-    const isKeyboardOpen = keyboardHeight > 50
+    const base = layoutBaseline(height)
+    // Against the baseline only with a field focused: the browser toolbars
+    // also move the layout height, by more than the threshold.
+    const keyboardHeight = Math.max(
+      0,
+      innerH - height,
+      editableFocused() ? base - height : 0,
+    )
+    const isKeyboardOpen = keyboardHeight > KEYBOARD_THRESHOLD_PX
     // The inset exists to dock the panel above the soft keyboard. When no
     // keyboard is present it is forced to 0 rather than trusting the
     // arithmetic: after dismissal iOS can leave vv.height/offsetTop slightly

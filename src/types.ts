@@ -256,7 +256,13 @@ export interface DragEndInfo extends DragInfo {
 export interface ViewportInfo {
   height: number
   offsetTop: number
+  /**
+   * `innerHeight - height`, or, while a text field is focused, the tallest
+   * layout height seen at this width less `height`: iOS can shrink
+   * `innerHeight` with the keyboard and pan the page instead.
+   */
   keyboardHeight: number
+  /** `keyboardHeight` is over 50px. */
   isKeyboardOpen: boolean
   /**
    * Pixels to add to `bottom` for `position: fixed` elements so the bottom edge

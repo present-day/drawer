@@ -1050,6 +1050,88 @@ describe('Drawer (scroll engine)', () => {
     })
   })
 
+  describe('iOS keyboard with innerHeight shrunk and the page panned', () => {
+    // Search drawer frames from an iPhone (iOS 18.7) session log:
+    // [visualViewport height, offsetTop, pageTop], [scrollY, innerHeight].
+    const FRAMES = {
+      t49242: { vv: [695, 0, 0], win: [0, 695], st: 599 },
+      t51512: { vv: [392, 303, 303], win: [303, 392], rectTop: -303 },
+      t126738: { vv: [695, 0, 0], win: [0, 695], st: 599 },
+      t127949: { vv: [392, 303, 303], win: [303, 392], rectTop: -303 },
+    } as const
+    const LAYOUT = 695
+    let vv: EventTarget & { height: number; offsetTop: number }
+
+    const apply = (frame: {
+      vv: readonly number[]
+      win: readonly number[]
+    }) => {
+      vv.height = frame.vv[0] ?? 0
+      vv.offsetTop = frame.vv[1] ?? 0
+      vi.stubGlobal('innerHeight', frame.win[1])
+      act(() => {
+        vv.dispatchEvent(new Event('resize'))
+      })
+    }
+
+    beforeEach(() => {
+      vv = Object.assign(new EventTarget(), { height: LAYOUT, offsetTop: 0 })
+      vi.stubGlobal('visualViewport', vv)
+      vi.stubGlobal('innerHeight', LAYOUT)
+      vi.stubGlobal('innerWidth', 393)
+      Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+        configurable: true,
+        get(this: HTMLElement) {
+          if (!this.hasAttribute('data-scroll-drawer')) return 0
+          return this.hasAttribute('data-scroll-drawer-keyboard')
+            ? vv.height
+            : LAYOUT
+        },
+      })
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it.each([
+      ['t49242', 't51512'],
+      ['t126738', 't127949'],
+    ] as const)('follows the keyboard from %s to %s', (rest, up) => {
+      const onViewportChange = vi.fn()
+      renderDrawer({ snapPoints: ['full'], onViewportChange })
+      const el = scroller()
+      settleAt(FRAMES[rest].st)
+      expect(el.scrollTop).toBe(LAYOUT - TOP_INSET)
+      act(() => screen.getByRole('textbox', { name: 'Search' }).focus())
+
+      apply(FRAMES[up])
+      expect(onViewportChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ isKeyboardOpen: true, offsetTop: 303 }),
+      )
+      expect(el).toHaveAttribute('data-scroll-drawer-keyboard')
+      // Fixed boxes sat at rect top -303, which is -offsetTop: the visual
+      // viewport panned within the layout one (pageTop - offsetTop = 0), so
+      // offsetTop alone puts the scroller on screen.
+      expect(FRAMES[up].rectTop).toBe(-FRAMES[up].vv[1])
+      expect(el.style.getPropertyValue('--scroll-drawer-keyboard-top')).toBe(
+        '303px',
+      )
+      expect(el.style.getPropertyValue('--scroll-drawer-keyboard-height')).toBe(
+        '392px',
+      )
+      const sheetMax = Number.parseFloat(
+        el.style.getPropertyValue('--scroll-drawer-keyboard-sheet-max'),
+      )
+      // Laid out bottom-up in the 392px scroller: the header stays at the inset.
+      expect(392 - sheetMax).toBe(TOP_INSET)
+
+      apply(FRAMES[rest])
+      expect(el).not.toHaveAttribute('data-scroll-drawer-keyboard')
+      expect(el.scrollTop).toBe(LAYOUT - TOP_INSET)
+    })
+  })
+
   describe('touch on a modeless sheet', () => {
     const touch = (x: number, y: number) => [
       { identifier: 1, clientX: x, clientY: y },
