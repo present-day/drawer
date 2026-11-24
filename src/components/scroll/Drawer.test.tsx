@@ -1405,6 +1405,30 @@ describe('Drawer (scroll engine)', () => {
       expect(scroller().scrollTop).toBe(700)
     })
 
+    it('stays open when its auto stop measures nothing for a while', () => {
+      let listHeight = 300
+      const scrollHeight = vi
+        .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+        .mockImplementation(function (this: HTMLElement) {
+          return this.hasAttribute('data-drawer-scroll') ? listHeight : 0
+        })
+      try {
+        const { onOpenChange } = renderDrawer({ snapPoints: ['auto'] })
+        settleAt(300)
+        // A Suspense fallback with no height replaces the content.
+        listHeight = 0
+        resize()
+        expect(screen.getByRole('dialog').style.height).toBe('0px')
+        settleAt(0)
+        expect(onOpenChange).not.toHaveBeenCalled()
+        listHeight = 300
+        resize()
+        expect(scroller().scrollTop).toBe(300)
+      } finally {
+        scrollHeight.mockRestore()
+      }
+    })
+
     it('keeps the focused field in view and never shrinks content while typing', () => {
       let listHeight = 500
       const scrollHeight = Object.getOwnPropertyDescriptor(

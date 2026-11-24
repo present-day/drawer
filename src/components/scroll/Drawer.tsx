@@ -669,7 +669,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           return
         }
       }
-      if ((p.dismissible ?? true) && el.scrollTop <= EDGE_PX) {
+      // An 'auto' stop with nothing to measure resolves to 0 (content
+      // unmounted, a Suspense fallback); that's the sheet at rest, not a swipe.
+      const emptyStop = (positionsOf(s)[0] ?? 0) <= EDGE_PX
+      if ((p.dismissible ?? true) && el.scrollTop <= EDGE_PX && !emptyStop) {
         if (!armedRef.current) return
         sessionRef.current = null
         setOpen(false)
