@@ -1069,7 +1069,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       ro?.observe(el)
       if (
         contentRef.current &&
-        (latest.current.snapPoints ?? []).includes('auto')
+        (latest.current.snapPoints ?? DEFAULT_SNAP_POINTS).includes('auto')
       ) {
         ro?.observe(contentRef.current)
         for (const child of contentRef.current.children) ro?.observe(child)

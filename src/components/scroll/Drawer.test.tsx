@@ -594,6 +594,7 @@ describe('Drawer (scroll engine)', () => {
     const KEYBOARD = 300
     let vv: EventTarget & { height: number; offsetTop: number }
     let observers: (() => void)[]
+    let observed: Element[]
 
     const keyboard = (height: number, offsetTop = 0) => {
       vv.height = VIEWPORT - height
@@ -612,13 +613,16 @@ describe('Drawer (scroll engine)', () => {
       vi.stubGlobal('visualViewport', vv)
       vi.stubGlobal('innerHeight', VIEWPORT)
       observers = []
+      observed = []
       vi.stubGlobal(
         'ResizeObserver',
         class {
           constructor(cb: () => void) {
             observers.push(cb)
           }
-          observe() {}
+          observe(target: Element) {
+            observed.push(target)
+          }
           disconnect() {}
         },
       )
@@ -1241,6 +1245,13 @@ describe('Drawer (scroll engine)', () => {
       } finally {
         restore()
       }
+    })
+
+    it('watches the content for the default auto stop', () => {
+      renderDrawer({ snapPoints: undefined })
+      const content = document.querySelector('[data-drawer-content]')
+      expect(content).not.toBeNull()
+      expect(observed).toContain(content)
     })
 
     it('stops lifting at the top inset', () => {
