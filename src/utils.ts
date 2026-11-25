@@ -113,7 +113,7 @@ const TEXT_INPUT_TYPES = new Set([
 
 /** Fields and every editing host, including `plaintext-only`. */
 export const EDITABLE_SELECTOR =
-  'input, textarea, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]'
+  'input, textarea, [contenteditable="true" i], [contenteditable=""], [contenteditable="plaintext-only" i]'
 
 /** Whether Escape on this target should clear a field rather than close the drawer. */
 export function editableTargetHasContent(target: EventTarget | null): boolean {

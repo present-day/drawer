@@ -65,6 +65,9 @@ export const SCROLL_DRAWER_CSS = `
 [data-scroll-drawer-sequential] :is([data-scroll-drawer-marker], [data-scroll-drawer-sheet], [data-scroll-drawer-spacer]) { scroll-snap-stop: always; }
 [data-scroll-drawer-dragging] { cursor: grabbing; user-select: none; -webkit-user-select: none; }
 [data-scroll-drawer-sheet] [data-drawer-no-drag] { touch-action: pan-x pinch-zoom; }
+/* touch-action stops at the nearest scroll container, so a list inside a
+   no-drag region would still chain its pan to the sheet. */
+[data-scroll-drawer-sheet] :is([data-drawer-no-drag], [data-drawer-no-drag] *) { overscroll-behavior-y: contain; }
 [data-scroll-drawer-handle-only] [data-drawer-content] > :not([data-drawer-handle]):not([data-drawer-scroll]) { touch-action: none; }
 :where([data-scroll-drawer-scrollable]) {
   flex: 1 1 auto; min-height: 0; overflow: hidden; overscroll-behavior: auto;

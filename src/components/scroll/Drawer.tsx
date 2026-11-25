@@ -135,19 +135,19 @@ function releaseTarget(
   pos: number[],
   from?: number,
 ): number {
+  let i = nearestIndex(top, pos)
   if (Math.abs(velocity) >= VELOCITY_THRESHOLD) {
     const ahead =
       velocity < 0
-        ? pos.find((p) => p > top + EDGE_PX)
-        : pos.filter((p) => p < top - EDGE_PX).pop()
-    if (ahead !== undefined && from !== undefined) {
+        ? pos.findIndex((p) => p > top + EDGE_PX)
+        : pos.filter((p) => p < top - EDGE_PX).length - 1
+    if (ahead !== -1) i = ahead
+    if (from !== undefined) {
       const start = nearestIndex(from, pos)
-      const i = pos.indexOf(ahead)
-      return pos[Math.min(start + 1, Math.max(start - 1, i))] ?? ahead
+      i = Math.min(start + 1, Math.max(start - 1, i))
     }
-    if (ahead !== undefined) return ahead
   }
-  return pos[nearestIndex(top, pos)] ?? 0
+  return pos[i] ?? 0
 }
 
 function endSession(
@@ -328,6 +328,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const backdropRef = useRef<HTMLDivElement>(null)
     const keyboardFillRef = useRef<HTMLDivElement>(null)
     const contentRef = useRef<HTMLElement | null>(null)
+    const resizeObserverRef = useRef<ResizeObserver | null>(null)
+    const observedContentRef = useRef<Element[]>([])
     const closingRef = useRef(false)
     const openedRef = useRef(false)
     // Chrome fires a scrollend at 0 for the reset before the opening scroll
@@ -409,12 +411,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     // Committed values only, so a render React discards can't reach handlers.
     // An insertion effect runs before every layout effect and ref callback,
     // children's included.
+    const openRef = useRef(open)
     useInsertionEffect(() => {
       latest.current = props
       stopsRef.current = stops
+      openRef.current = open
     })
-    const openRef = useRef(open)
-    openRef.current = open
 
     const setOpen = useCallback(
       (next: boolean) => {
@@ -479,6 +481,20 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         viewport,
         offset: pinned ? (heights[0] ?? 0) : 0,
       }
+    }, [])
+
+    /** Content only sizes an 'auto' stop, so it's watched only then. */
+    const observeContent = useCallback(() => {
+      const ro = resizeObserverRef.current
+      if (!ro) return
+      for (const target of observedContentRef.current) ro.unobserve(target)
+      const content = contentRef.current
+      const auto = (latest.current.snapPoints ?? DEFAULT_SNAP_POINTS).includes(
+        'auto',
+      )
+      observedContentRef.current =
+        content && auto ? [content, ...content.children] : []
+      for (const target of observedContentRef.current) ro.observe(target)
     }, [])
 
     const pxOfPoint = useCallback((point: SnapPoint, s: Stops): number => {
@@ -1293,13 +1309,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             })
           : null
       ro?.observe(el)
-      if (
-        contentRef.current &&
-        (latest.current.snapPoints ?? DEFAULT_SNAP_POINTS).includes('auto')
-      ) {
-        ro?.observe(contentRef.current)
-        for (const child of contentRef.current.children) ro?.observe(child)
-      }
+      resizeObserverRef.current = ro
+      observeContent()
       el.addEventListener('scroll', onScroll, { passive: true })
       el.addEventListener('touchstart', onTouchStart, { passive: true })
       el.addEventListener('touchmove', onTouchMove, { passive: true })
@@ -1311,6 +1322,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         clearTimeout(timer)
         cancelAnimationFrame(frame)
         ro?.disconnect()
+        resizeObserverRef.current = null
+        observedContentRef.current = []
         el.removeEventListener('scroll', onScroll)
         el.removeEventListener('touchstart', onTouchStart)
         el.removeEventListener('touchmove', onTouchMove)
@@ -1327,7 +1340,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       blurHiddenField,
       dragActive,
       layoutAhead,
+      observeContent,
     ])
+
+    const watchesAuto = snapPoints.includes('auto')
+    useEffect(() => {
+      observeContent()
+    }, [watchesAuto, observeContent])
 
     useEffect(() => {
       if (!mounted) return
@@ -1456,8 +1475,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     useEffect(() => {
       if (layerRef.current) layerRef.current.modal = modal
-      paintBackdropRef.current?.()
     }, [modal])
+
+    // Turning `modal` on mounts the backdrop; the rest move its fade range.
+    useEffect(() => {
+      paintBackdropRef.current?.()
+    }, [modal, fadeFromIndex, stops])
 
     const requestClose = () => {
       if ((latest.current.dismissible ?? true) && !closingRef.current) {
@@ -1747,9 +1770,14 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
     }, [mounted, handleOnly, listScrolls])
 
-    const registerContent = useCallback((el: HTMLElement | null) => {
-      contentRef.current = el
-    }, [])
+    const registerContent = useCallback(
+      (el: HTMLElement | null) => {
+        if (contentRef.current === el) return
+        contentRef.current = el
+        observeContent()
+      },
+      [observeContent],
+    )
 
     if (!mounted || typeof document === 'undefined') return null
 

@@ -392,6 +392,26 @@ describe('Drawer (scroll engine)', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
+  it('brings a swiped-down sheet back while a close is suspended', async () => {
+    const tree = (pending: boolean) => (
+      <Suspense fallback={null}>
+        <Drawer open={!pending} ariaLabel="Sheet" snapPoints={[200, 420]}>
+          <Drawer.Content>{pending && <Wait />}</Drawer.Content>
+        </Drawer>
+      </Suspense>
+    )
+    const { rerender } = render(tree(false))
+    settleAt(420)
+    await act(async () => {
+      startTransition(() => rerender(tree(true)))
+    })
+    scrollTo.mockClear()
+    settleAt(0)
+    expect(scrollTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({ top: 200 }),
+    )
+  })
+
   it('reports the configured stop when a new config resolves to the same heights', () => {
     const ref = createRef<DrawerRef>()
     const tree = (snapPoints: SnapPoint[]) => (
@@ -1171,6 +1191,9 @@ describe('Drawer (scroll engine)', () => {
           observe(target: Element) {
             observed.push(target)
           }
+          unobserve(target: Element) {
+            observed = observed.filter((t) => t !== target)
+          }
           disconnect() {}
         },
       )
@@ -1249,6 +1272,33 @@ describe('Drawer (scroll engine)', () => {
         fireEvent.scroll(el)
         now.mockReturnValue(1050)
         el.scrollTop = 500 + KEYBOARD
+        fireEvent.scroll(el)
+        fireEvent.touchEnd(el)
+        scrollTo.mockClear()
+        fireEvent(el, new Event('scrollend'))
+        expect(scrollTo).toHaveBeenLastCalledWith(
+          expect.objectContaining({ top: 420 + KEYBOARD }),
+        )
+        vi.advanceTimersByTime(200)
+      } finally {
+        now.mockRestore()
+      }
+    })
+
+    it('holds a sequential flick to one stop when it ends past the last', () => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+      try {
+        renderDrawer({
+          snapPoints: [200, 420, 700],
+          snapToSequentialPoint: true,
+        })
+        settleAt(200)
+        keyboard(KEYBOARD)
+        const el = scroller()
+        fireEvent.touchStart(el, { touches: [{ clientY: 600 }] })
+        fireEvent.scroll(el)
+        now.mockReturnValue(1050)
+        el.scrollTop = 699 + KEYBOARD
         fireEvent.scroll(el)
         fireEvent.touchEnd(el)
         scrollTo.mockClear()
@@ -2017,6 +2067,36 @@ describe('Drawer (scroll engine)', () => {
       expect(observed).toContain(content)
     })
 
+    it('starts watching the content once its stops gain auto', () => {
+      const tree = (snapPoints: SnapPoint[]) => (
+        <Drawer open ariaLabel="Sheet" snapPoints={snapPoints}>
+          <Drawer.Content />
+        </Drawer>
+      )
+      const { rerender } = render(tree([200]))
+      const content = document.querySelector('[data-drawer-content]')
+      expect(observed).not.toContain(content)
+      rerender(tree([200, 'auto']))
+      expect(observed).toContain(content)
+      rerender(tree([200]))
+      expect(observed).not.toContain(content)
+    })
+
+    it('watches content that remounts', () => {
+      const tree = (key: string) => (
+        <Drawer open ariaLabel="Sheet" snapPoints={['auto']}>
+          <Drawer.Content key={key} />
+        </Drawer>
+      )
+      const { rerender } = render(tree('a'))
+      const first = document.querySelector('[data-drawer-content]')
+      rerender(tree('b'))
+      const second = document.querySelector('[data-drawer-content]')
+      expect(second).not.toBe(first)
+      expect(observed).toContain(second)
+      expect(observed).not.toContain(first)
+    })
+
     it('stops lifting at the top inset', () => {
       const ref = createRef<DrawerRef>()
       renderDrawer({ snapPoints: [200, 700] }, ref)
@@ -2761,6 +2841,32 @@ describe('Drawer (scroll engine)', () => {
     expect(el.contains(backdrop)).toBe(false)
     expect(Number(backdrop?.style.opacity)).toBe(0.5)
     vi.unstubAllGlobals()
+  })
+
+  it('repaints the fallback backdrop when its fade range changes', () => {
+    vi.stubGlobal('CSS', { supports: () => false })
+    try {
+      const tree = (fadeFromIndex?: number) => (
+        <Drawer
+          open
+          ariaLabel="Sheet"
+          snapPoints={[200, 420]}
+          fadeFromIndex={fadeFromIndex}
+        >
+          <Drawer.Content />
+        </Drawer>
+      )
+      const { rerender } = render(tree())
+      settleAt(200)
+      const backdrop = document.querySelector<HTMLElement>(
+        '[data-scroll-drawer-backdrop]',
+      )
+      expect(Number(backdrop?.style.opacity)).toBe(1)
+      rerender(tree(1))
+      expect(Number(backdrop?.style.opacity)).toBe(0)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('maps the remaining flags onto the scroller', () => {
