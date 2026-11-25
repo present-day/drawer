@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   emitVisualViewportEvent,
@@ -144,6 +144,148 @@ describe('useVisualViewport', () => {
     })
     expect(result.current.isKeyboardOpen).toBe(false)
     expect(result.current.layoutBottomInset).toBe(0)
+  })
+
+  describe('when iOS shrinks innerHeight with the keyboard and pans the page', () => {
+    // iPhone, iOS 18.7: frames t49242 and t51512 of a logged session.
+    const innerHeight = Object.getOwnPropertyDescriptor(window, 'innerHeight')
+    const innerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth')
+    const setInnerHeight = (value: number) =>
+      Object.defineProperty(window, 'innerHeight', {
+        configurable: true,
+        value,
+      })
+    const setInnerWidth = (value: number) =>
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        value,
+      })
+    let field: HTMLInputElement
+    const touchPoints = (value: number | null) => {
+      if (value === null) {
+        delete (navigator as { maxTouchPoints?: number }).maxTouchPoints
+      } else {
+        Object.defineProperty(navigator, 'maxTouchPoints', {
+          configurable: true,
+          value,
+        })
+      }
+    }
+
+    beforeEach(() => {
+      // A width no other test uses, so the baseline starts from this page.
+      setInnerWidth(390)
+      setInnerHeight(695)
+      setVisualViewportSize(695, 0)
+      field = document.createElement('input')
+      document.body.append(field)
+      touchPoints(5)
+    })
+
+    afterEach(() => {
+      touchPoints(null)
+      field.remove()
+      if (innerHeight) Object.defineProperty(window, 'innerHeight', innerHeight)
+      if (innerWidth) Object.defineProperty(window, 'innerWidth', innerWidth)
+    })
+
+    it('measures the keyboard from the height before it opened', () => {
+      const { result } = renderHook(() => useVisualViewport())
+      act(() => {
+        field.focus()
+        setInnerHeight(392)
+        setVisualViewportSize(392, 303)
+      })
+      expect(result.current.isKeyboardOpen).toBe(true)
+      expect(result.current.keyboardHeight).toBe(303)
+      expect(result.current.offsetTop).toBe(303)
+      expect(result.current.layoutBottomInset).toBe(0)
+
+      act(() => {
+        setInnerHeight(695)
+        setVisualViewportSize(695, 0)
+      })
+      expect(result.current.isKeyboardOpen).toBe(false)
+    })
+
+    it('does not read a toolbar that shrinks the page as a keyboard', () => {
+      const { result } = renderHook(() => useVisualViewport())
+      act(() => {
+        setInnerHeight(610)
+        setVisualViewportSize(610, 0)
+      })
+      expect(result.current.isKeyboardOpen).toBe(false)
+      expect(result.current.keyboardHeight).toBe(0)
+    })
+
+    it('ignores the baseline without a touch screen', () => {
+      touchPoints(null)
+      const { result } = renderHook(() => useVisualViewport())
+      // A desktop window made shorter with a field focused.
+      act(() => {
+        field.focus()
+        setInnerHeight(392)
+        setVisualViewportSize(392, 0)
+      })
+      expect(result.current.isKeyboardOpen).toBe(false)
+    })
+
+    it('reads the keyboard closed once the field blurs, with no viewport event', async () => {
+      const onViewportChange = vi.fn()
+      const { result } = renderHook(() =>
+        useVisualViewport({ onViewportChange }),
+      )
+      act(() => {
+        field.focus()
+        setInnerHeight(392)
+        setVisualViewportSize(392, 303)
+      })
+      expect(result.current.isKeyboardOpen).toBe(true)
+      onViewportChange.mockClear()
+      await act(async () => {
+        field.blur()
+        await Promise.resolve()
+      })
+      expect(result.current.isKeyboardOpen).toBe(false)
+      expect(onViewportChange).toHaveBeenCalledTimes(1)
+      // Focus that changes nothing reports nothing.
+      const other = document.createElement('button')
+      document.body.append(other)
+      await act(async () => {
+        other.focus()
+        await Promise.resolve()
+      })
+      other.remove()
+      expect(onViewportChange).toHaveBeenCalledTimes(1)
+    })
+
+    it('drops a blur check queued before unmount', async () => {
+      const onViewportChange = vi.fn()
+      const { unmount } = renderHook(() =>
+        useVisualViewport({ onViewportChange }),
+      )
+      act(() => {
+        field.focus()
+        setInnerHeight(392)
+        setVisualViewportSize(392, 303)
+      })
+      onViewportChange.mockClear()
+      field.blur()
+      unmount()
+      await Promise.resolve()
+      expect(onViewportChange).not.toHaveBeenCalled()
+    })
+
+    it('starts over when the width changes', () => {
+      const { result } = renderHook(() => useVisualViewport())
+      act(() => {
+        setInnerWidth(844)
+        setInnerHeight(390)
+        setVisualViewportSize(390, 0)
+        field.focus()
+      })
+      expect(result.current.isKeyboardOpen).toBe(false)
+    })
   })
 
   afterEach(() => {

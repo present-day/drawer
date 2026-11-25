@@ -100,3 +100,36 @@ export function forceUnlock(): void {
     originalOverflow = null
   }
 }
+
+const TEXT_INPUT_TYPES = new Set([
+  'text',
+  'search',
+  'tel',
+  'url',
+  'password',
+  'email',
+  'number',
+])
+
+/** Fields and every editing host, including `plaintext-only`. */
+export const EDITABLE_SELECTOR =
+  'input, textarea, [contenteditable="true" i], [contenteditable=""], [contenteditable="plaintext-only" i]'
+
+/** Whether Escape on this target should clear a field rather than close the drawer. */
+export function editableTargetHasContent(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  const editable = target.closest(EDITABLE_SELECTOR)
+  if (!editable) return false
+  // A non-editable island (a chip or button) inside an editor isn't text.
+  const island = target.closest('[contenteditable="false" i]')
+  if (island && island !== editable && editable.contains(island)) return false
+  if (editable instanceof HTMLInputElement) {
+    // Only text-entry inputs participate in Escape-to-clear; checkboxes,
+    // radios, buttons, etc. carry a `value` but hold no user-typed text.
+    return TEXT_INPUT_TYPES.has(editable.type) && editable.value.length > 0
+  }
+  if (editable instanceof HTMLTextAreaElement) {
+    return editable.value.length > 0
+  }
+  return (editable.textContent ?? '').trim().length > 0
+}

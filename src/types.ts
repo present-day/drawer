@@ -18,7 +18,8 @@ export type DrawerSlots = {
  * - `number` > 1 → pixel height (e.g. `480` is 480px)
  * - `'auto'`     → measured intrinsic content height (live, via `ResizeObserver`)
  * - `'full'`     → full available drawer height (viewport minus top inset)
- * - `'screen'`   → the ENTIRE viewport, ignoring `topInsetPx`
+ * - `'screen'`   → the whole scroller, ignoring `topInsetPx`: the viewport
+ *   less `bottomInsetPx` (`LegacyDrawer`: the whole viewport)
  *
  * Use as elements of `Drawer`’s `snapPoints` array, or as the type of a
  * `defaultSnapPoint` / `activeSnapPoint` value.
@@ -84,7 +85,8 @@ export interface DrawerProps {
   /**
    * When `modal` is true, keep keyboard focus within the panel (default true).
    * Set to false if you need to interact with the rest of the page while open
-   * or manage focus yourself.
+   * or manage focus yourself. The scroll engine still moves focus into a
+   * modal sheet on open and hands it back on close without the trap.
    */
   focusTrap?: boolean
   /**
@@ -96,8 +98,9 @@ export interface DrawerProps {
   /**
    * Index into `snapPoints` at which the overlay becomes fully opaque (0-based,
    * evaluated against the px-sorted snap array). Below that snap the overlay
-   * fades in proportionally as the drawer rises. Omit for the default
-   * all-or-nothing overlay that fades over the open animation.
+   * fades in proportionally as the drawer rises. When omitted, the overlay
+   * fades in as the sheet rises to its lowest stop and stays full at every
+   * stop.
    *
    * @example
    *   // snapPoints={[‘auto’, ‘full’]} — no overlay at ‘auto’, full overlay at ‘full’
@@ -111,9 +114,11 @@ export interface DrawerProps {
    */
   snapToSequentialPoint?: boolean
   /**
-   * Set to `true` when this drawer is rendered inside another drawer. Stops
-   * pointer events from bubbling to the outer drawer’s drag handlers so the
-   * two drawers do not fight over the same gesture.
+   * @deprecated `LegacyDrawer` only; the scroll engine ignores it, as a
+   * drawer opened from another never drags both. Set to `true` when
+   * this drawer is rendered inside another drawer. Stops pointer events from
+   * bubbling to the outer drawer’s drag handlers so the two drawers do not
+   * fight over the same gesture.
    */
   nested?: boolean
   /**
@@ -134,9 +139,11 @@ export interface DrawerProps {
    */
   description?: ReactNode
   /**
-   * Pixels subtracted from visual viewport height when resolving snap heights.
-   * Default leaves top space for map chrome (`DRAWER_TOP_INSET_PX`). Use `0`
-   * for edge-to-top panels (e.g. full-screen search).
+   * Px kept clear above the sheet at `'full'` and fractional stops: they
+   * resolve against the scroller's height less this. The soft keyboard
+   * doesn't change it; `LegacyDrawer` subtracts it from the visual viewport
+   * instead. Default leaves top space for map chrome (`DRAWER_TOP_INSET_PX`).
+   * Use `0` for edge-to-top panels (e.g. full-screen search).
    */
   topInsetPx?: number
   /**
@@ -146,15 +153,15 @@ export interface DrawerProps {
    *
    * For sheets that must coexist with persistent bottom chrome (a fixed nav
    * bar, a tab bar) instead of covering it. The panel is portaled to
-   * `document.body` and its `bottom` is driven by a motion value, so a
-   * consumer cannot offset it from the outside; this is the supported way.
+   * `document.body`, so a consumer cannot offset it from the outside; this is
+   * the supported way.
    *
    * The soft keyboard still wins: while it is up the panel rides the larger
    * of this and the keyboard inset, because chrome the keyboard has already
    * covered should not also hold the sheet up.
    *
-   * `SNAP_POINT.SCREEN` ignores this, exactly as it ignores `topInsetPx` —
-   * that stop means the whole viewport.
+   * `SNAP_POINT.SCREEN` honors this: it fills the scroller, which stops
+   * here. `LegacyDrawer` ignores it there, as it ignores `topInsetPx`.
    */
   bottomInsetPx?: number
   /**
@@ -162,8 +169,8 @@ export interface DrawerProps {
    * panel with `env(safe-area-inset-bottom, 0px)` and grows `'auto'` snap
    * heights by the resolved inset so content still fits. Pass a number to
    * force an explicit pixel inset, or `false` to opt out (e.g. when the app
-   * already pads its drawer content). The active inset is exposed on the
-   * panel as `--drawer-safe-area-bottom`.
+   * already pads its drawer content). `LegacyDrawer` also exposes the active
+   * inset on the panel as `--drawer-safe-area-bottom`.
    */
   safeAreaBottom?: boolean | number
   children: React.ReactNode
@@ -194,6 +201,39 @@ export interface DrawerProps {
   onAnimationStart?: (from: number, to: number) => void
   onAnimationComplete?: (snapPoint: SnapPoint) => void
   onViewportChange?: (viewport: ViewportInfo) => void
+  /**
+   * Scroll engine only. `'top'` (default): `Drawer.Scrollable` scrolls once
+   * the sheet is at its top stop (or `contentScrollFrom`), and below that a
+   * swipe on it moves the sheet. `'always'`: it scrolls at every stop; the sheet then moves from
+   * the handle and other chrome, or when the list's scroll chains at its top.
+   * Either way `Drawer.Content` is laid out for the stop the sheet rests at.
+   */
+  contentScroll?: 'top' | 'always'
+  /**
+   * Scroll engine only, with `contentScroll="top"`: the lowest stop at which
+   * `Drawer.Scrollable` scrolls; below it a swipe on the list moves the sheet.
+   * Defaults to the top stop. Set it when the top stop is one users don't rest
+   * at, such as a full-screen stop added for the software keyboard.
+   */
+  contentScrollFrom?: SnapPoint
+  /**
+   * Scroll engine only. Stacking variant: while another `stack` drawer is
+   * open on top of this one, this one recedes, driven by the top drawer's
+   * swipe, and once more per further drawer stacked above. Tune it with
+   * `--scroll-drawer-stack-scale` (default 0.92) and
+   * `--scroll-drawer-stack-shift` (default -8px) on the drawer behind. A
+   * drawer stacked above another dims the page less, to
+   * `--scroll-drawer-backdrop-max` (default 0.3), so backdrops don't compound
+   * to black.
+   */
+  stack?: boolean
+  /**
+   * Scroll engine only. Visible sheet height in px, at most once per frame
+   * while it moves. Read from `scrollTop`, so it costs no layout. Use it to
+   * keep page chrome clear of the sheet; a `ResizeObserver` on the sheet
+   * never fires, because the sheet scrolls rather than resizes.
+   */
+  onHeightChange?: (height: number) => void
 }
 
 export interface DrawerRef {
@@ -201,13 +241,21 @@ export interface DrawerRef {
   expand: () => void
   collapse: () => void
   dismiss: () => void
+  /** The stop the sheet rests at; `null` while it is entering or closing. */
   getActiveSnapPoint: () => SnapPoint | null
+  /** Visible sheet height in px. */
   getHeight: () => number
 }
 
 export interface DragInfo {
+  /** Px the sheet has moved since the drag started, positive downward. */
   y: number
+  /** Px/s, positive while the sheet moves down. */
   velocity: number
+  /**
+   * 0 to 1 at the top stop, clamped. 0 is closed, or the lowest stop on a
+   * non-dismissible sheet; on `LegacyDrawer` it is always the lowest stop.
+   */
   progress: number
 }
 
@@ -218,7 +266,13 @@ export interface DragEndInfo extends DragInfo {
 export interface ViewportInfo {
   height: number
   offsetTop: number
+  /**
+   * `innerHeight - height`, or, while a text field is focused, the tallest
+   * layout height seen at this width less `height`: iOS can shrink
+   * `innerHeight` with the keyboard and pan the page instead.
+   */
   keyboardHeight: number
+  /** `keyboardHeight` is over 50px. */
   isKeyboardOpen: boolean
   /**
    * Pixels to add to `bottom` for `position: fixed` elements so the bottom edge

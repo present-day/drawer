@@ -39,34 +39,13 @@ import type { DragEndInfo, DrawerProps, DrawerRef, SnapPoint } from '../types'
 
 const DEFAULT_SNAP_POINTS: readonly SnapPoint[] = ['auto']
 
-const TEXT_INPUT_TYPES = new Set([
-  'text',
-  'search',
-  'tel',
-  'url',
-  'password',
-  'email',
-  'number',
-])
-
-function editableTargetHasContent(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) return false
-  const editable = target.closest(
-    'input, textarea, [contenteditable="true"], [contenteditable=""]',
-  )
-  if (!editable) return false
-  if (editable instanceof HTMLInputElement) {
-    // Only text-entry inputs participate in Escape-to-clear; checkboxes,
-    // radios, buttons, etc. carry a `value` but hold no user-typed text.
-    return TEXT_INPUT_TYPES.has(editable.type) && editable.value.length > 0
-  }
-  if (editable instanceof HTMLTextAreaElement) {
-    return editable.value.length > 0
-  }
-  return (editable.textContent ?? '').trim().length > 0
-}
-
-import { cn, getLockCount, lockBody, unlockBody } from '../utils'
+import {
+  cn,
+  editableTargetHasContent,
+  getLockCount,
+  lockBody,
+  unlockBody,
+} from '../utils'
 import { DrawerContent } from './drawer/DrawerContent'
 import { DrawerHandle } from './drawer/DrawerHandle'
 import { DrawerOverlay } from './drawer/DrawerOverlay'
@@ -1076,6 +1055,7 @@ export const Drawer = Object.assign(DrawerRoot, {
   Content: DrawerContent,
   Scrollable: DrawerScrollable,
   Handle: DrawerHandle,
+  /** @deprecated Renders nothing; the overlay is built in. */
   Overlay: DrawerOverlay,
 })
 

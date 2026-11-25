@@ -1,5 +1,127 @@
 # Migration
 
+## v2 → v3
+
+v3 swaps the default `Drawer` to a native scroll-snap engine: the sheet is a
+scroll container, so a swipe runs on the compositor instead of a JavaScript
+animation loop. The props, ref, and part names (`Drawer.Content`,
+`Drawer.Handle`, `Drawer.Scrollable`) are the v2 ones. The v2 motion engine is
+still exported as `LegacyDrawer`.
+
+### Breaking
+
+- **`Drawer` is the scroll engine.** Anything that relied on the motion
+  engine's spring or its internals can move to `LegacyDrawer` (below).
+- **`nested` is ignored.** A drawer's gestures are scoped by its own scroll
+  container, so nesting needs no flag.
+- **Escape closes the topmost open modal drawer**, wherever focus is, and
+  nothing if that drawer isn't dismissible. In v2 it closed the drawer whose
+  panel had focus. A modeless drawer still hears Escape only from inside it.
+- **Focus moves without the trap.** With `focusTrap={false}`, a modal sheet
+  still takes focus when it opens and, on close, hands it back to the element
+  that had it, else to the drawer below, else the body. v2 left focus alone.
+- **Snap points resolve to px when the drawer opens, and again when the
+  scroller resizes** (rotation, browser chrome). The soft keyboard doesn't
+  re-resolve them: while it is up, the scroller shrinks to the visual viewport
+  and the sheet rides up by the keyboard height, never past `topInsetPx` (the
+  top safe-area inset for a drawer with a `'screen'` stop), with its surface
+  painted on behind the translucent keyboard, and it returns to its stop when
+  the keyboard hides. `'auto'` content can grow while the keyboard is up but
+  doesn't shrink until it hides.
+- **No keyboard glide on iOS.** `LegacyDrawer` eases the sheet up when iOS
+  reports the keyboard in one late jump; the scroll engine moves it in one
+  step.
+- **`'screen'` resolves against the scroller**, so it honors `bottomInsetPx`.
+  `LegacyDrawer` resolves it to the whole viewport.
+- **`onDragEnd` fires when the sheet settles**, after momentum, rather than at
+  release. Its `y` and `velocity` are frozen at release, as in v2. A drag
+  that dismisses the sheet ends with `targetSnapPoint: 0`; v2 fired no
+  `onDragEnd` for it.
+- **`onDrag` keeps firing during momentum** after the finger lifts, until the
+  sheet settles.
+- **`useDrawerContext`, `useDrawerDrag`, and `useDrawerSnap` are
+  `LegacyDrawer` only** and deprecated. The scroll engine provides no
+  `DrawerContext`, so `useDrawerContext` throws inside it.
+  `useDrawerKeyboardSnapMobile` works with both.
+- **The `--drawer-*` CSS variables on the panel exist only on `LegacyDrawer`.**
+  The scroll engine does not set `--drawer-height`, `--drawer-progress`,
+  `--drawer-available-height`, `--drawer-layout-bottom-inset`, or
+  `--drawer-safe-area-bottom`. Use `onHeightChange` to follow the sheet.
+- **The named `DrawerContent` and `DrawerScrollable` exports are the scroll
+  engine's parts.** They don't work inside `LegacyDrawer`, and v2's parts don't
+  work inside `Drawer`. `LegacyDrawer` users switch to `LegacyDrawerContent`
+  and `LegacyDrawerScrollable`, or `LegacyDrawer.Content` and
+  `LegacyDrawer.Scrollable`.
+- **`useVisualViewport` reads the keyboard differently**, and `LegacyDrawer`
+  and `onViewportChange` see it too. On a touch screen with a text field
+  focused, `keyboardHeight` is measured from the tallest layout height seen at
+  the current width, not only from `innerHeight`, because iOS can shrink
+  `innerHeight` with the keyboard and pan the page instead. It is also
+  re-evaluated on `focusin` and `focusout`.
+- **The scroll engine injects its own `<style>` element** into `document.head`
+  on first open. A Content Security Policy whose `style-src` lacks
+  `'unsafe-inline'` blocks it, and the drawer then doesn't lay out.
+- **`Drawer.Overlay` / `DrawerOverlay`, `SPRING_CONFIG`, `DrawerDragEvent`,
+  the `nested` prop, and the types of the v2 hooks are deprecated.** Overlay
+  never rendered anything in v3; the rest are `LegacyDrawer` only.
+- **Mouse drags** work as in v2 (from anywhere on the sheet), except from
+  buttons and links unless they sit inside `[data-drawer-drag]`, and never from
+  fields or `[data-drawer-no-drag]`. A mostly sideways mouse drag is left to
+  whatever scrolls horizontally there.
+
+### New
+
+| Prop | What it does |
+| ---- | ------------ |
+| `contentScroll` | `'top'` (default): `Drawer.Scrollable` scrolls once the sheet is at its top stop (or `contentScrollFrom`); below that a swipe on it moves the sheet. `'always'`: it scrolls at every stop, and the sheet moves from the handle and other chrome or when the list's scroll chains at its top. |
+| `contentScrollFrom` | With `contentScroll="top"`, the lowest stop at which `Drawer.Scrollable` scrolls. Defaults to the top stop. Set it when the top stop is one users don't rest at, such as a full-screen stop added for the keyboard. |
+| `onHeightChange` | Visible sheet height in px, at most once per frame while it moves. Read from `scrollTop`, so it costs no layout. A `ResizeObserver` on the sheet never fires, because the sheet scrolls rather than resizes. |
+| `stack` | Opt-in stacking. While another `stack` drawer is open on top, this one recedes, and once more per further drawer above it. |
+
+```tsx
+<Drawer snapPoints={['auto', 'full']} contentScrollFrom="full" onHeightChange={setSheetHeight}>
+  <Drawer.Content>
+    <Drawer.Handle />
+    <Drawer.Scrollable>{/* long list */}</Drawer.Scrollable>
+  </Drawer.Content>
+</Drawer>
+```
+
+**`modal={false}`** renders no backdrop, locks no scroll, and traps no focus;
+the page behind stays usable, while the sheet itself still drags and snaps.
+On touch it drags from anywhere, buttons included, except fields and
+`[data-drawer-no-drag]`; a flick goes to the next stop in its direction.
+
+**Stack CSS variables.** Each is read in one place, so set it where it is read
+(or on an ancestor, where a value inherits down to it):
+
+| Variable | Default | Read on |
+| -------- | ------- | ------- |
+| `--scroll-drawer-stack-scale` | `0.92` | The scroller of the drawer that recedes; set it on that drawer's root or on `:root` for all. |
+| `--scroll-drawer-stack-shift` | `-8px` | Same as above. |
+| `--scroll-drawer-backdrop-max` | `1`; `0.3` on a drawer stacked above another | The drawer's own backdrop. The package sets the `0.3` on the stacked drawer's root, so an ancestor value does not reach it: override with `overlayClassName="[--scroll-drawer-backdrop-max:0.2]"` or a rule on `[data-scroll-drawer-root][data-scroll-drawer-stacked]`. |
+| `--scroll-drawer-backdrop-min` | `0`; `0.4` on a non-dismissible drawer | The drawer's own backdrop, same override rules as above. |
+| `--scroll-drawer-fill` | The content's background | Set on `Drawer.Content` when its surface is painted by a child, so the part of the sheet below the resting layout and the area behind the translucent iOS keyboard aren't transparent. |
+
+**`data-drawer-drag`** on (or around) a button or link lets a mouse drag start
+there. A tap still clicks; the click a drag ends on is swallowed.
+
+### Staying on v2
+
+Swap the import. If you use the named parts, swap them too; the compound parts
+(`Drawer.Content`, `Drawer.Scrollable`) follow the import on their own:
+
+```tsx
+import {
+  LegacyDrawer as Drawer,
+  LegacyDrawerContent as DrawerContent,
+  LegacyDrawerScrollable as DrawerScrollable,
+} from '@present-day/drawer'
+```
+
+`LegacyDrawer` keeps the v2 behavior and the `--drawer-*` variables. The
+scroll-engine-only props above are not available on it.
+
 ## v2.1 → v2.2
 
 No API removals. Two default behaviors changed:
