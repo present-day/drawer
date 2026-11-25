@@ -349,6 +349,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const lastIndexRef = useRef<number | null>(null)
     /** The stop the opening scroll heads for, until that scroll starts. */
     const entryIndexRef = useRef<number | null>(null)
+    /** The stop an entry under way is opening to, until the user takes over. */
+    const enteringRef = useRef<number | null>(null)
     /**
      * The stop index a programmatic scroll is heading for, -1 for closed;
      * null once it settles or a drag takes over.
@@ -698,6 +700,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (top === undefined) return
         // A snap asked for before the opening scroll starts would be undone by it.
         if (entryIndexRef.current !== null) entryIndexRef.current = index
+        enteringRef.current = null
         // Read before physicalTop, which moves the lift visibleHeight reads.
         const from = visibleHeight()
         const target = physicalTop(top)
@@ -744,6 +747,24 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const el = scrollerRef.current
       const s = stopsRef.current
       if (!el || !s || draggingRef.current) return
+      const entering = enteringRef.current
+      // A field focused mid-entry scrolls itself into view, which stops the
+      // entry short of its stop. The keyboard path lifts it to its stop.
+      if (
+        entering !== null &&
+        !sessionRef.current &&
+        !closingRef.current &&
+        !keyboardRef.current
+      ) {
+        const top = positionsOf(s)[entering]
+        const target = top === undefined ? null : physicalTop(top)
+        if (target !== null && Math.abs(el.scrollTop - target) > EDGE_PX) {
+          aimRef.current = entering
+          scrollToTop(el, target)
+          return
+        }
+      }
+      enteringRef.current = null
       aimRef.current = null
       movingRef.current = false
       const p = latest.current
@@ -1131,6 +1152,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const top = positionsOf(stops)[i]
         if (aim !== null && aim >= 0 && top !== undefined) {
           aimRef.current = i
+          if (enteringRef.current !== null) enteringRef.current = i
           scrollToTop(el, physicalTop(top))
           return
         }
@@ -1202,6 +1224,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const lifted = physicalTop(positionsOf(now)[index] ?? 0)
         if (keyboardRef.current) keyboardRef.current.pending = false
         aimRef.current = index
+        enteringRef.current = index
         const before = el.scrollTop
         scrollToTop(el, lifted)
         // An instant scroll (reduced motion) that moved fires scrollend,
@@ -1343,6 +1366,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
       const onTouchStart = (e: TouchEvent) => {
         aimRef.current = null
+        enteringRef.current = null
         sessionRef.current = startSession(e, el.scrollTop)
       }
       const onTouchMove = (e: TouchEvent) => {
@@ -1604,6 +1628,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const anchor = { y: fromY, top: el.scrollTop }
         draggingRef.current = true
         aimRef.current = null
+        enteringRef.current = null
         const session = startSession(event, el.scrollTop)
         sessionRef.current = session
         el.style.scrollSnapType = 'none'

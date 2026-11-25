@@ -1527,6 +1527,59 @@ describe('Drawer (scroll engine)', () => {
     }
   })
 
+  describe('an entry another scroll cuts short', () => {
+    const frame = () =>
+      act(() => new Promise<void>((r) => requestAnimationFrame(() => r())))
+
+    it('finishes at the stop it was opening to', async () => {
+      const ref = createRef<DrawerRef>()
+      const onSnapPointChange = vi.fn()
+      renderDrawer({ onSnapPointChange }, ref)
+      await frame()
+      expect(scrollTo).toHaveBeenLastCalledWith({
+        top: 420,
+        behavior: 'smooth',
+      })
+      // A scrollend can land before the entry's scroll gets going.
+      settleAt(0)
+      // A field focused mid-entry scrolls itself into view.
+      settleAt(230)
+      expect(scrollTo).toHaveBeenLastCalledWith({
+        top: 420,
+        behavior: 'smooth',
+      })
+      expect(onSnapPointChange).not.toHaveBeenCalled()
+      settleAt(420)
+      expect(ref.current?.getActiveSnapPoint()).toBe(420)
+      expect(onSnapPointChange).toHaveBeenCalledTimes(1)
+      expect(onSnapPointChange).toHaveBeenCalledWith(420, 1)
+    })
+
+    it('leaves a sheet the user caught', async () => {
+      const ref = createRef<DrawerRef>()
+      renderDrawer({}, ref)
+      await frame()
+      scrollTo.mockClear()
+      const el = scroller()
+      fireEvent.touchStart(el, { touches: [{ clientY: 500 }] })
+      el.scrollTop = 200
+      fireEvent.scroll(el)
+      fireEvent.touchEnd(el)
+      fireEvent(el, new Event('scrollend'))
+      expect(scrollTo).not.toHaveBeenCalled()
+      expect(ref.current?.getActiveSnapPoint()).toBe(200)
+    })
+
+    it('leaves a snap made during the entry', async () => {
+      const ref = createRef<DrawerRef>()
+      renderDrawer({}, ref)
+      await frame()
+      act(() => ref.current?.snapTo(200))
+      settleAt(200)
+      expect(ref.current?.getActiveSnapPoint()).toBe(200)
+    })
+  })
+
   describe('software keyboard', () => {
     const KEYBOARD = 300
     let vv: EventTarget & { height: number; offsetTop: number }
@@ -1965,7 +2018,7 @@ describe('Drawer (scroll engine)', () => {
       const onDrag = vi.fn()
       const frame = () =>
         act(() => new Promise<void>((r) => requestAnimationFrame(() => r())))
-      renderDrawer({ onDrag })
+      renderDrawer({ onDrag, defaultSnapPoint: 200 })
       await frame()
       settleAt(200)
       keyboard(KEYBOARD)
