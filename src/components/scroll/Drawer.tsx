@@ -1126,6 +1126,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
                 ? kept
                 : targetIndex()
           if (entryIndexRef.current !== null) entryIndexRef.current = index
+          if (enteringRef.current !== null) enteringRef.current = index
           const top = positionsOf(stops)[index] ?? 0
           layoutFor(el, stops, index)
           if (!(latest.current.dismissible ?? true)) el.scrollTop = top

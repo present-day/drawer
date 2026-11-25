@@ -1555,6 +1555,32 @@ describe('Drawer (scroll engine)', () => {
       expect(onSnapPointChange).toHaveBeenCalledWith(420, 1)
     })
 
+    it('keeps heading for its stop when a stop is inserted below it', async () => {
+      const ref = createRef<DrawerRef>()
+      const onSnapPointChange = vi.fn()
+      const tree = (snapPoints: number[]) => (
+        <Drawer
+          ref={ref}
+          open
+          ariaLabel="Sheet"
+          snapPoints={snapPoints}
+          onSnapPointChange={onSnapPointChange}
+        >
+          <Drawer.Content />
+        </Drawer>
+      )
+      const { rerender } = render(tree([200, 700]))
+      await frame()
+      rerender(tree([200, 420, 700]))
+      settleAt(700)
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ top: 700 }),
+      )
+      expect(ref.current?.getActiveSnapPoint()).toBe(700)
+      expect(onSnapPointChange).toHaveBeenCalledTimes(1)
+      expect(onSnapPointChange).toHaveBeenCalledWith(700, 2)
+    })
+
     it('leaves a sheet the user caught', async () => {
       const ref = createRef<DrawerRef>()
       renderDrawer({}, ref)
