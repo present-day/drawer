@@ -2224,6 +2224,32 @@ describe('Drawer (scroll engine)', () => {
       expect(observed).toContain(screen.getByTestId('plain'))
     })
 
+    it('measures its auto stop again when its content is removed', async () => {
+      const scrollHeight = vi
+        .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+        .mockImplementation(function (this: HTMLElement) {
+          return this.hasAttribute('data-drawer-scroll') ? 300 : 0
+        })
+      try {
+        const tree = (content: boolean) => (
+          <Drawer open ariaLabel="Sheet" snapPoints={['auto']}>
+            {content && (
+              <Drawer.Content>
+                <Drawer.Scrollable />
+              </Drawer.Content>
+            )}
+          </Drawer>
+        )
+        const { rerender } = render(tree(true))
+        settleAt(300)
+        expect(screen.getByRole('dialog').style.height).toBe('300px')
+        await act(async () => rerender(tree(false)))
+        expect(screen.getByRole('dialog').style.height).toBe('0px')
+      } finally {
+        scrollHeight.mockRestore()
+      }
+    })
+
     it('watches content that remounts', () => {
       const tree = (key: string) => (
         <Drawer open ariaLabel="Sheet" snapPoints={['auto']}>
@@ -2261,8 +2287,10 @@ describe('Drawer (scroll engine)', () => {
       expect(ref.current?.getActiveSnapPoint()).toBe(700)
       expect(onSnapPointChange).toHaveBeenCalledWith(700, 1)
       onSnapPointChange.mockClear()
+      onAnimationStart.mockClear()
       act(() => ref.current?.snapTo(700))
       expect(onSnapPointChange).not.toHaveBeenCalled()
+      expect(onAnimationStart).not.toHaveBeenCalled()
     })
 
     it('stops lifting at the top inset', () => {

@@ -340,6 +340,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
     const contentRef = useRef<HTMLElement | null>(null)
     const resizeObserverRef = useRef<ResizeObserver | null>(null)
     const observedContentRef = useRef<Element[]>([])
+    const remeasureRef = useRef<(() => void) | null>(null)
     const closingRef = useRef(false)
     const openedRef = useRef(false)
     // Chrome fires a scrollend at 0 for the reset before the opening scroll
@@ -1319,30 +1320,28 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           if (!hasScrollEnd) armFallback()
         } else sessionRef.current = null
       }
+      const remeasure = () => {
+        if (!openedRef.current || closingRef.current) return
+        const current = stopsRef.current
+        const typing = !!keyboardRef.current
+        const next = resolveStops(typing ? current?.viewport : undefined)
+        if (!next || sameStops(current, next)) return
+        // Content that shrinks while the keyboard is up (a cleared
+        // query) mustn't pull the field away mid-typing. It
+        // re-resolves when the keyboard hides and the scroller resizes.
+        const top = (h: number[]) => h[h.length - 1] ?? 0
+        if (typing && current && top(next.heights) < top(current.heights)) {
+          return
+        }
+        setStops(next)
+      }
       const ro =
         typeof ResizeObserver === 'function'
-          ? new ResizeObserver(() => {
-              if (!openedRef.current || closingRef.current) return
-              const current = stopsRef.current
-              const typing = !!keyboardRef.current
-              const next = resolveStops(typing ? current?.viewport : undefined)
-              if (!next || sameStops(current, next)) return
-              // Content that shrinks while the keyboard is up (a cleared
-              // query) mustn't pull the field away mid-typing. It
-              // re-resolves when the keyboard hides and the scroller resizes.
-              const top = (h: number[]) => h[h.length - 1] ?? 0
-              if (
-                typing &&
-                current &&
-                top(next.heights) < top(current.heights)
-              ) {
-                return
-              }
-              setStops(next)
-            })
+          ? new ResizeObserver(remeasure)
           : null
       ro?.observe(el)
       resizeObserverRef.current = ro
+      remeasureRef.current = remeasure
       observeContent()
       el.addEventListener('scroll', onScroll, { passive: true })
       el.addEventListener('touchstart', onTouchStart, { passive: true })
@@ -1356,6 +1355,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         cancelAnimationFrame(frame)
         ro?.disconnect()
         resizeObserverRef.current = null
+        remeasureRef.current = null
         observedContentRef.current = []
         el.removeEventListener('scroll', onScroll)
         el.removeEventListener('touchstart', onTouchStart)
@@ -1840,10 +1840,17 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       (el: HTMLElement | null) => {
         if (contentRef.current === el) return
         contentRef.current = el
+        if (el) {
+          observeContent()
+          return
+        }
         // A detach runs before this commit inserts whatever replaces the
-        // content; the sheet's children are only final once it's done.
-        if (el) observeContent()
-        else queueMicrotask(observeContent)
+        // content; the sheet's children are only final once it's done. With
+        // nothing left to observe, no resize would re-measure AUTO either.
+        queueMicrotask(() => {
+          observeContent()
+          remeasureRef.current?.()
+        })
       },
       [observeContent],
     )
