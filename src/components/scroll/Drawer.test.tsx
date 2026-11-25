@@ -1402,6 +1402,38 @@ describe('Drawer (scroll engine)', () => {
       }
     })
 
+    it('keeps a released flick on its stop as the keyboard grows', () => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+      try {
+        const ref = createRef<DrawerRef>()
+        renderDrawer({ snapPoints: [200, 420, 700] }, ref)
+        settleAt(200)
+        keyboard(KEYBOARD)
+        const el = scroller()
+        fireEvent.touchStart(el, { touches: [{ clientY: 600 }] })
+        fireEvent.scroll(el)
+        now.mockReturnValue(1050)
+        el.scrollTop = 250 + KEYBOARD
+        fireEvent.scroll(el)
+        fireEvent.touchEnd(el)
+        inFlight()
+        fireEvent(el, new Event('scrollend'))
+        expect(scrollTo).toHaveBeenLastCalledWith(
+          expect.objectContaining({ top: 420 + KEYBOARD }),
+        )
+        keyboard(KEYBOARD + 50)
+        expect(scrollTo).toHaveBeenLastCalledWith(
+          expect.objectContaining({ top: 420 + KEYBOARD + 50 }),
+        )
+        finishScroll()
+        fireEvent(el, new Event('scrollend'))
+        vi.advanceTimersByTime(200)
+        expect(ref.current?.getActiveSnapPoint()).toBe(420)
+      } finally {
+        now.mockRestore()
+      }
+    })
+
     it('closes a mouse drag released toward closed with the keyboard up', () => {
       const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
       try {
@@ -2701,6 +2733,30 @@ describe('Drawer (scroll engine)', () => {
         expect.anything(),
         expect.objectContaining({ targetSnapPoint: 420, y: -200 }),
       )
+    })
+
+    it('lets go of a drag whose row is removed under the finger', () => {
+      const { el } = renderModeless()
+      const chips = screen.getByTestId('chips')
+      start(chips, 100, 700)
+      move(chips, 100, 690)
+      move(chips, 100, 650)
+      expect(el.scrollTop).toBe(170)
+      chips.remove()
+      end(chips, 100, 650)
+      expect(el).not.toHaveAttribute('data-scroll-drawer-dragging')
+      expect(el.style.scrollSnapType).toBe('')
+      expect(scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ top: 120 }),
+      )
+      settleAt(120)
+      const pill = screen.getByRole('button', { name: 'Nearby' })
+      start(pill, 100, 700)
+      move(pill, 100, 690)
+      expect(move(pill, 100, 600)).toBe(false)
+      expect(el).toHaveAttribute('data-scroll-drawer-dragging')
+      end(pill, 100, 600)
+      vi.advanceTimersByTime(200)
     })
 
     it('sends a flick to the next stop in its direction, but not when canceled', () => {

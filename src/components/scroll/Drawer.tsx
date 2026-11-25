@@ -271,6 +271,16 @@ function sameStops(a: Stops | null, b: Stops): boolean {
   )
 }
 
+/**
+ * The aimRef value for a release heading to `top`, so a keyboard change
+ * mid-scroll re-aims at the same stop. -1 is closed.
+ */
+function aimOf(stops: Stops, top: number, closing: boolean): number | null {
+  if (closing) return -1
+  const i = positionsOf(stops).indexOf(top)
+  return i === -1 ? null : i
+}
+
 function positionsOf(stops: Stops): number[] {
   return stops.heights.map((h) => Math.max(0, h - stops.offset))
 }
@@ -750,8 +760,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           stopsAt,
           p.snapToSequentialPoint ? session.startTop - lift : undefined,
         )
-        const physical = dismissible && top === 0 ? 0 : physicalTop(top)
+        const closing = dismissible && top === 0
+        const physical = closing ? 0 : physicalTop(top)
         if (Math.abs(el.scrollTop - physical) > EDGE_PX) {
+          aimRef.current = aimOf(s, top, closing)
           scrollToTop(el, physical)
           return
         }
@@ -1579,7 +1591,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
               ? el.scrollTop <= EDGE_PX
               : Math.abs(restingTop(el) - top) <= EDGE_PX
             if (there) settle()
-            else scrollToTop(el, closing ? 0 : physicalTop(top))
+            else {
+              aimRef.current = aimOf(s, top, closing)
+              scrollToTop(el, closing ? 0 : physicalTop(top))
+            }
           },
         }
       },
@@ -1683,6 +1698,27 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         drag: ReturnType<typeof beginDrag>
       } | null = null
 
+      // A touch keeps targeting a row removed under the finger, but its
+      // events no longer bubble to the sheet; only the row still hears them.
+      // Let go of the drag there, without the flick, as a canceled touch.
+      const onDetached: EventListener = (event) => {
+        const e = event as TouchEvent
+        const target = e.currentTarget
+        if (!(target instanceof Element) || sheet.contains(target)) return
+        if (!touchOf(e)) return
+        const drag = gesture?.drag
+        release()
+        drag?.end(e, false)
+      }
+      const release = () => {
+        const target = gesture?.target
+        gesture = null
+        if (!target) return
+        target.removeEventListener('touchmove', onDetached)
+        target.removeEventListener('touchend', onDetached)
+        target.removeEventListener('touchcancel', onDetached)
+      }
+
       const touchOf = (e: TouchEvent) => {
         if (!gesture) return null
         for (const t of e.changedTouches) {
@@ -1693,7 +1729,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
       const onStart = (e: TouchEvent) => {
         if (gesture?.drag) return
-        gesture = null
+        release()
         const t = e.touches.length === 1 ? e.touches[0] : undefined
         const target = e.target
         if (!t || !(target instanceof Element) || !sheet.contains(target)) {
@@ -1713,6 +1749,9 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           target,
           drag: null,
         }
+        target.addEventListener('touchmove', onDetached)
+        target.addEventListener('touchend', onDetached)
+        target.addEventListener('touchcancel', onDetached)
       }
       const onMove = (e: TouchEvent) => {
         const t = touchOf(e)
@@ -1728,12 +1767,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             !e.cancelable ||
             listScrolls(gesture.target, dy > 0)
           ) {
-            gesture = null
+            release()
             return
           }
           gesture.drag = beginDrag(e, gesture.y)
           if (!gesture.drag) {
-            gesture = null
+            release()
             return
           }
         }
@@ -1743,7 +1782,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const onEnd = (e: TouchEvent) => {
         if (!touchOf(e)) return
         const drag = gesture?.drag
-        gesture = null
+        release()
         drag?.end(e, e.type === 'touchend')
       }
 
@@ -1757,6 +1796,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         sheet.removeEventListener('touchend', onEnd)
         sheet.removeEventListener('touchcancel', onEnd)
         if (gesture?.drag) draggingRef.current = false
+        release()
       }
     }, [mounted, modal, beginDrag, listScrolls])
 
