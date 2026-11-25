@@ -82,6 +82,12 @@ function markers() {
   ].map((m) => m.style.getPropertyValue('--scroll-drawer-snap'))
 }
 
+const never = new Promise<never>(() => {})
+function Wait(): null {
+  use(never)
+  return null
+}
+
 function renderDrawer(
   props: Partial<DrawerProps> = {},
   ref?: React.Ref<DrawerRef>,
@@ -362,11 +368,6 @@ describe('Drawer (scroll engine)', () => {
 
   it('keeps reading the committed props while a transition is suspended', async () => {
     const onOpenChange = vi.fn()
-    const never = new Promise<never>(() => {})
-    function Wait(): null {
-      use(never)
-      return null
-    }
     const tree = (pending: boolean) => (
       <Suspense fallback={null}>
         <Drawer
@@ -441,6 +442,28 @@ describe('Drawer (scroll engine)', () => {
     expect(onSnapPointChange).not.toHaveBeenCalled()
     settleAt(200)
     expect(onSnapPointChange).toHaveBeenCalledWith(200, 0)
+  })
+
+  it("reports leaving a parent's auto stop for a taller one", () => {
+    const scrollHeight = vi
+      .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.hasAttribute('data-drawer-scroll') ? 300 : 0
+      })
+    try {
+      const onSnapPointChange = vi.fn()
+      renderDrawer({
+        snapPoints: ['auto', 'full'],
+        activeSnapPoint: 'auto',
+        onSnapPointChange,
+      })
+      settleAt(300)
+      expect(onSnapPointChange).not.toHaveBeenCalled()
+      settleAt(VIEWPORT - TOP_INSET)
+      expect(onSnapPointChange).toHaveBeenCalledWith('full', 1)
+    } finally {
+      scrollHeight.mockRestore()
+    }
   })
 
   describe('stops that change while the sheet is moving', () => {

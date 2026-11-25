@@ -778,11 +778,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         lastIndexRef.current = index
         // A parent driving `activeSnapPoint` already knows, even when the
         // stop kept is an equivalent value ('full' for 1); echoing it back
-        // invites feedback loops.
+        // invites feedback loops. 'auto' matches by value only: pxOfPoint
+        // has no auto measurement and resolves it to the tallest stop.
         const want = p.activeSnapPoint
         const known =
           want !== undefined &&
-          (raw === want || pxOfPoint(want, s) === s.heights[index])
+          (raw === want ||
+            (want !== 'auto' && pxOfPoint(want, s) === s.heights[index]))
         if (!known) p.onSnapPointChange?.(raw, index)
       }
       p.onAnimationComplete?.(raw)
