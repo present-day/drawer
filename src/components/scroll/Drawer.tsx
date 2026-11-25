@@ -50,7 +50,7 @@ import {
   supportsScrollTimeline,
   writeBackdropOpacity,
 } from './geometry'
-import { type Layer, openLayer } from './layers'
+import { type Layer, layerContaining, openLayer } from './layers'
 import { joinStack } from './stack'
 import { injectScrollDrawerStyles } from './styles'
 
@@ -354,6 +354,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
      * null once it settles or a drag takes over.
      */
     const aimRef = useRef<number | null>(null)
+    /** A resting sheet's move to new stops, started but not yet settled. */
+    const movingRef = useRef(false)
     /** `settle`, for `scrollToIndex`, which `settle` itself depends on. */
     const settleRef = useRef<(() => void) | null>(null)
     /** Writes the backdrop's opacity where scroll timelines can't. */
@@ -658,13 +660,15 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       [restingTop, liftAt, writeHidden],
     )
 
-    const visibleHeight = useCallback((): number => {
-      const el = scrollerRef.current
-      const s = stopsRef.current
-      if (!el || !s) return 0
-      const max = s.heights[s.heights.length - 1] ?? 0
-      return Math.max(0, Math.min(max, restingTop(el) + s.offset))
-    }, [restingTop])
+    const visibleHeight = useCallback(
+      (s: Stops | null = stopsRef.current): number => {
+        const el = scrollerRef.current
+        if (!el || !s) return 0
+        const max = s.heights[s.heights.length - 1] ?? 0
+        return Math.max(0, Math.min(max, restingTop(el) + s.offset))
+      },
+      [restingTop],
+    )
 
     const dragInfo = useCallback(
       (session: DragSession | null): DragInfo => {
@@ -738,6 +742,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const s = stopsRef.current
       if (!el || !s || draggingRef.current) return
       aimRef.current = null
+      movingRef.current = false
       const p = latest.current
       if (closingRef.current) {
         if (el.scrollTop <= EDGE_PX) setMounted(false)
@@ -1029,7 +1034,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             ? (s.raw[i] ?? null)
             : null
         },
-        getHeight: visibleHeight,
+        getHeight: () => visibleHeight(),
       }),
       [indexOfPoint, scrollToIndex, setOpen, visibleHeight],
     )
@@ -1120,14 +1125,21 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           scrollToTop(el, physicalTop(top))
           return
         }
-        const from = visibleHeight()
+        // Against the stops it rests on, before physicalTop moves the lift.
+        const from = visibleHeight(prev)
         const target = top === undefined ? el.scrollTop : physicalTop(top)
+        // A move still unsettled is retargeted; its scrollend settles it.
+        if (movingRef.current) {
+          el.scrollTop = target
+          return
+        }
         if (el.scrollTop === target) {
           settle()
           return
         }
         // The write fires scroll and scrollend, which settle it once.
         latest.current.onAnimationStart?.(from, stops.heights[i] ?? 0)
+        movingRef.current = true
         el.scrollTop = target
         return
       }
@@ -1484,19 +1496,29 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
 
     // Read before the commit's layout phase, where React applies autoFocus
     // inside the sheet; by the layer effect the opener would be that field.
+    // Opened from inside another drawer, the opener can go with that drawer
+    // if it closes in the same update; then focus goes where that one's would.
     const openerRef = useRef<Element | null>(null)
+    const openerLayerRef = useRef<Layer | null>(null)
     useInsertionEffect(() => {
-      if (open) openerRef.current = document.activeElement
+      if (!open) return
+      const active = document.activeElement
+      openerRef.current = active
+      openerLayerRef.current = active ? layerContaining(active) : null
     }, [open])
 
     const layerRef = useRef<Layer | null>(null)
     useEffect(() => {
       const sheet = sheetRef.current
       if (!open || !mounted || !sheet) return
-      const opener = openerRef.current
+      const captured = openerRef.current
+      const openerLayer = openerLayerRef.current
+      const returnTarget = () =>
+        captured?.isConnected ? captured : (openerLayer?.returnTarget() ?? null)
       const layer: Layer = {
         sheet,
         modal: latest.current.modal ?? true,
+        returnTarget,
         onEscape: (e) => {
           if (editableTargetHasContent(e.target)) return
           if (!(latest.current.dismissible ?? true)) return
@@ -1518,10 +1540,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (active && active !== document.body && !sheet.contains(active)) {
           return
         }
+        const opener = returnTarget()
         if (
           opener instanceof HTMLElement &&
           opener !== document.body &&
-          opener.isConnected &&
           !sheet.contains(opener)
         ) {
           opener.focus({ preventScroll: true })
@@ -1620,9 +1642,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             // logical position at release says nothing about where the
             // chosen stop sits once physicalTop sets its lift.
             const physical = closing ? 0 : physicalTop(top)
+            // Within a pixel only counts while the position still reads as
+            // this stop under its lift; a neighbor a pixel away would win.
             const there = closing
               ? el.scrollTop <= EDGE_PX
-              : Math.abs(el.scrollTop - physical) <= EDGE_PX
+              : Math.abs(el.scrollTop - physical) <= EDGE_PX &&
+                pos[nearestIndex(restingTop(el), pos)] === top
             if (there) settle()
             else {
               aimRef.current = aimOf(s, top, closing)

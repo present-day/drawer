@@ -522,6 +522,101 @@ describe('Drawer (scroll engine)', () => {
     expect(onAnimationComplete).toHaveBeenCalledWith(500)
   })
 
+  it('returns focus to the page when a drawer opened from a closing one closes', () => {
+    const page = document.createElement('button')
+    document.body.appendChild(page)
+    page.focus()
+    const tree = (which: 'a' | 'b' | null) => (
+      <>
+        <Drawer open={which === 'a'} ariaLabel="A" snapPoints={[200, 420]}>
+          <Drawer.Content>
+            <button type="button">Next</button>
+          </Drawer.Content>
+        </Drawer>
+        <Drawer open={which === 'b'} ariaLabel="B" snapPoints={[200, 420]}>
+          <Drawer.Content />
+        </Drawer>
+      </>
+    )
+    const scrollerOf = (name: string) => {
+      const el = screen
+        .getByRole('dialog', { name })
+        .closest<HTMLElement>('[data-scroll-drawer]')
+      if (!el) throw new Error('scroller missing')
+      return el
+    }
+    const settleEl = (el: HTMLElement, top: number) => {
+      el.scrollTop = top
+      fireEvent.scroll(el)
+      fireEvent(el, new Event('scrollend'))
+      vi.advanceTimersByTime(200)
+    }
+    const { rerender } = render(tree('a'))
+    settleEl(scrollerOf('A'), 420)
+    screen.getByRole('button', { name: 'Next' }).focus()
+    const a = scrollerOf('A')
+    rerender(tree('b'))
+    act(() => settleEl(a, 0))
+    expect(screen.queryByRole('dialog', { name: 'A' })).toBeNull()
+    const b = scrollerOf('B')
+    settleEl(b, 420)
+    rerender(tree(null))
+    act(() => settleEl(b, 0))
+    act(() => vi.advanceTimersByTime(1000))
+    expect(screen.queryByRole('dialog', { name: 'B' })).toBeNull()
+    expect(document.activeElement).toBe(page)
+    page.remove()
+  })
+
+  it('reads the height a pinned sheet moves from against its old stops', () => {
+    const onAnimationStart = vi.fn()
+    const tree = (snapPoints: number[]) => (
+      <Drawer
+        open
+        dismissible={false}
+        ariaLabel="Sheet"
+        snapPoints={snapPoints}
+        defaultSnapPoint={300}
+        onAnimationStart={onAnimationStart}
+      >
+        <Drawer.Content />
+      </Drawer>
+    )
+    const { rerender } = render(tree([100, 300, 700]))
+    settleAt(200)
+    onAnimationStart.mockClear()
+    rerender(tree([200, 350, 750]))
+    expect(onAnimationStart).toHaveBeenCalledWith(300, 350)
+  })
+
+  it('starts one move for stops that change twice before it settles', () => {
+    const onAnimationStart = vi.fn()
+    const onAnimationComplete = vi.fn()
+    const tree = (snapPoints: number[]) => (
+      <Drawer
+        open
+        ariaLabel="Sheet"
+        snapPoints={snapPoints}
+        onAnimationStart={onAnimationStart}
+        onAnimationComplete={onAnimationComplete}
+      >
+        <Drawer.Content />
+      </Drawer>
+    )
+    const { rerender } = render(tree([200, 420]))
+    settleAt(420)
+    onAnimationStart.mockClear()
+    onAnimationComplete.mockClear()
+    rerender(tree([200, 500]))
+    rerender(tree([200, 600]))
+    settleAt(scroller().scrollTop)
+    expect(scroller().scrollTop).toBe(600)
+    expect(onAnimationStart).toHaveBeenCalledTimes(1)
+    expect(onAnimationStart).toHaveBeenCalledWith(420, 500)
+    expect(onAnimationComplete).toHaveBeenCalledTimes(1)
+    expect(onAnimationComplete).toHaveBeenCalledWith(600)
+  })
+
   it('reports the configured stop when a new config resolves to the same heights', () => {
     const ref = createRef<DrawerRef>()
     const tree = (snapPoints: SnapPoint[]) => (
@@ -1581,6 +1676,36 @@ describe('Drawer (scroll engine)', () => {
           expect.objectContaining({ top: 200 + KEYBOARD }),
         )
         settleAt(200 + KEYBOARD)
+      } finally {
+        now.mockRestore()
+      }
+    })
+
+    it('moves a release onto its stop when the position reads as the next one', () => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+      try {
+        const ref = createRef<DrawerRef>()
+        renderDrawer({ snapPoints: [200, 599, 600, 700] }, ref)
+        settleAt(700)
+        keyboard(KEYBOARD)
+        const el = scroller()
+        expect(el.scrollTop).toBe(VIEWPORT - TOP_INSET)
+        const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+        fireEvent.pointerDown(screen.getByRole('dialog'), {
+          ...mouse,
+          clientX: 100,
+          clientY: 100,
+        })
+        fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 110 })
+        now.mockReturnValue(1001)
+        fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 111 })
+        expect(el.scrollTop).toBe(VIEWPORT - TOP_INSET - 1)
+        fireEvent.pointerUp(window, { ...mouse, clientX: 100, clientY: 111 })
+        expect(scrollTo).toHaveBeenLastCalledWith(
+          expect.objectContaining({ top: VIEWPORT - TOP_INSET }),
+        )
+        settleAt(VIEWPORT - TOP_INSET)
+        expect(ref.current?.getActiveSnapPoint()).toBe(600)
       } finally {
         now.mockRestore()
       }

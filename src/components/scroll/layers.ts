@@ -6,6 +6,8 @@
 export type Layer = {
   sheet: HTMLElement
   modal: boolean
+  /** Where focus returns when this drawer closes, resolved at that time. */
+  returnTarget: () => Element | null
   onEscape: (event: KeyboardEvent) => void
 }
 
@@ -26,6 +28,15 @@ function onKeyDown(event: KeyboardEvent) {
     }
   }
   top?.onEscape(event)
+}
+
+/** The topmost open drawer whose sheet holds `node`. */
+export function layerContaining(node: Node): Layer | null {
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const layer = layers[i]
+    if (layer?.sheet.contains(node)) return layer
+  }
+  return null
 }
 
 /** Adds a drawer on top. `leave` returns the drawer that was just below it. */
