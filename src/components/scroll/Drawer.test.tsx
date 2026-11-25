@@ -1465,6 +1465,34 @@ describe('Drawer (scroll engine)', () => {
       }
     })
 
+    it('moves a mouse drag released at its stop to where the new lift puts it', () => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+      try {
+        renderDrawer({ snapPoints: [200, 600, 700] })
+        settleAt(700)
+        keyboard(KEYBOARD)
+        const el = scroller()
+        expect(el.scrollTop).toBe(VIEWPORT - TOP_INSET)
+        const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+        fireEvent.pointerDown(screen.getByRole('dialog'), {
+          ...mouse,
+          clientX: 100,
+          clientY: 100,
+        })
+        fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 110 })
+        fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 610 })
+        expect(el.scrollTop).toBe(304)
+        now.mockReturnValue(1400)
+        fireEvent.pointerUp(window, { ...mouse, clientX: 100, clientY: 610 })
+        expect(scrollTo).toHaveBeenLastCalledWith(
+          expect.objectContaining({ top: 200 + KEYBOARD }),
+        )
+        settleAt(200 + KEYBOARD)
+      } finally {
+        now.mockRestore()
+      }
+    })
+
     it('closes a mouse drag released toward closed with the keyboard up', () => {
       const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
       try {

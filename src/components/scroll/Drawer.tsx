@@ -1589,14 +1589,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             )
             // Closed is physical 0 whatever the lift, as on the native path.
             const closing = dismissible && top === 0
-            const near = Math.abs(restingTop(el) - top) <= EDGE_PX
-            // The lift differs between stops, so a stop can already sit at
-            // scrollTop while its logical position doesn't match; no scroll
-            // would follow to settle it.
+            // Compared physically: the lift differs between stops, so the
+            // logical position at release says nothing about where the
+            // chosen stop sits once physicalTop sets its lift.
             const physical = closing ? 0 : physicalTop(top)
             const there = closing
               ? el.scrollTop <= EDGE_PX
-              : near || el.scrollTop === physical
+              : Math.abs(el.scrollTop - physical) <= EDGE_PX
             if (there) settle()
             else {
               aimRef.current = aimOf(s, top, closing)
