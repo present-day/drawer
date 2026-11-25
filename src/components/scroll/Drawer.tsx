@@ -50,7 +50,7 @@ import {
   supportsScrollTimeline,
   writeBackdropOpacity,
 } from './geometry'
-import { type Layer, layerContaining, openLayer } from './layers'
+import { isLayerOpen, type Layer, layerContaining, openLayer } from './layers'
 import { joinStack } from './stack'
 import { injectScrollDrawerStyles } from './styles'
 
@@ -709,7 +709,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           if (aim === null && (last === null || last === index)) return
           // A different stop at the same place: the keyboard lift clamps
           // both to the top inset.
-          if (aim === null) {
+          if (aim === null && !movingRef.current) {
             latest.current.onAnimationStart?.(from, s.heights[index] ?? 0)
           }
           aimRef.current = index
@@ -721,7 +721,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           if (!moves) settleRef.current?.()
           return
         }
-        latest.current.onAnimationStart?.(from, s.heights[index] ?? 0)
+        // A stop move still unsettled is retargeted, not started again.
+        if (!movingRef.current) {
+          latest.current.onAnimationStart?.(from, s.heights[index] ?? 0)
+        }
         aimRef.current = index
         scrollToTop(el, target, instant)
       },
@@ -1285,9 +1288,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         )
         session.ended = true
       }
+      // A fallback that fired under a held finger, for that touch's end to redo.
+      let deferred = false
       const fallback = () => {
         dropDetached()
         const session = sessionRef.current
+        deferred = !!session && !session.ended && !draggingRef.current
         if (draggingRef.current || (session && !session.ended)) return
         settle()
       }
@@ -1344,7 +1350,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (session.started) {
           session.ended = true
           if (!hasScrollEnd) armFallback()
-        } else sessionRef.current = null
+        } else {
+          sessionRef.current = null
+          if (deferred) {
+            deferred = false
+            armFallback()
+          }
+        }
       }
       const remeasure = () => {
         if (!openedRef.current || closingRef.current) return
@@ -1513,8 +1525,11 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       if (!open || !mounted || !sheet) return
       const captured = openerRef.current
       const openerLayer = openerLayerRef.current
+      // An opener inside a drawer that has since closed leaves with it.
       const returnTarget = () =>
-        captured?.isConnected ? captured : (openerLayer?.returnTarget() ?? null)
+        captured?.isConnected && (!openerLayer || isLayerOpen(openerLayer))
+          ? captured
+          : (openerLayer?.returnTarget() ?? null)
       const layer: Layer = {
         sheet,
         modal: latest.current.modal ?? true,

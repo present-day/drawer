@@ -568,6 +568,51 @@ describe('Drawer (scroll engine)', () => {
     page.remove()
   })
 
+  it('skips an opener inside a drawer that is already closing', () => {
+    const page = document.createElement('button')
+    document.body.appendChild(page)
+    page.focus()
+    const tree = (which: 'a' | 'b' | null) => (
+      <>
+        <Drawer open={which === 'a'} ariaLabel="A" snapPoints={[200, 420]}>
+          <Drawer.Content>
+            <button type="button">Next</button>
+          </Drawer.Content>
+        </Drawer>
+        <Drawer open={which === 'b'} ariaLabel="B" snapPoints={[200, 420]}>
+          <Drawer.Content />
+        </Drawer>
+      </>
+    )
+    const scrollerOf = (name: string) => {
+      const el = screen
+        .getByRole('dialog', { name })
+        .closest<HTMLElement>('[data-scroll-drawer]')
+      if (!el) throw new Error('scroller missing')
+      return el
+    }
+    const settleEl = (el: HTMLElement, top: number) => {
+      el.scrollTop = top
+      fireEvent.scroll(el)
+      fireEvent(el, new Event('scrollend'))
+      vi.advanceTimersByTime(200)
+    }
+    const { rerender } = render(tree('a'))
+    settleEl(scrollerOf('A'), 420)
+    screen.getByRole('button', { name: 'Next' }).focus()
+    const a = scrollerOf('A')
+    rerender(tree('b'))
+    const b = scrollerOf('B')
+    settleEl(b, 420)
+    rerender(tree(null))
+    expect(document.activeElement).toBe(page)
+    act(() => settleEl(b, 0))
+    act(() => settleEl(a, 0))
+    act(() => vi.advanceTimersByTime(1000))
+    expect(document.activeElement).toBe(page)
+    page.remove()
+  })
+
   it('reads the height a pinned sheet moves from against its old stops', () => {
     const onAnimationStart = vi.fn()
     const tree = (snapPoints: number[]) => (
@@ -615,6 +660,35 @@ describe('Drawer (scroll engine)', () => {
     expect(onAnimationStart).toHaveBeenCalledWith(420, 500)
     expect(onAnimationComplete).toHaveBeenCalledTimes(1)
     expect(onAnimationComplete).toHaveBeenCalledWith(600)
+  })
+
+  it('retargets a stop move with collapse() rather than starting another', () => {
+    const ref = createRef<DrawerRef>()
+    const onAnimationStart = vi.fn()
+    const onAnimationComplete = vi.fn()
+    const tree = (snapPoints: number[]) => (
+      <Drawer
+        ref={ref}
+        open
+        ariaLabel="Sheet"
+        snapPoints={snapPoints}
+        onAnimationStart={onAnimationStart}
+        onAnimationComplete={onAnimationComplete}
+      >
+        <Drawer.Content />
+      </Drawer>
+    )
+    const { rerender } = render(tree([200, 420]))
+    settleAt(420)
+    onAnimationStart.mockClear()
+    onAnimationComplete.mockClear()
+    rerender(tree([200, 500]))
+    act(() => ref.current?.collapse())
+    act(() => settleAt(200))
+    expect(onAnimationStart).toHaveBeenCalledTimes(1)
+    expect(onAnimationStart).toHaveBeenCalledWith(420, 500)
+    expect(onAnimationComplete).toHaveBeenCalledTimes(1)
+    expect(onAnimationComplete).toHaveBeenCalledWith(200)
   })
 
   it('reports the configured stop when a new config resolves to the same heights', () => {
@@ -2808,6 +2882,31 @@ describe('Drawer (scroll engine)', () => {
       scrollTo_(200)
       vi.advanceTimersByTime(200)
       expect(onSnapPointChange).toHaveBeenCalledWith(200, 0)
+    })
+
+    it('settles a stop move after a tap held past its fallback', () => {
+      const onAnimationComplete = vi.fn()
+      const tree = (snapPoints: number[]) => (
+        <Drawer
+          open
+          ariaLabel="Sheet"
+          snapPoints={snapPoints}
+          onAnimationComplete={onAnimationComplete}
+        >
+          <Drawer.Content />
+        </Drawer>
+      )
+      const { rerender } = render(tree([200, 420]))
+      scrollTo_(420)
+      vi.advanceTimersByTime(200)
+      onAnimationComplete.mockClear()
+      rerender(tree([200, 500]))
+      fireEvent.scroll(scroller())
+      fireEvent.touchStart(scroller(), { touches: [{ clientY: 500 }] })
+      vi.advanceTimersByTime(500)
+      fireEvent.touchEnd(scroller())
+      vi.advanceTimersByTime(500)
+      expect(onAnimationComplete).toHaveBeenCalledWith(500)
     })
 
     it('settles after a touch that was still down when it closed', () => {

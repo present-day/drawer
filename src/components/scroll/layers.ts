@@ -39,6 +39,10 @@ export function layerContaining(node: Node): Layer | null {
   return null
 }
 
+export function isLayerOpen(layer: Layer): boolean {
+  return layers.includes(layer)
+}
+
 /** Adds a drawer on top. `leave` returns the drawer that was just below it. */
 export function openLayer(layer: Layer): { leave: () => Layer | null } {
   if (layers.length === 0) document.addEventListener('keydown', onKeyDown)
