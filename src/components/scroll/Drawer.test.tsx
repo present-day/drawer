@@ -3170,19 +3170,21 @@ describe('Drawer (scroll engine)', () => {
       expect(hidden()).toBe(at(200))
     })
 
-    it('leaves a programmatic snap at the resting layout until it settles', () => {
+    it('lays out for the stop a snap up is heading to as it leaves', () => {
       const ref = createRef<DrawerRef>()
       renderDrawer({ snapPoints: STOPS }, ref)
       settleAt(200)
-      act(() => ref.current?.snapTo(700))
-      scrollTo_(400)
-      scrollTo_(600)
       expect(hidden()).toBe(at(200))
+      act(() => ref.current?.snapTo(700))
+      scrollTo_(210)
+      expect(hidden()).toBe(at(420))
+      scrollTo_(430)
+      expect(hidden()).toBe(at(700))
       settleAt(700)
       expect(hidden()).toBe(at(700))
     })
 
-    it('does the same for a pointer drag', () => {
+    it('lays out ahead for a pointer drag too', () => {
       renderDrawer({ snapPoints: STOPS })
       settleAt(200)
       const el = scroller()

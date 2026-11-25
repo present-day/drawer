@@ -1356,7 +1356,11 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (session && !session.ended && !session.blurred) {
           blurHiddenField(el, session)
         }
-        if (dragActive()) layoutAhead(el)
+        // A snap or release heading up would otherwise show the empty fill
+        // strip below the resting layout until it settles.
+        if (dragActive() || aimRef.current !== null || movingRef.current) {
+          layoutAhead(el)
+        }
         if (
           !frame &&
           (latest.current.onDrag || latest.current.onHeightChange)
