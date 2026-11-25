@@ -1120,8 +1120,15 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           scrollToTop(el, physicalTop(top))
           return
         }
-        if (top !== undefined) el.scrollTop = physicalTop(top)
-        settle()
+        const from = visibleHeight()
+        const target = top === undefined ? el.scrollTop : physicalTop(top)
+        if (el.scrollTop === target) {
+          settle()
+          return
+        }
+        // The write fires scroll and scrollend, which settle it once.
+        latest.current.onAnimationStart?.(from, stops.heights[i] ?? 0)
+        el.scrollTop = target
         return
       }
       openedRef.current = true
@@ -1174,8 +1181,15 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const lifted = physicalTop(positionsOf(now)[index] ?? 0)
         if (keyboardRef.current) keyboardRef.current.pending = false
         aimRef.current = index
+        const before = el.scrollTop
         scrollToTop(el, lifted)
-        if (Math.abs(el.scrollTop - lifted) <= EDGE_PX && lifted > EDGE_PX) {
+        // An instant scroll (reduced motion) that moved fires scrollend,
+        // which settles it; only one that didn't move needs settling here.
+        if (
+          el.scrollTop === before &&
+          Math.abs(el.scrollTop - lifted) <= EDGE_PX &&
+          lifted > EDGE_PX
+        ) {
           settle()
         }
       })
@@ -1445,7 +1459,13 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const trap = createFocusTrap(sheet, {
         returnFocusOnDeactivate: false,
         fallbackFocus: sheet,
-        initialFocus: sheet,
+        // A field the content focused itself (autoFocus) keeps focus.
+        initialFocus: () => {
+          const active = document.activeElement
+          return active instanceof HTMLElement && sheet.contains(active)
+            ? active
+            : sheet
+        },
         escapeDeactivates: false,
         allowOutsideClick: true,
         clickOutsideDeactivates: false,
@@ -1462,11 +1482,18 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       }
     }, [open, mounted, modal, focusTrap])
 
+    // Read before the commit's layout phase, where React applies autoFocus
+    // inside the sheet; by the layer effect the opener would be that field.
+    const openerRef = useRef<Element | null>(null)
+    useInsertionEffect(() => {
+      if (open) openerRef.current = document.activeElement
+    }, [open])
+
     const layerRef = useRef<Layer | null>(null)
     useEffect(() => {
       const sheet = sheetRef.current
       if (!open || !mounted || !sheet) return
-      const opener = document.activeElement
+      const opener = openerRef.current
       const layer: Layer = {
         sheet,
         modal: latest.current.modal ?? true,

@@ -431,6 +431,97 @@ describe('Drawer (scroll engine)', () => {
     )
   })
 
+  it('keeps an autoFocus field focused and returns focus to the opener', async () => {
+    const opener = document.createElement('button')
+    document.body.appendChild(opener)
+    opener.focus()
+    const tree = (open: boolean) => (
+      <Drawer open={open} ariaLabel="Sheet" snapPoints={[200, 420]}>
+        <Drawer.Content>
+          {/* biome-ignore lint/a11y/noAutofocus: the behavior under test */}
+          <input autoFocus aria-label="Query" />
+        </Drawer.Content>
+      </Drawer>
+    )
+    const { rerender } = render(tree(true))
+    const input = screen.getByLabelText('Query')
+    await act(() => new Promise<void>((r) => requestAnimationFrame(() => r())))
+    act(() => vi.advanceTimersByTime(50))
+    expect(document.activeElement).toBe(input)
+    settleAt(420)
+    rerender(tree(false))
+    act(() => settleAt(0))
+    act(() => vi.advanceTimersByTime(1000))
+    expect(document.querySelector('[data-scroll-drawer]')).toBeNull()
+    expect(document.activeElement).toBe(opener)
+    opener.remove()
+  })
+
+  it('completes a reduced-motion entry once', async () => {
+    const matchMedia = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('reduce'),
+      media: query,
+      addEventListener() {},
+      removeEventListener() {},
+    })) as unknown as typeof window.matchMedia
+    try {
+      const onAnimationComplete = vi.fn()
+      render(
+        <Drawer
+          open
+          ariaLabel="Sheet"
+          snapPoints={[200, 420]}
+          onAnimationComplete={onAnimationComplete}
+        >
+          <Drawer.Content />
+        </Drawer>,
+      )
+      await act(
+        () => new Promise<void>((r) => requestAnimationFrame(() => r())),
+      )
+      const el = scroller()
+      expect(el.scrollTop).toBe(420)
+      fireEvent.scroll(el)
+      fireEvent(el, new Event('scrollend'))
+      vi.advanceTimersByTime(200)
+      expect(onAnimationComplete).toHaveBeenCalledTimes(1)
+      expect(onAnimationComplete).toHaveBeenCalledWith(420)
+    } finally {
+      window.matchMedia = matchMedia
+    }
+  })
+
+  it("pairs a resting sheet's move to its stop's new height, once", () => {
+    const onAnimationStart = vi.fn()
+    const onAnimationComplete = vi.fn()
+    const tree = (snapPoints: number[]) => (
+      <Drawer
+        open
+        ariaLabel="Sheet"
+        snapPoints={snapPoints}
+        onAnimationStart={onAnimationStart}
+        onAnimationComplete={onAnimationComplete}
+      >
+        <Drawer.Content />
+      </Drawer>
+    )
+    const { rerender } = render(tree([200, 420]))
+    settleAt(420)
+    onAnimationStart.mockClear()
+    onAnimationComplete.mockClear()
+    rerender(tree([200, 500]))
+    const el = scroller()
+    expect(el.scrollTop).toBe(500)
+    fireEvent.scroll(el)
+    fireEvent(el, new Event('scrollend'))
+    vi.advanceTimersByTime(200)
+    expect(onAnimationStart).toHaveBeenCalledTimes(1)
+    expect(onAnimationStart).toHaveBeenCalledWith(420, 500)
+    expect(onAnimationComplete).toHaveBeenCalledTimes(1)
+    expect(onAnimationComplete).toHaveBeenCalledWith(500)
+  })
+
   it('reports the configured stop when a new config resolves to the same heights', () => {
     const ref = createRef<DrawerRef>()
     const tree = (snapPoints: SnapPoint[]) => (
@@ -847,6 +938,7 @@ describe('Drawer (scroll engine)', () => {
         top: 500,
         behavior: 'smooth',
       })
+      settleAt(500)
       expect(ref.current?.getActiveSnapPoint()).toBe(500)
     })
 
@@ -859,6 +951,7 @@ describe('Drawer (scroll engine)', () => {
         top: 500,
         behavior: 'smooth',
       })
+      settleAt(500)
       expect(ref.current?.getActiveSnapPoint()).toBe(500)
     })
 
@@ -1737,7 +1830,9 @@ describe('Drawer (scroll engine)', () => {
             expect.objectContaining({ top: VIEWPORT - TOP_INSET }),
           ),
         )
-        expect(ref.current?.getActiveSnapPoint()).toBe(700)
+        fireEvent.scroll(el)
+        fireEvent(el, new Event('scrollend'))
+        await waitFor(() => expect(ref.current?.getActiveSnapPoint()).toBe(700))
         expect(ref.current?.getHeight()).toBe(700)
         expect(maxScroll(700)).toBeLessThanOrEqual(VIEWPORT - TOP_INSET)
         keyboard(0)
@@ -2348,6 +2443,7 @@ describe('Drawer (scroll engine)', () => {
         listHeight = 150
         resize()
         expect(scroller().scrollTop).toBe(150)
+        settleAt(150)
         expect(ref.current?.getActiveSnapPoint()).toBe('auto')
       } finally {
         scrollHeight.mockRestore()
