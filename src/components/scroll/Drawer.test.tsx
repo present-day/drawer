@@ -1341,6 +1341,48 @@ describe('Drawer (scroll engine)', () => {
     expect(onHeightChange).toHaveBeenLastCalledWith(200)
   })
 
+  it('ends a drag that dismisses the sheet at snap point 0', () => {
+    const onDragStart = vi.fn()
+    const onDragEnd = vi.fn()
+    renderDrawer({ onDragStart, onDragEnd })
+    settleAt(420)
+    const el = scroller()
+    fireEvent.touchStart(el, { touches: [{ clientY: 500 }] })
+    el.scrollTop = 100
+    fireEvent.scroll(el)
+    fireEvent.touchEnd(el)
+    act(() => settleAt(0))
+    expect(onDragStart).toHaveBeenCalledTimes(1)
+    expect(onDragEnd).toHaveBeenCalledTimes(1)
+    expect(onDragEnd).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ targetSnapPoint: 0 }),
+    )
+  })
+
+  it('ends a mouse drag that dismisses the sheet at snap point 0', () => {
+    const onDragEnd = vi.fn()
+    renderDrawer({ onDragEnd })
+    settleAt(420)
+    const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+    fireEvent.pointerDown(screen.getByRole('dialog'), {
+      ...mouse,
+      clientX: 100,
+      clientY: 100,
+    })
+    fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 110 })
+    fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 500 })
+    fireEvent.scroll(scroller())
+    fireEvent.pointerUp(window, { ...mouse, clientX: 100, clientY: 500 })
+    act(() => settleAt(0))
+    act(() => vi.advanceTimersByTime(1000))
+    expect(onDragEnd).toHaveBeenCalledTimes(1)
+    expect(onDragEnd).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ targetSnapPoint: 0 }),
+    )
+  })
+
   it('reports drag velocity in px/s, positive downward, frozen at release', () => {
     const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
     const onDrag = vi.fn()

@@ -785,6 +785,12 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       if ((p.dismissible ?? true) && el.scrollTop <= EDGE_PX && !emptyStop) {
         if (!armedRef.current) return
         sessionRef.current = null
+        if (session?.ended && session.started) {
+          p.onDragEnd?.(session.event, {
+            ...dragInfo(session),
+            targetSnapPoint: 0,
+          })
+        }
         setOpen(false)
         // A controlled parent may keep it open (a "discard changes?" veto);
         // off screen, the scroller would still cover the page.

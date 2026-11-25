@@ -34,7 +34,9 @@ still exported as `LegacyDrawer`.
 - **`'screen'` resolves against the scroller**, so it honors `bottomInsetPx`.
   `LegacyDrawer` resolves it to the whole viewport.
 - **`onDragEnd` fires when the sheet settles**, after momentum, rather than at
-  release. Its `y` and `velocity` are frozen at release, as in v2.
+  release. Its `y` and `velocity` are frozen at release, as in v2. A drag
+  that dismisses the sheet ends with `targetSnapPoint: 0`; v2 fired no
+  `onDragEnd` for it.
 - **`onDrag` keeps firing during momentum** after the finger lifts, until the
   sheet settles.
 - **`useDrawerContext`, `useDrawerDrag`, and `useDrawerSnap` are
