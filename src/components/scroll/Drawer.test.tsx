@@ -152,6 +152,106 @@ function restore(
   else delete (target as Record<string, unknown>)[key]
 }
 
+function FocusPair({
+  childDismissible = true,
+  keepOpener = true,
+}: {
+  childDismissible?: boolean
+  keepOpener?: boolean
+}) {
+  const [parent, setParent] = useState(true)
+  const [child, setChild] = useState(false)
+  return (
+    <>
+      <button type="button">Page</button>
+      <Drawer
+        open={parent}
+        onOpenChange={setParent}
+        ariaLabel="Parent"
+        focusTrap={false}
+        snapPoints={[200, 420]}
+      >
+        <Drawer.Content>
+          {keepOpener || !child ? (
+            <button type="button" onClick={() => setChild(true)}>
+              Change
+            </button>
+          ) : null}
+          <Drawer
+            open={child}
+            onOpenChange={setChild}
+            ariaLabel="Child"
+            focusTrap={false}
+            dismissible={childDismissible}
+            snapPoints={[200, 420]}
+          >
+            <Drawer.Content>
+              <input aria-label="City" />
+              <button type="button" onClick={() => setChild(false)}>
+                Close
+              </button>
+            </Drawer.Content>
+          </Drawer>
+        </Drawer.Content>
+      </Drawer>
+    </>
+  )
+}
+
+function ControlledSnapSheet({
+  drawerRef,
+  onAnimationStart,
+}: {
+  drawerRef: React.Ref<DrawerRef>
+  onAnimationStart: DrawerProps['onAnimationStart']
+}) {
+  const [active, setActive] = useState<SnapPoint>(200)
+  return (
+    <Drawer
+      ref={drawerRef}
+      open
+      ariaLabel="Sheet"
+      snapPoints={[200, 420]}
+      activeSnapPoint={active}
+      onSnapPointChange={setActive}
+      onAnimationStart={onAnimationStart}
+    >
+      <Drawer.Content />
+    </Drawer>
+  )
+}
+
+function ClosableSheet() {
+  const [open, setOpen] = useState(true)
+  return (
+    <Drawer open={open} onOpenChange={setOpen} snapPoints={[200, 420]}>
+      <Drawer.Content />
+    </Drawer>
+  )
+}
+
+function KeyboardSnapSheet() {
+  const ref = useRef<DrawerRef>(null)
+  const onViewportChange = useDrawerKeyboardSnapMobile({
+    open: true,
+    isMobile: true,
+    drawerRef: ref,
+  })
+  return (
+    <Drawer
+      ref={ref}
+      open
+      ariaLabel="Sheet"
+      snapPoints={[200, 'full']}
+      onViewportChange={onViewportChange}
+    >
+      <Drawer.Content>
+        <input aria-label="Search" />
+      </Drawer.Content>
+    </Drawer>
+  )
+}
+
 describe('Drawer (scroll engine)', () => {
   const jump = function (this: HTMLElement, opts: ScrollToOptions) {
     this.scrollTop = opts.top ?? 0
@@ -942,51 +1042,6 @@ describe('Drawer (scroll engine)', () => {
   })
 
   describe('a drawer opened from another, without a focus trap', () => {
-    function Pair({
-      childDismissible = true,
-      keepOpener = true,
-    }: {
-      childDismissible?: boolean
-      keepOpener?: boolean
-    }) {
-      const [parent, setParent] = useState(true)
-      const [child, setChild] = useState(false)
-      return (
-        <>
-          <button type="button">Page</button>
-          <Drawer
-            open={parent}
-            onOpenChange={setParent}
-            ariaLabel="Parent"
-            focusTrap={false}
-            snapPoints={[200, 420]}
-          >
-            <Drawer.Content>
-              {keepOpener || !child ? (
-                <button type="button" onClick={() => setChild(true)}>
-                  Change
-                </button>
-              ) : null}
-              <Drawer
-                open={child}
-                onOpenChange={setChild}
-                ariaLabel="Child"
-                focusTrap={false}
-                dismissible={childDismissible}
-                snapPoints={[200, 420]}
-              >
-                <Drawer.Content>
-                  <input aria-label="City" />
-                  <button type="button" onClick={() => setChild(false)}>
-                    Close
-                  </button>
-                </Drawer.Content>
-              </Drawer>
-            </Drawer.Content>
-          </Drawer>
-        </>
-      )
-    }
     const dialog = (name: string) => screen.queryByRole('dialog', { name })
     const openChild = () => {
       const change = screen.getByRole('button', { name: 'Change' })
@@ -997,7 +1052,7 @@ describe('Drawer (scroll engine)', () => {
     const finishClosing = () => act(() => vi.advanceTimersByTime(1000))
 
     it('focuses the new sheet, then returns focus to its opener', () => {
-      render(<Pair />)
+      render(<FocusPair />)
       const change = openChild()
       expect(document.activeElement).toBe(dialog('Child'))
       fireEvent.click(screen.getByRole('button', { name: 'Close' }))
@@ -1007,7 +1062,7 @@ describe('Drawer (scroll engine)', () => {
     })
 
     it('falls back to the sheet below when the opener is gone, then the body', () => {
-      render(<Pair keepOpener={false} />)
+      render(<FocusPair keepOpener={false} />)
       openChild()
       expect(screen.queryByRole('button', { name: 'Change' })).toBeNull()
       fireEvent.keyDown(document.activeElement ?? document, { key: 'Escape' })
@@ -1017,7 +1072,7 @@ describe('Drawer (scroll engine)', () => {
     })
 
     it('leaves focus the user moved elsewhere', () => {
-      render(<Pair />)
+      render(<FocusPair />)
       openChild()
       const page = screen.getByRole('button', { name: 'Page' })
       act(() => page.focus())
@@ -1027,7 +1082,7 @@ describe('Drawer (scroll engine)', () => {
     })
 
     it('sends Escape to the top drawer wherever focus is', () => {
-      render(<Pair />)
+      render(<FocusPair />)
       const change = openChild()
       act(() => change.focus())
       fireEvent.keyDown(change, { key: 'Escape' })
@@ -1037,7 +1092,7 @@ describe('Drawer (scroll engine)', () => {
     })
 
     it('ignores Escape when the top drawer is not dismissible, or a field still has text', () => {
-      const { unmount } = render(<Pair childDismissible={false} />)
+      const { unmount } = render(<FocusPair childDismissible={false} />)
       openChild()
       fireEvent.keyDown(document.body, { key: 'Escape' })
       finishClosing()
@@ -1045,7 +1100,7 @@ describe('Drawer (scroll engine)', () => {
       expect(dialog('Parent')).not.toBeNull()
       unmount()
 
-      render(<Pair />)
+      render(<FocusPair />)
       openChild()
       const city = screen.getByRole('textbox', { name: 'City' })
       fireEvent.change(city, { target: { value: 'Lisbon' } })
@@ -1204,23 +1259,12 @@ describe('Drawer (scroll engine)', () => {
   it('starts no animation for a stop the sheet is already at', () => {
     const onAnimationStart = vi.fn()
     const ref = createRef<DrawerRef>()
-    function Parent() {
-      const [active, setActive] = useState<SnapPoint>(200)
-      return (
-        <Drawer
-          ref={ref}
-          open
-          ariaLabel="Sheet"
-          snapPoints={[200, 420]}
-          activeSnapPoint={active}
-          onSnapPointChange={setActive}
-          onAnimationStart={onAnimationStart}
-        >
-          <Drawer.Content />
-        </Drawer>
-      )
-    }
-    render(<Parent />)
+    render(
+      <ControlledSnapSheet
+        drawerRef={ref}
+        onAnimationStart={onAnimationStart}
+      />,
+    )
     settleAt(200)
     onAnimationStart.mockClear()
     // A drag lands on 420 and the parent echoes it back.
@@ -1273,15 +1317,7 @@ describe('Drawer (scroll engine)', () => {
   })
 
   it('stays down when the parent closes it', () => {
-    function Parent() {
-      const [open, setOpen] = useState(true)
-      return (
-        <Drawer open={open} onOpenChange={setOpen} snapPoints={[200, 420]}>
-          <Drawer.Content />
-        </Drawer>
-      )
-    }
-    render(<Parent />)
+    render(<ClosableSheet />)
     settleAt(420)
     scrollTo.mockClear()
     settleAt(0)
@@ -2293,28 +2329,7 @@ describe('Drawer (scroll engine)', () => {
     })
 
     it('works with useDrawerKeyboardSnapMobile', () => {
-      function Sheet() {
-        const ref = useRef<DrawerRef>(null)
-        const onViewportChange = useDrawerKeyboardSnapMobile({
-          open: true,
-          isMobile: true,
-          drawerRef: ref,
-        })
-        return (
-          <Drawer
-            ref={ref}
-            open
-            ariaLabel="Sheet"
-            snapPoints={[200, 'full']}
-            onViewportChange={onViewportChange}
-          >
-            <Drawer.Content>
-              <input aria-label="Search" />
-            </Drawer.Content>
-          </Drawer>
-        )
-      }
-      render(<Sheet />)
+      render(<KeyboardSnapSheet />)
       settleAt(200)
       keyboard(KEYBOARD)
       expect(scrollTo).toHaveBeenLastCalledWith(
