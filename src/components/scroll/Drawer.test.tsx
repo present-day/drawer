@@ -1358,18 +1358,20 @@ describe('Drawer (scroll engine)', () => {
           snapToSequentialPoint: true,
         })
         settleAt(200)
-        keyboard(KEYBOARD)
+        // Small enough that logical 699 is reachable under the top inset.
+        const lift = 60
+        keyboard(lift)
         const el = scroller()
         fireEvent.touchStart(el, { touches: [{ clientY: 600 }] })
         fireEvent.scroll(el)
         now.mockReturnValue(1050)
-        el.scrollTop = 699 + KEYBOARD
+        el.scrollTop = 699 + lift
         fireEvent.scroll(el)
         fireEvent.touchEnd(el)
         scrollTo.mockClear()
         fireEvent(el, new Event('scrollend'))
         expect(scrollTo).toHaveBeenLastCalledWith(
-          expect.objectContaining({ top: 420 + KEYBOARD }),
+          expect.objectContaining({ top: 420 + lift }),
         )
         vi.advanceTimersByTime(200)
       } finally {
@@ -1429,6 +1431,35 @@ describe('Drawer (scroll engine)', () => {
         fireEvent(el, new Event('scrollend'))
         vi.advanceTimersByTime(200)
         expect(ref.current?.getActiveSnapPoint()).toBe(420)
+      } finally {
+        now.mockRestore()
+      }
+    })
+
+    it('settles a mouse drag released where its stop already sits', () => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000)
+      try {
+        const ref = createRef<DrawerRef>()
+        const onSnapPointChange = vi.fn()
+        renderDrawer({ snapPoints: [200, 600, 700], onSnapPointChange }, ref)
+        settleAt(200)
+        onSnapPointChange.mockClear()
+        keyboard(KEYBOARD)
+        const el = scroller()
+        const mouse = { pointerType: 'mouse', button: 0, pointerId: 1 }
+        fireEvent.pointerDown(screen.getByRole('dialog'), {
+          ...mouse,
+          clientX: 100,
+          clientY: 100,
+        })
+        fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: 110 })
+        fireEvent.pointerMove(window, { ...mouse, clientX: 100, clientY: -194 })
+        expect(el.scrollTop).toBe(VIEWPORT - TOP_INSET)
+        now.mockReturnValue(1400)
+        fireEvent.pointerUp(window, { ...mouse, clientX: 100, clientY: -194 })
+        expect(ref.current?.getActiveSnapPoint()).toBe(600)
+        expect(onSnapPointChange).toHaveBeenCalledWith(600, 1)
+        vi.advanceTimersByTime(200)
       } finally {
         now.mockRestore()
       }
@@ -2179,6 +2210,20 @@ describe('Drawer (scroll engine)', () => {
       expect(observed).not.toContain(content)
     })
 
+    it('watches the plain sheet children once its content is removed', async () => {
+      const tree = (content: boolean) => (
+        <Drawer open ariaLabel="Sheet" snapPoints={['auto']}>
+          {content ? <Drawer.Content /> : <div data-testid="plain" />}
+        </Drawer>
+      )
+      const { rerender } = render(tree(true))
+      const content = document.querySelector('[data-drawer-content]')
+      expect(observed).toContain(content)
+      await act(async () => rerender(tree(false)))
+      expect(observed).not.toContain(content)
+      expect(observed).toContain(screen.getByTestId('plain'))
+    })
+
     it('watches content that remounts', () => {
       const tree = (key: string) => (
         <Drawer open ariaLabel="Sheet" snapPoints={['auto']}>
@@ -2197,7 +2242,11 @@ describe('Drawer (scroll engine)', () => {
     it('settles a different stop that the keyboard puts where the sheet is', () => {
       const ref = createRef<DrawerRef>()
       const onSnapPointChange = vi.fn()
-      renderDrawer({ snapPoints: [600, 700], onSnapPointChange }, ref)
+      const onAnimationStart = vi.fn()
+      renderDrawer(
+        { snapPoints: [600, 700], onSnapPointChange, onAnimationStart },
+        ref,
+      )
       settleAt(600)
       onSnapPointChange.mockClear()
       keyboard(KEYBOARD)
@@ -2205,7 +2254,9 @@ describe('Drawer (scroll engine)', () => {
       expect(el.scrollTop).toBe(VIEWPORT - TOP_INSET)
       settleAt(el.scrollTop)
       expect(ref.current?.getActiveSnapPoint()).toBe(600)
+      onAnimationStart.mockClear()
       act(() => ref.current?.snapTo(700))
+      expect(onAnimationStart).toHaveBeenCalledWith(600, 700)
       expect(el.scrollTop).toBe(VIEWPORT - TOP_INSET)
       expect(ref.current?.getActiveSnapPoint()).toBe(700)
       expect(onSnapPointChange).toHaveBeenCalledWith(700, 1)

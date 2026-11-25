@@ -109,4 +109,28 @@ describe('editableTargetHasContent', () => {
     editor.textContent = ''
     expect(editableTargetHasContent(editor)).toBe(false)
   })
+
+  it('ignores a non-editable island inside a filled editor', () => {
+    const editor = document.createElement('div')
+    editor.setAttribute('contenteditable', 'true')
+    editor.textContent = 'note'
+    const chip = document.createElement('button')
+    chip.setAttribute('contenteditable', 'false')
+    const label = document.createElement('span')
+    chip.append(label)
+    editor.append(chip)
+    expect(editableTargetHasContent(chip)).toBe(false)
+    expect(editableTargetHasContent(label)).toBe(false)
+    expect(editableTargetHasContent(editor)).toBe(true)
+  })
+
+  it('still reads an editor nested in a non-editable region', () => {
+    const region = document.createElement('div')
+    region.setAttribute('contenteditable', 'false')
+    const editor = document.createElement('div')
+    editor.setAttribute('contenteditable', 'true')
+    editor.textContent = 'note'
+    region.append(editor)
+    expect(editableTargetHasContent(editor)).toBe(true)
+  })
 })

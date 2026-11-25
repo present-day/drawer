@@ -502,8 +502,14 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       const auto = (latest.current.snapPoints ?? DEFAULT_SNAP_POINTS).includes(
         'auto',
       )
-      observedContentRef.current =
-        content && auto ? [content, ...content.children] : []
+      // Without Drawer.Content, resolveStops measures the sheet's own
+      // children, so those are what can move the stop.
+      const measured = content
+        ? [content, ...content.children]
+        : [...(sheetRef.current?.children ?? [])].filter(
+            (child) => !child.hasAttribute('data-scroll-drawer-markers'),
+          )
+      observedContentRef.current = auto ? measured : []
       for (const target of observedContentRef.current) ro.observe(target)
     }, [])
 
@@ -687,6 +693,8 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         if (top === undefined) return
         // A snap asked for before the opening scroll starts would be undone by it.
         if (entryIndexRef.current !== null) entryIndexRef.current = index
+        // Read before physicalTop, which moves the lift visibleHeight reads.
+        const from = visibleHeight()
         const target = physicalTop(top)
         const aim = aimRef.current
         if (aim === index) return
@@ -697,10 +705,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           // A different stop at the same place: the keyboard lift clamps
           // both to the top inset.
           if (aim === null) {
-            latest.current.onAnimationStart?.(
-              visibleHeight(),
-              s.heights[index] ?? 0,
-            )
+            latest.current.onAnimationStart?.(from, s.heights[index] ?? 0)
           }
           aimRef.current = index
           // Instant, so a scroll still heading elsewhere can't carry it off.
@@ -711,10 +716,7 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           if (!moves) settleRef.current?.()
           return
         }
-        latest.current.onAnimationStart?.(
-          visibleHeight(),
-          s.heights[index] ?? 0,
-        )
+        latest.current.onAnimationStart?.(from, s.heights[index] ?? 0)
         aimRef.current = index
         scrollToTop(el, target, instant)
       },
@@ -1587,13 +1589,18 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
             )
             // Closed is physical 0 whatever the lift, as on the native path.
             const closing = dismissible && top === 0
+            const near = Math.abs(restingTop(el) - top) <= EDGE_PX
+            // The lift differs between stops, so a stop can already sit at
+            // scrollTop while its logical position doesn't match; no scroll
+            // would follow to settle it.
+            const physical = closing ? 0 : physicalTop(top)
             const there = closing
               ? el.scrollTop <= EDGE_PX
-              : Math.abs(restingTop(el) - top) <= EDGE_PX
+              : near || el.scrollTop === physical
             if (there) settle()
             else {
               aimRef.current = aimOf(s, top, closing)
-              scrollToTop(el, closing ? 0 : physicalTop(top))
+              scrollToTop(el, physical)
             }
           },
         }
@@ -1833,7 +1840,10 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
       (el: HTMLElement | null) => {
         if (contentRef.current === el) return
         contentRef.current = el
-        observeContent()
+        // A detach runs before this commit inserts whatever replaces the
+        // content; the sheet's children are only final once it's done.
+        if (el) observeContent()
+        else queueMicrotask(observeContent)
       },
       [observeContent],
     )

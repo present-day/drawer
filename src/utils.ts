@@ -120,6 +120,9 @@ export function editableTargetHasContent(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false
   const editable = target.closest(EDITABLE_SELECTOR)
   if (!editable) return false
+  // A non-editable island (a chip or button) inside an editor isn't text.
+  const island = target.closest('[contenteditable="false" i]')
+  if (island && island !== editable && editable.contains(island)) return false
   if (editable instanceof HTMLInputElement) {
     // Only text-entry inputs participate in Escape-to-clear; checkboxes,
     // radios, buttons, etc. carry a `value` but hold no user-typed text.
