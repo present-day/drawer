@@ -158,10 +158,28 @@ describe('Drawer (scroll engine)', () => {
   }
   const scrollTo = vi.fn(jump)
   /**
-   * From here on a scroll is recorded but doesn't move `scrollTop`: a smooth
-   * scroll one frame in. The default stub jumps to the target at once.
+   * From here on a smooth scroll is recorded but doesn't move `scrollTop`
+   * until `finishScroll()`: a smooth scroll one frame in. An instant scroll
+   * jumps and cancels it. The default stub jumps to the target at once.
    */
-  const inFlight = () => scrollTo.mockImplementation(() => {})
+  let pendingTop: number | null = null
+  const inFlight = () =>
+    scrollTo.mockImplementation(function (
+      this: HTMLElement,
+      opts: ScrollToOptions,
+    ) {
+      if (opts.behavior === 'smooth') {
+        pendingTop = opts.top ?? 0
+        return
+      }
+      pendingTop = null
+      this.scrollTop = opts.top ?? 0
+    })
+  const finishScroll = () => {
+    if (pendingTop === null) return
+    scroller().scrollTop = pendingTop
+    pendingTop = null
+  }
   let clientHeight: PropertyDescriptor | undefined
   let elementScrollTo: PropertyDescriptor | undefined
 
@@ -169,6 +187,7 @@ describe('Drawer (scroll engine)', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     scrollTo.mockClear()
     scrollTo.mockImplementation(jump)
+    pendingTop = null
     elementScrollTo = Object.getOwnPropertyDescriptor(
       Element.prototype,
       'scrollTo',
@@ -562,9 +581,39 @@ describe('Drawer (scroll engine)', () => {
         top: 420,
         behavior: 'instant',
       })
+      finishScroll()
+      expect(scroller().scrollTop).toBe(420)
       vi.advanceTimersByTime(1000)
       expect(onOpenChange).not.toHaveBeenCalled()
       expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('completes a reopen one pixel short of its stop once', () => {
+      const onAnimationComplete = vi.fn()
+      const tree = (open: boolean) => (
+        <Drawer
+          open={open}
+          ariaLabel="Sheet"
+          snapPoints={[200, 420]}
+          onAnimationComplete={onAnimationComplete}
+        >
+          <Drawer.Content />
+        </Drawer>
+      )
+      const { rerender } = render(tree(true))
+      settleAt(420)
+      onAnimationComplete.mockClear()
+      inFlight()
+      rerender(tree(false))
+      const el = scroller()
+      el.scrollTop = 419
+      fireEvent.scroll(el)
+      rerender(tree(true))
+      expect(el.scrollTop).toBe(420)
+      fireEvent(el, new Event('scrollend'))
+      vi.advanceTimersByTime(200)
+      expect(onAnimationComplete).toHaveBeenCalledTimes(1)
+      expect(onAnimationComplete).toHaveBeenCalledWith(420)
     })
 
     it('keeps an expand that follows a collapse in the same frame', () => {
@@ -582,6 +631,8 @@ describe('Drawer (scroll engine)', () => {
         top: 420,
         behavior: 'instant',
       })
+      finishScroll()
+      expect(scroller().scrollTop).toBe(420)
       expect(ref.current?.getActiveSnapPoint()).toBe(420)
       expect(onSnapPointChange).not.toHaveBeenCalled()
     })
@@ -825,6 +876,20 @@ describe('Drawer (scroll engine)', () => {
       rerender(tree([200, 420, 710], props, ref))
       expect(scrollTo).toHaveBeenLastCalledWith({
         top: 710,
+        behavior: 'smooth',
+      })
+    })
+
+    it('keeps heading for its stop when one is inserted below it', async () => {
+      const ref = createRef<DrawerRef>()
+      inFlight()
+      const props = { defaultSnapPoint: 200 }
+      const { rerender } = render(tree([200, 700], props, ref))
+      await frame()
+      act(() => ref.current?.snapTo(700))
+      rerender(tree([200, 420, 700], props, ref))
+      expect(scrollTo).toHaveBeenLastCalledWith({
+        top: 700,
         behavior: 'smooth',
       })
     })
@@ -2095,6 +2160,26 @@ describe('Drawer (scroll engine)', () => {
       expect(second).not.toBe(first)
       expect(observed).toContain(second)
       expect(observed).not.toContain(first)
+    })
+
+    it('settles a different stop that the keyboard puts where the sheet is', () => {
+      const ref = createRef<DrawerRef>()
+      const onSnapPointChange = vi.fn()
+      renderDrawer({ snapPoints: [600, 700], onSnapPointChange }, ref)
+      settleAt(600)
+      onSnapPointChange.mockClear()
+      keyboard(KEYBOARD)
+      const el = scroller()
+      expect(el.scrollTop).toBe(VIEWPORT - TOP_INSET)
+      settleAt(el.scrollTop)
+      expect(ref.current?.getActiveSnapPoint()).toBe(600)
+      act(() => ref.current?.snapTo(700))
+      expect(el.scrollTop).toBe(VIEWPORT - TOP_INSET)
+      expect(ref.current?.getActiveSnapPoint()).toBe(700)
+      expect(onSnapPointChange).toHaveBeenCalledWith(700, 1)
+      onSnapPointChange.mockClear()
+      act(() => ref.current?.snapTo(700))
+      expect(onSnapPointChange).not.toHaveBeenCalled()
     })
 
     it('stops lifting at the top inset', () => {

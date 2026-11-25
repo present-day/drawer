@@ -680,14 +680,25 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
         const target = physicalTop(top)
         const aim = aimRef.current
         if (aim === index) return
-        // No scroll would follow to settle it and pair the callbacks; a
-        // parent echoing the stop it was just told about lands here. A scroll
-        // still heading elsewhere would carry it off, so stop that one here.
         if (Math.abs(el.scrollTop - target) <= EDGE_PX) {
-          if (aim !== null) {
-            scrollToTop(el, target, true)
-            settleRef.current?.()
+          // A parent echoing the stop it was just told about lands here.
+          const last = lastIndexRef.current
+          if (aim === null && (last === null || last === index)) return
+          // A different stop at the same place: the keyboard lift clamps
+          // both to the top inset.
+          if (aim === null) {
+            latest.current.onAnimationStart?.(
+              visibleHeight(),
+              s.heights[index] ?? 0,
+            )
           }
+          aimRef.current = index
+          // Instant, so a scroll still heading elsewhere can't carry it off.
+          // Moving fires scrollend, which settles it; only a scroll that
+          // doesn't move needs settling here, or it completes twice.
+          const moves = el.scrollTop !== target
+          scrollToTop(el, target, true)
+          if (!moves) settleRef.current?.()
           return
         }
         latest.current.onAnimationStart?.(
@@ -1054,8 +1065,16 @@ const DrawerRoot = forwardRef<DrawerRef, DrawerProps>(
           const aim = aimRef.current
           const kept =
             entryIndexRef.current ?? (aim !== null && aim >= 0 ? aim : null)
+          // Follow the stop itself when it survives (one inserted below it);
+          // otherwise its slot, as when 700 becomes 710.
+          const keptRaw = kept === null ? undefined : prev?.raw[kept]
+          const moved = keptRaw === undefined ? -1 : stops.raw.indexOf(keptRaw)
           const index =
-            kept !== null && kept < stops.heights.length ? kept : targetIndex()
+            moved !== -1
+              ? moved
+              : kept !== null && kept < stops.heights.length
+                ? kept
+                : targetIndex()
           if (entryIndexRef.current !== null) entryIndexRef.current = index
           const top = positionsOf(stops)[index] ?? 0
           layoutFor(el, stops, index)
