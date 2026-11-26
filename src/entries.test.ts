@@ -1,26 +1,20 @@
 import { describe, expect, it } from 'vitest'
 
+import * as core from './core'
 import * as root from './index'
 import * as legacy from './legacy'
 
-describe('entry points', () => {
-  it('keeps the v2 engine out of the root entry', () => {
-    for (const name of [
-      'LegacyDrawer',
-      'LegacyDrawerContent',
-      'LegacyDrawerScrollable',
-      'useDrawerContext',
-      'useDrawerDrag',
-      'useDrawerSnap',
-      'SPRING_CONFIG',
-    ]) {
-      expect(root).not.toHaveProperty(name)
-      expect(legacy).toHaveProperty(name)
-    }
+describe('build entries', () => {
+  it('keeps every v2 export on the root', () => {
+    expect(root.LegacyDrawer).toBe(legacy.LegacyDrawer)
+    expect(root.LegacyDrawerContent).toBe(legacy.LegacyDrawerContent)
+    expect(root.LegacyDrawerScrollable).toBe(legacy.LegacyDrawerScrollable)
+    expect(root.useDrawerContext).toBe(legacy.useDrawerContext)
+    expect(root.useDrawerDrag).toBe(legacy.useDrawerDrag)
   })
 
-  it('shares the body-lock state between entries', async () => {
-    const utils = await import('./utils')
-    expect(root.lockBody).toBe(utils.lockBody)
+  it('shares the body-lock state between engines', () => {
+    expect(root.lockBody).toBe(core.lockBody)
+    expect(root.getLockCount).toBe(core.getLockCount)
   })
 })

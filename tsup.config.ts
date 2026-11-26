@@ -1,13 +1,17 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { defineConfig } from 'tsup'
 
-const ENTRIES = ['index', 'legacy']
+// Only `index` is public. The others draw chunk boundaries: each engine and
+// the code they share get a chunk of their own, and `index` only re-exports
+// them, so a bundler drops the v2 engine when an app doesn't use
+// `LegacyDrawer`.
+const ENTRIES = ['index', 'scroll', 'legacy', 'core']
 
 export default defineConfig({
   entry: Object.fromEntries(ENTRIES.map((name) => [name, `src/${name}.ts`])),
   format: ['cjs', 'esm'],
   // Shared modules (the body-lock count, the handle) land in one chunk both
-  // entries import, so an app using both engines keeps one copy of that state.
+  // engines import, so an app using both keeps one copy of that state.
   splitting: true,
   dts: true,
   sourcemap: true,
@@ -20,10 +24,10 @@ export default defineConfig({
   esbuildOptions(options) {
     options.jsx = 'automatic'
   },
-  // esbuild emits each entry's CSS next to its JS but does not import it; link
-  // it so app bundlers load the styles.
+  // esbuild emits index.css next to the JS but does not import it; link it so
+  // app bundlers load the styles. It holds both engines' styles.
   async onSuccess() {
-    for (const name of ENTRIES) {
+    for (const name of ['index']) {
       for (const [ext, line] of [
         ['mjs', `import "./${name}.css";\n`],
         ['js', `require("./${name}.css");\n`],

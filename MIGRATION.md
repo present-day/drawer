@@ -1,29 +1,12 @@
 # Migration
 
-## v3 → v4
-
-The v2 motion engine moved from the package root to its own entry,
-`@present-day/drawer/legacy`, so apps that only use the scroll engine no longer
-bundle it. Change the import of `LegacyDrawer`, `LegacyDrawerContent`,
-`LegacyDrawerScrollable`, `useDrawerContext`, `useDrawerDrag`, `useDrawerSnap`,
-`SPRING_CONFIG`, `DrawerContextValue`, `UseDrawerDragOptions`,
-`UseDrawerSnapArgs` and `DrawerDragEvent`:
-
-```tsx
-import { LegacyDrawer } from '@present-day/drawer/legacy'
-```
-
-Their behavior is unchanged, and they are no longer marked deprecated there.
-Body locks stay shared, so `lockBody` from the root counts the locks either
-engine takes.
-
 ## v2 → v3
 
 v3 swaps the default `Drawer` to a native scroll-snap engine: the sheet is a
 scroll container, so a swipe runs on the compositor instead of a JavaScript
 animation loop. The props, ref, and part names (`Drawer.Content`,
 `Drawer.Handle`, `Drawer.Scrollable`) are the v2 ones. The v2 motion engine is
-still exported as `LegacyDrawer` (from `@present-day/drawer/legacy` as of v4).
+still exported as `LegacyDrawer`.
 
 ### Breaking
 
@@ -133,10 +116,8 @@ import {
   LegacyDrawer as Drawer,
   LegacyDrawerContent as DrawerContent,
   LegacyDrawerScrollable as DrawerScrollable,
-} from '@present-day/drawer/legacy'
+} from '@present-day/drawer'
 ```
-
-(On v3 itself the import was `'@present-day/drawer'`.)
 
 `LegacyDrawer` keeps the v2 behavior and the `--drawer-*` variables. The
 scroll-engine-only props above are not available on it.

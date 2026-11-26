@@ -1,7 +1,6 @@
 import { type ReactNode, StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Drawer } from '../src'
-import { LegacyDrawer } from '../src/legacy'
+import { Drawer, LegacyDrawer } from '../src'
 
 // The existing Drawer's panel and parts carry Tailwind utilities that this
 // Tailwind-free bundle never generates, so the few it relies on are restated.

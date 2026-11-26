@@ -7,7 +7,7 @@ A flexible and performant React drawer component with smooth animations and cust
 ## Features
 
 - 🎯 **Flexible Snap Points** - Support for fractional heights, pixel values, and preset modes
-- 🎬 **Smooth Animations** - Native scroll snapping, so swipes run on the compositor; the v2 motion engine stays available as `LegacyDrawer` from `@present-day/drawer/legacy`
+- 🎬 **Smooth Animations** - Native scroll snapping, so swipes run on the compositor; the v2 motion engine stays available as `LegacyDrawer`
 - 📱 **Mobile Optimized** - Touch-friendly drag gestures with proper momentum
 - ♿ **Accessible** - `role="dialog"`, `aria-modal`, name/description, focus trap, and Escape to dismiss
 - 🎨 **Customizable** - Tailwind CSS classes with full style control
@@ -260,13 +260,9 @@ Touch pans a modal sheet natively, except that a vertical pan can't start on `[d
 - `Drawer.Handle` - Drag handle (optional); supports `indicatorClassName` and `children`
 - `Drawer.Scrollable` - Scrollable content area; see `contentScroll`
 - `Drawer.Overlay` - Deprecated; renders nothing. The backdrop is built in when `modal`; style it with `overlayClassName`
-- `LegacyDrawer` (from `@present-day/drawer/legacy`) - The v2 motion engine, same props as `Drawer` without the scroll-engine-only props. Use its own parts: `LegacyDrawer.Content` and `LegacyDrawer.Scrollable`, or the named `LegacyDrawerContent` and `LegacyDrawerScrollable`
+- `LegacyDrawer` - The v2 motion engine, same props as `Drawer` without the scroll-engine-only props. Use its own parts: `LegacyDrawer.Content` and `LegacyDrawer.Scrollable`, or the named `LegacyDrawerContent` and `LegacyDrawerScrollable`
 
 ## Migration
-
-### v3 → v4
-
-The v2 motion engine moved to its own entry, so an app on the scroll engine no longer ships it. Import `LegacyDrawer`, `LegacyDrawerContent`, `LegacyDrawerScrollable`, `useDrawerContext`, `useDrawerDrag`, `useDrawerSnap`, `SPRING_CONFIG` and their types from `@present-day/drawer/legacy` instead of `@present-day/drawer`. Nothing else changed.
 
 ### v2 → v3
 
@@ -277,7 +273,7 @@ import {
   LegacyDrawer as Drawer,
   LegacyDrawerContent as DrawerContent,
   LegacyDrawerScrollable as DrawerScrollable,
-} from '@present-day/drawer/legacy'
+} from '@present-day/drawer'
 ```
 
 ### v1 → v2

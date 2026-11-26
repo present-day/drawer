@@ -1,24 +1,42 @@
-import { DrawerOverlay as _DrawerOverlay } from './components/drawer/DrawerOverlay'
-
+// Re-exports only, so a bundler can skip the v2 engine's chunk when an app
+// doesn't import from it. See tsup.config.ts.
 export {
+  cn,
+  DRAWER_TOP_INSET_PX,
   DrawerHandle,
   type DrawerHandleProps,
-} from './components/drawer/DrawerHandle'
+  DrawerOverlay,
+  forceUnlock,
+  getLockCount,
+  lockBody,
+  measureIntrinsicAutoHeight,
+  SNAP_POINT,
+  type UseVisualViewportOptions,
+  type UseVisualViewportResult,
+  unlockBody,
+  useDrawerKeyboardSnapMobile,
+  useVisualViewport,
+} from './core'
+export {
+  type DrawerContextValue,
+  type DrawerDragEvent,
+  LegacyDrawer,
+  LegacyDrawerContent,
+  LegacyDrawerScrollable,
+  SPRING_CONFIG,
+  type UseDrawerDragOptions,
+  type UseDrawerSnapArgs,
+  useDrawerContext,
+  useDrawerDrag,
+  useDrawerSnap,
+} from './legacy'
 export {
   Drawer,
   DrawerContent,
   type DrawerContentProps,
   DrawerScrollable,
   type DrawerScrollableProps,
-} from './components/scroll/Drawer'
-export { DRAWER_TOP_INSET_PX, SNAP_POINT } from './constants'
-export { useDrawerKeyboardSnapMobile } from './hooks/useDrawerKeyboardSnapMobile'
-export { measureIntrinsicAutoHeight } from './hooks/useDrawerSnap'
-export type {
-  UseVisualViewportOptions,
-  UseVisualViewportResult,
-} from './hooks/useVisualViewport'
-export { useVisualViewport } from './hooks/useVisualViewport'
+} from './scroll'
 export type {
   DragEndInfo,
   DragInfo,
@@ -28,9 +46,3 @@ export type {
   SnapPoint,
   ViewportInfo,
 } from './types'
-export { cn, forceUnlock, getLockCount, lockBody, unlockBody } from './utils'
-
-// Declared rather than re-exported: TypeScript drops `@deprecated` from
-// `export { } from`.
-/** @deprecated Renders nothing in either engine; the backdrop is built in. */
-export const DrawerOverlay = _DrawerOverlay
